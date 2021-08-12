@@ -13,13 +13,14 @@ class BackupIntegrationTest(unittest.TestCase):
     expected_control_contents = [
         ['f', 'text_file1.txt', 'fef9161f9f9a492dba2b1357298f17897849fefc'],
         ['f', 'text_file1 copy.txt', 'fef9161f9f9a492dba2b1357298f17897849fefc'],
-        ['f', '/subdir/Original-Lena-image.png', 'cc2ff24e50730e1b7c238890fc877de269f9bd98'],
+        ['f', '/subdir/Original-Lena-image.png',
+            'cc2ff24e50730e1b7c238890fc877de269f9bd98'],
         ['d', 'subdir', ''],
         ['d', '/subdir/empty dir', ''],
     ]
 
     def _random_backup_dir(self):
-        return os.path.join(gettempdir(), 'backuper_integration_test', datetime.now().strftime("%Y-%m-%dT%H%M%S"))
+        return os.path.join(gettempdir(), 'backuper_integration_test', datetime.now().strftime("%Y-%m-%dT%H%M%S%f"))
 
     def test_new_backup(self):
         source = './test/resources/bkp_test_sources_new'
@@ -38,11 +39,11 @@ class BackupIntegrationTest(unittest.TestCase):
 
         self.assertTrue(True)
 
-
     def test_update_backup(self):
         new_source = './test/resources/bkp_test_sources_new'
         update_source = './test/resources/bkp_test_sources_update'
-        expected_hashs = self.expected_hashs.copy().append('7f2f5c0211b62cc0f2da98c3f253bba9dc535b17')
+        expected_hashs = self.expected_hashs.copy().append(
+            '7f2f5c0211b62cc0f2da98c3f253bba9dc535b17')
         expected_control_contents = [
             ['f', 'text_file1.txt', 'fef9161f9f9a492dba2b1357298f17897849fefc'],
             ['f', 'text_file1 copy.txt', '7f2f5c0211b62cc0f2da98c3f253bba9dc535b17'],
@@ -52,7 +53,8 @@ class BackupIntegrationTest(unittest.TestCase):
 
         bkp_destination = self._random_backup_dir()
         bkp.new(NewCommand('test_new', new_source, bkp_destination))
-        bkp.update(UpdateCommand('test_update', update_source, bkp_destination))
+        bkp.update(UpdateCommand('test_update',
+                   update_source, bkp_destination))
 
 
 if __name__ == '__main__':

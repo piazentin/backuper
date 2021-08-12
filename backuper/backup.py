@@ -6,14 +6,42 @@ import csv
 import backuper.commands as commands
 
 
+class MetaFile:
+    def __init__(self, destination, name, mode) -> None:
+        if mode not in ['x', 'r']:
+            raise ValueError('supported modes are x and r')
+        self.destination = destination
+        self.name = name
+        self.filename = os.path.join(destination, name + '.csv')
+        self.mode = mode
+        self.is_open = False
+
+    def __enter__(self):
+        if not self.is_open:
+            self.file = open(self.filename, self.mode)
+            self.is_open = True
+        return self
+
+    def __exit__(self, *args):
+        if self.is_open:
+            self.file.close()
+            self.is_open = False
+
+    def add_dir(self, dirname):
+        self.file.write(f'"d","{dirname}",""\n')
+
+    def add_file(self, filename, hash):
+        self.file.write(f'"f","{filename}","{hash}"\n')
+
+
 def _to_relative_path(root: str, path: str) -> str:
     return path[len(root):]
 
 
-def _process_dirs(control_file, relative_path, dirs):
+def _process_dirs(snapshot_meta: MetaFile, relative_path: str, dirs):
     for dir in dirs:
-        dir_name = os.path.join(relative_path, dir)
-        control_file.write(f'"d","{dir_name}",""\n')
+        dirname = os.path.join(relative_path, dir)
+        snapshot_meta.add_dir(dirname)
 
 
 def sha1_hash(file_name):
@@ -28,7 +56,7 @@ def sha1_hash(file_name):
     return sha1.hexdigest()
 
 
-def _process_files(control_file, full_path, relative_path, destination_dirname, filenames):
+def _process_files(snapshot_meta: MetaFile, full_path, relative_path, destination_dirname, filenames):
     for filename in filenames:
         relative_filename = os.path.join(relative_path, filename)
         full_filename = os.path.join(full_path, filename)
@@ -37,7 +65,12 @@ def _process_files(control_file, full_path, relative_path, destination_dirname, 
         destination_filename = os.path.join(destination_dirname, 'data', hash)
         if not os.path.isfile(destination_filename):
             shutil.copyfile(full_filename, destination_filename)
-        control_file.write(f'"f","{relative_filename}","{hash}"\n')
+        snapshot_meta.add_file(relative_filename, hash)
+
+
+def _initialize(path):
+    os.makedirs(path)
+    os.mkdir(os.path.join(path, 'data'))
 
 
 def new(command: commands.NewCommand):
@@ -50,17 +83,14 @@ def new(command: commands.NewCommand):
     print(
         f'Creating new backup from {command.source} into {command.destination}')
 
-    os.makedirs(command.destination)
-    os.mkdir(os.path.join(command.destination, 'data'))
-    backup_control_file = os.path.join(
-        command.destination, command.name + '.csv')
-
-    with open(backup_control_file, 'x') as control_file:
+    _initialize(command.destination)
+    snapshot_meta = MetaFile(command.destination, command.name, 'x')
+    with snapshot_meta:
         for dirpath, dirnames, filenames in os.walk(command.source, topdown=True):
             relative_path = _to_relative_path(command.source, dirpath)
             print(f'Processing "{relative_path}"...')
-            _process_dirs(control_file, relative_path, dirnames)
-            _process_files(control_file, dirpath, relative_path,
+            _process_dirs(snapshot_meta, relative_path, dirnames)
+            _process_files(snapshot_meta, dirpath, relative_path,
                            command.destination, filenames)
 
 
