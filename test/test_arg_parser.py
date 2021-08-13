@@ -26,7 +26,8 @@ class ArgParserTest(unittest.TestCase):
             name='2021-01-31T120102', source='/first/source', destination='/second/destination'))
 
     def test_update_backup(self):
-        args = parser.parse('update /first/source /second/destination --name BackupName'.split())
+        args = parser.parse(
+            'update /first/source /second/destination --name BackupName'.split())
         self.assertIsInstance(args, c.UpdateCommand)
         self.assertEqual(args, c.UpdateCommand(
             name='BackupName', source='/first/source', destination='/second/destination'))
@@ -44,4 +45,9 @@ class ArgParserTest(unittest.TestCase):
         args = parser.parse('check /second/destination'.split())
         self.assertIsInstance(args, c.CheckCommand)
         self.assertEqual(args, c.CheckCommand(
-            destination='/second/destination'))
+            destination='/second/destination', name=None))
+
+        args = parser.parse('check /second/destination -n testName'.split())
+        self.assertIsInstance(args, c.CheckCommand)
+        self.assertEqual(args, c.CheckCommand(
+            destination='/second/destination', name='testName'))

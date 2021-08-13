@@ -13,7 +13,7 @@ def _to_update_command(namespace):
 
 
 def _to_check_command(namespace):
-    return c.CheckCommand(destination=namespace.destination)
+    return c.CheckCommand(destination=namespace.destination, name=namespace.name)
 
 
 def _default_name() -> str:
@@ -44,6 +44,8 @@ def parse(args):
     parser_check = subparsers.add_parser('check')
     parser_check.add_argument(
         'destination', help='Destination of the existing backup directory')
+    parser_check.add_argument(
+        '--name', '-n', help='Optional of the version of the backup to check. If not informed, will check all versions', dest='name', default=None)
     parser_check.set_defaults(func=_to_check_command)
 
     parsed = parser.parse_args(args)
