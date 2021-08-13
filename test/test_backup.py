@@ -66,6 +66,14 @@ class BackupIntegrationTest(unittest.TestCase):
             for row in csv.reader(control_file):
                 self.assertIn(row, expected_control_contents)
 
+    def test_check_backup_name(self):
+        # TODO
+        pass
+
+    def test_check_backup_all(self):
+        # TODO
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()

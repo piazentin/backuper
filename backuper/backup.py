@@ -3,7 +3,6 @@ import hashlib
 import os
 import shutil
 import csv
-from sys import path
 from abc import ABC
 
 from typing import Iterator, List, IO, Union
@@ -23,7 +22,7 @@ class FileEntry:
     hash: str
 
 
-class MetaFileHandler(ABC):
+class _MetaFileHandler(ABC):
     destination: str
     name: str
     is_open: bool
@@ -49,7 +48,7 @@ class MetaFileHandler(ABC):
             self.is_open = False
 
 
-class MetaWriter(MetaFileHandler):
+class MetaWriter(_MetaFileHandler):
     def __enter__(self) -> 'MetaWriter':
         return self._open('x')
 
@@ -64,7 +63,7 @@ class MetaWriter(MetaFileHandler):
         self._file.write(f'"f","{filename}","{hash}"\n')
 
 
-class MetaReader(MetaFileHandler):
+class MetaReader(_MetaFileHandler):
     def __enter__(self) -> 'MetaReader':
         self._open('r')
 
