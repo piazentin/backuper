@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-
+from typing import Optional
 
 @dataclass
 class NewCommand:
@@ -18,3 +18,4 @@ class UpdateCommand:
 @dataclass
 class CheckCommand:
     destination: str
+    name: Optional[str] = None
