@@ -1,7 +1,7 @@
 import argparse
-import backuper.commands as c
-
 from datetime import datetime
+
+import backuper.commands as c
 
 
 def _to_new_command(namespace):

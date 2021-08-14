@@ -1,12 +1,12 @@
-from genericpath import isfile
+import csv
 import hashlib
 import os
 import shutil
-import csv
 from abc import ABC
-
-from typing import Iterator, List, IO, Union
 from dataclasses import dataclass
+from typing import IO, Iterator, List, Union
+
+from genericpath import isfile
 
 import backuper.commands as commands
 

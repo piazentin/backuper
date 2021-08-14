@@ -1,8 +1,8 @@
 import sys
 
 import backuper.argparser as parser
-from backuper.commands import NewCommand, UpdateCommand, CheckCommand
 import backuper.backup as bkp
+from backuper.commands import CheckCommand, NewCommand, UpdateCommand
 
 
 def run_with_args():

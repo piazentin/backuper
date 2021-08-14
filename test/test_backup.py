@@ -1,10 +1,11 @@
-from backuper.commands import CheckCommand, NewCommand, UpdateCommand
-import unittest
-from datetime import datetime
 import os
 import shutil
+import unittest
+from datetime import datetime
 from tempfile import gettempdir
+
 import backuper.backup as bkp
+from backuper.commands import CheckCommand, NewCommand, UpdateCommand
 
 
 class BackupIntegrationTest(unittest.TestCase):
