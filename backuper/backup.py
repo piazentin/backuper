@@ -31,6 +31,8 @@ class _MetaFileHandler(ABC):
     _file: IO
 
     def __init__(self, destination: str, name: str) -> None:
+        name = name[:-4] if name.endswith('.csv') else name
+
         self.destination = destination
         self.name = name
         self._filename = os.path.join(destination, name + '.csv')
@@ -71,7 +73,7 @@ class MetaReader(_MetaFileHandler):
         for row in csv.reader(self._file, delimiter=',', quotechar='"'):
             if row[0] == 'd':
                 yield DirEntry(row[1])
-            elif row[1] == 'f':
+            elif row[0] == 'f':
                 yield FileEntry(row[1], row[2])
 
     def file_entries(self) -> Iterator[FileEntry]:
@@ -131,10 +133,10 @@ def _process_backup(meta_writer: MetaWriter, source: str, destination: str) -> N
 
 def _metas_to_check(command: commands.CheckCommand) -> List[MetaReader]:
     if command.name:
-        [MetaReader(command.destination, command.name, 'r')]
+        return [MetaReader(command.destination, command.name)]
     else:
-        [MetaReader(command.destination, command.name, 'r')
-         for n in os.listdir(command.destination) if n.endswith('.csv')]
+        return [MetaReader(command.destination, n)
+                for n in os.listdir(command.destination) if n.endswith('.csv')]
 
 
 def _check_missing_hashes(meta: MetaReader) -> List[str]:
@@ -144,7 +146,7 @@ def _check_missing_hashes(meta: MetaReader) -> List[str]:
             hash_filename = os.path.join(meta.destination, 'data', entry.hash)
             if not os.path.exists(hash_filename):
                 errors.append(
-                    f'[{meta.name}] Missing hash {entry.hash} for {entry.name}')
+                    f'Missing hash {entry.hash} for {entry.name} in {meta.name}')
     return errors
 
 
