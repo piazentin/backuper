@@ -6,8 +6,6 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import IO, Iterator, List, Union
 
-from genericpath import isfile
-
 import backuper.commands as commands
 
 
