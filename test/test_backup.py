@@ -18,10 +18,10 @@ class BackupIntegrationTest(unittest.TestCase):
                           'fef9161f9f9a492dba2b1357298f17897849fefc'),
             bkp.FileEntry('text_file1 copy.txt',
                           'fef9161f9f9a492dba2b1357298f17897849fefc'),
-            bkp.FileEntry('/subdir/Original-Lena-image.png',
+            bkp.FileEntry('subdir/Original-Lena-image.png',
                           'cc2ff24e50730e1b7c238890fc877de269f9bd98'),
             bkp.DirEntry('subdir'),
-            bkp.DirEntry('/subdir/empty dir')
+            bkp.DirEntry('subdir/empty dir')
         ]
     }
 
@@ -34,7 +34,7 @@ class BackupIntegrationTest(unittest.TestCase):
             bkp.FileEntry('text_file1 copy.txt',
                           '7f2f5c0211b62cc0f2da98c3f253bba9dc535b17'),
             bkp.DirEntry('subdir'),
-            bkp.DirEntry('/subdir/empty dir')
+            bkp.DirEntry('subdir/empty dir')
         ]
     }
 
@@ -47,6 +47,16 @@ class BackupIntegrationTest(unittest.TestCase):
 
     def _random_dir(self, prefix=''):
         return os.path.join(gettempdir(), 'backuper_integration_test', prefix + datetime.now().strftime("%Y-%m-%dT%H%M%S%f"))
+
+    def test_normalize_path(self):
+        dir = 'direc tory'
+        self.assertEqual(bkp.normalize_path(dir), dir)
+
+        nix_filename = '/subdir/another dir/file.name.csv'
+        self.assertEqual(bkp.normalize_path(nix_filename), 'subdir/another dir/file.name.csv')
+
+        windows_filename = '\\subdir\\another dir\\file.name.csv'
+        self.assertEqual(bkp.normalize_path(windows_filename), 'subdir/another dir/file.name.csv')
 
     def test_new_backup(self):
         destination = self._random_dir('new_backup')

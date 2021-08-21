@@ -55,12 +55,14 @@ class MetaWriter(_MetaFileHandler):
     def add_dir(self, dirname: str) -> None:
         if not self.is_open:
             raise ValueError('Meta is not open for writing')
-        self._file.write(f'"d","{dirname}",""\n')
+        normalized = normalize_path(dirname)
+        self._file.write(f'"d","{normalized}",""\n')
 
     def add_file(self, filename: str, hash: str) -> None:
         if not self.is_open:
             raise ValueError('Meta is not open for writing')
-        self._file.write(f'"f","{filename}","{hash}"\n')
+        normalized = normalize_path(filename)
+        self._file.write(f'"f","{normalized}","{hash}"\n')
 
 
 class MetaReader(_MetaFileHandler):
@@ -101,6 +103,8 @@ def sha1_hash(filename: str) -> str:
             sha1.update(data)
     return sha1.hexdigest()
 
+def normalize_path(path: str) -> str:
+    return '/'.join(path.replace('\\', '/').strip('/').split('/'))
 
 def _process_files(meta_writer: MetaWriter, full_path: str, relative_path: str, destination_dirname: str, filenames: List[str]) -> None:
     for filename in filenames:
