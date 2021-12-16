@@ -38,7 +38,7 @@ class _MetaFileHandler(ABC):
 
     def _open(self, open_mode):
         if not self.is_open:
-            self._file = open(self._filename, open_mode)
+            self._file = open(self._filename, open_mode, encoding="utf-8")
             self.is_open = True
         return self
 
