@@ -22,6 +22,12 @@ Check backup integrity:
 python3 -m backuper check ~/backup/destination/dir
 ```
 
+Restore a backup to a location:
+
+```
+python3 -m backuper restore --backup-location ~/backup/location/dir --restore-to ~/destination
+```
+
 
 ## Run tests
 
