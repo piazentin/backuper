@@ -8,6 +8,8 @@ from typing import IO, Iterator, List, Union
 
 import backuper.commands as commands
 
+VERSION_FILE_EXT = '.csv'
+
 
 @dataclass
 class DirEntry:
@@ -103,8 +105,10 @@ def sha1_hash(filename: str) -> str:
             sha1.update(data)
     return sha1.hexdigest()
 
+
 def normalize_path(path: str) -> str:
     return '/'.join(path.replace('\\', '/').strip('/').split('/'))
+
 
 def _process_files(meta_writer: MetaWriter, full_path: str, relative_path: str, destination_dirname: str, filenames: List[str]) -> None:
     for filename in filenames:
@@ -152,6 +156,20 @@ def _check_missing_hashes(meta: MetaReader) -> List[str]:
     return errors
 
 
+def _versions(backup_path: str) -> List[str]:
+    return [f.strip(VERSION_FILE_EXT)
+            for f in os.listdir(backup_path)
+            if f.endswith(VERSION_FILE_EXT)]
+
+
+def _version_exists(backup_path: str, version: str):
+    print(backup_path)
+    print(version)
+    return (backup_path is not None and
+            version is not None and
+            os.path.exists(os.path.join(backup_path, version + '.csv')))
+
+
 def new(command: commands.NewCommand) -> None:
     if not os.path.exists(command.source):
         raise ValueError(f'source path {command.source} does not exists')
@@ -187,9 +205,10 @@ def check(command: commands.CheckCommand) -> List[str]:
     if not os.path.exists(command.destination):
         raise ValueError(
             f'destination path {command.destination} does not exists')
-    if command.name is not None and not os.path.exists(os.path.join(command.destination, command.name + '.csv')):
-        raise ValueError(
-            f'Backup version named {command.name} does not exists at {command.destination}')
+    if (command.name is not None and
+            not _version_exists(command.destination, command.name)):
+        raise ValueError(f'Backup version named {command.name} '
+                         f'does not exists at {command.destination}')
 
     metas = _metas_to_check(command)
     errors = []
@@ -203,3 +222,19 @@ def check(command: commands.CheckCommand) -> List[str]:
         print('No errors found!')
 
     return errors
+
+
+def restore(command: commands.RestoreCommand) -> None:
+    if not os.path.exists(command.from_source):
+        raise ValueError(
+            f'Backup source path {command.from_source} does not exists')
+    if (os.path.exists(command.to_destination) and
+            any(os.scandir(command.to_destination))):
+        raise ValueError(
+            f'Backup restore destination "{command.to_destination}" '
+            'already exists and is not empty')
+    if command.version_name not in _versions(command.from_source):
+        raise ValueError(
+            f'Backup version {command.version_name} does not exists in source')
+
+    print('Valid restore command!')

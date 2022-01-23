@@ -1,11 +1,12 @@
 import os
 import shutil
 import unittest
+import filecmp
 from datetime import datetime
 from tempfile import gettempdir
 
 import backuper.backup as bkp
-from backuper.commands import CheckCommand, NewCommand, UpdateCommand
+from backuper.commands import CheckCommand, NewCommand, RestoreCommand, UpdateCommand
 
 
 class BackupIntegrationTest(unittest.TestCase):
@@ -53,10 +54,12 @@ class BackupIntegrationTest(unittest.TestCase):
         self.assertEqual(bkp.normalize_path(dir), dir)
 
         nix_filename = '/subdir/another dir/file.name.csv'
-        self.assertEqual(bkp.normalize_path(nix_filename), 'subdir/another dir/file.name.csv')
+        self.assertEqual(bkp.normalize_path(nix_filename),
+                         'subdir/another dir/file.name.csv')
 
         windows_filename = '\\subdir\\another dir\\file.name.csv'
-        self.assertEqual(bkp.normalize_path(windows_filename), 'subdir/another dir/file.name.csv')
+        self.assertEqual(bkp.normalize_path(windows_filename),
+                         'subdir/another dir/file.name.csv')
 
     def test_new_backup(self):
         destination = self._random_dir('new_backup')
@@ -102,7 +105,7 @@ class BackupIntegrationTest(unittest.TestCase):
         for expected in self.new_backup['meta']:
             self.assertIn(expected, entries)
 
-    def test_check_backup_name(self):
+    def test_check_backup_version(self):
         destination = self._random_dir('check_backup_name')
         bkp.new(NewCommand('test_new', self.new_backup['source'], destination))
 
@@ -121,7 +124,7 @@ class BackupIntegrationTest(unittest.TestCase):
         self.assertEqual(errors, [
                          'Missing hash 44efbcfa3f99f75e396a56a119940e2c1f902d2c for file-with-missing-meta in test_new'])
 
-    def test_check_backup_all(self):
+    def test_check_all_backup_versions(self):
         destination = self._random_dir('check_backup_all')
         bkp.new(NewCommand('test_new', self.new_backup['source'], destination))
         bkp.update(UpdateCommand('test_update',
@@ -146,6 +149,32 @@ class BackupIntegrationTest(unittest.TestCase):
             'Missing hash acf6cd23d9aec2664665886e068504e799a0053f for file-with-missing-meta (update) in test_update',
             'Missing hash 44efbcfa3f99f75e396a56a119940e2c1f902d2c for file-with-missing-meta (new) in test_new'
         })
+
+    def test_restore_source_not_found(self):
+        from_source = self._random_dir('non_existing')
+        to_destination = self._random_dir('to_destination')
+        with self.assertRaises(ValueError):
+            bkp.restore(RestoreCommand(from_source,
+                                       to_destination,
+                                       'test'))
+
+    def test_restore_destination_not_empty(self):
+        from_source = self._random_dir('from_source')
+        to_destination = '.'
+        bkp.new(NewCommand('test', self.new_backup['source'], from_source))
+        with self.assertRaises(ValueError):
+            bkp.restore(RestoreCommand(from_source,
+                                       to_destination,
+                                       'test'))
+
+    def test_restore_version_not_found(self):
+        from_source = self._random_dir('from_source')
+        to_destination = self._random_dir('to_destination')
+        bkp.new(NewCommand('test', self.new_backup['source'], from_source))
+        with self.assertRaises(ValueError):
+            bkp.restore(RestoreCommand(from_source,
+                                       to_destination,
+                                       'non_existing_version'))
 
 
 if __name__ == '__main__':
