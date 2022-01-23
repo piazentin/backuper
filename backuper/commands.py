@@ -20,3 +20,10 @@ class UpdateCommand:
 class CheckCommand:
     destination: str
     name: Optional[str] = None
+
+
+@dataclass
+class RestoreCommand:
+    from_source: str
+    to_destination: str
+    version_name: str

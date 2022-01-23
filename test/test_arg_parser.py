@@ -50,3 +50,10 @@ class ArgParserTest(unittest.TestCase):
         self.assertIsInstance(args, c.CheckCommand)
         self.assertEqual(args, c.CheckCommand(
             destination='/second/destination', name='testName'))
+
+    def test_restore_backup(self):
+        args = parser.parse('restore --from /backup/source --to /backup/destination --version backup-version'.split())
+        self.assertIsInstance(args, c.RestoreCommand)
+        self.assertEqual(args, c.RestoreCommand(
+            from_source='/backup/source', to_destination='/backup/destination', version_name='backup-version'
+        ))

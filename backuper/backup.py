@@ -8,6 +8,9 @@ from typing import IO, Iterator, List, Union
 
 import backuper.commands as commands
 
+VERSION_FILE_EXT = '.csv'
+HASHING_BUFFER_SIZE = 65536  # 64kb
+
 
 @dataclass
 class DirEntry:
@@ -38,7 +41,7 @@ class _MetaFileHandler(ABC):
 
     def _open(self, open_mode):
         if not self.is_open:
-            self._file = open(self._filename, open_mode)
+            self._file = open(self._filename, open_mode, encoding="utf-8")
             self.is_open = True
         return self
 
@@ -81,40 +84,67 @@ class MetaReader(_MetaFileHandler):
             if isinstance(entry, FileEntry):
                 yield entry
 
+    def dir_entries(self) -> Iterator[DirEntry]:
+        for entry in self.entries():
+            if isinstance(entry, DirEntry):
+                yield entry
 
-def _to_relative_path(root: str, path: str) -> str:
-    return path[len(root):]
+
+def relative_to_absolute_path(root_path: str, relative: str) -> str:
+    return os.path.join(root_path, relative)
 
 
-def _process_dirs(snapshot_meta: MetaWriter, relative_path: str, dirs: List[str]) -> None:
+def absolute_to_relative_path(root_path: str, absolute: str) -> str:
+    return absolute[len(root_path):]
+
+
+def _process_dirs(snapshot_meta: MetaWriter, relative_path: str,
+                  dirs: List[str]) -> None:
     for dir in dirs:
         dirname = os.path.join(relative_path, dir)
         snapshot_meta.add_dir(dirname)
 
 
 def sha1_hash(filename: str) -> str:
-    BUF_SIZE = 65536  # 64kb
     sha1 = hashlib.sha1()
     with open(filename, 'rb') as f:
         while True:
-            data = f.read(BUF_SIZE)
+            data = f.read(HASHING_BUFFER_SIZE)
             if not data:
                 break
             sha1.update(data)
     return sha1.hexdigest()
 
+
 def normalize_path(path: str) -> str:
     return '/'.join(path.replace('\\', '/').strip('/').split('/'))
 
-def _process_files(meta_writer: MetaWriter, full_path: str, relative_path: str, destination_dirname: str, filenames: List[str]) -> None:
+
+def create_dir_if_not_exists(dir: str) -> None:
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+
+def copy_file_if_not_exists(file_to_copy: str, destination: str):
+    if not os.path.isfile(destination):
+        filedir = os.path.dirname(destination)
+        create_dir_if_not_exists(filedir)
+        shutil.copyfile(file_to_copy, destination)
+
+
+def backuped_filename(backup_dir: str, hash: str) -> str:
+    return os.path.join(backup_dir, 'data', hash)
+
+
+def _process_files(meta_writer: MetaWriter, full_path: str, relative_path: str,
+                   destination_dirname: str, filenames: List[str]) -> None:
     for filename in filenames:
         relative_filename = os.path.join(relative_path, filename)
         full_filename = os.path.join(full_path, filename)
 
         hash = sha1_hash(full_filename)
-        destination_filename = os.path.join(destination_dirname, 'data', hash)
-        if not os.path.isfile(destination_filename):
-            shutil.copyfile(full_filename, destination_filename)
+        destination_filename = backuped_filename(destination_dirname, hash)
+        copy_file_if_not_exists(full_filename, destination_filename)
         meta_writer.add_file(relative_filename, hash)
 
 
@@ -123,10 +153,11 @@ def _initialize(path: str) -> None:
     os.mkdir(os.path.join(path, 'data'))
 
 
-def _process_backup(meta_writer: MetaWriter, source: str, destination: str) -> None:
+def _process_backup(meta_writer: MetaWriter, source: str,
+                    destination: str) -> None:
     with meta_writer:
         for dirpath, dirnames, filenames in os.walk(source, topdown=True):
-            relative_path = _to_relative_path(source, dirpath)
+            relative_path = absolute_to_relative_path(source, dirpath)
             print(f'Processing "{relative_path}"...')
             _process_dirs(meta_writer, relative_path, dirnames)
             _process_files(meta_writer, dirpath,
@@ -147,9 +178,46 @@ def _check_missing_hashes(meta: MetaReader) -> List[str]:
         for entry in meta.file_entries():
             hash_filename = os.path.join(meta.destination, 'data', entry.hash)
             if not os.path.exists(hash_filename):
-                errors.append(
-                    f'Missing hash {entry.hash} for {entry.name} in {meta.name}')
+                errors.append(f'Missing hash {entry.hash} '
+                              f'for {entry.name} in {meta.name}')
     return errors
+
+
+def _restore_dir(entry: DirEntry, destination: str) -> None:
+    absolute_path = relative_to_absolute_path(destination,
+                                              entry.name)
+    create_dir_if_not_exists(absolute_path)
+
+
+def _restore_file(backup_path: str, file_entry: FileEntry,
+                  destination_dir: str) -> None:
+    absolute_origin_filename = backuped_filename(backup_path, file_entry.hash)
+    absolute_dest_filename = relative_to_absolute_path(destination_dir,
+                                                       file_entry.name)
+    print(f'Restoring {absolute_origin_filename} to {absolute_dest_filename}')
+    copy_file_if_not_exists(absolute_origin_filename, absolute_dest_filename)
+
+
+def _restore_version(backup_path: str, version: str, destination: str) -> None:
+    reader = MetaReader(backup_path, version)
+    with reader:
+        for entry in reader.entries():
+            if isinstance(entry, DirEntry):
+                _restore_dir(entry, destination)
+            elif isinstance(entry, FileEntry):
+                _restore_file(backup_path, entry, destination)
+
+
+def _versions(backup_path: str) -> List[str]:
+    return [f.strip(VERSION_FILE_EXT)
+            for f in os.listdir(backup_path)
+            if f.endswith(VERSION_FILE_EXT)]
+
+
+def _version_exists(backup_path: str, version: str):
+    return (backup_path is not None and
+            version is not None and
+            os.path.exists(os.path.join(backup_path, version + '.csv')))
 
 
 def new(command: commands.NewCommand) -> None:
@@ -159,8 +227,8 @@ def new(command: commands.NewCommand) -> None:
         raise ValueError(
             f'destination path {command.destination} already exists')
 
-    print(
-        f'Creating new backup from {command.source} into {command.destination}')
+    print(f'Creating new backup from {command.source} '
+          f'into {command.destination}')
 
     snapshot_meta = MetaWriter(command.destination, command.name)
     _initialize(command.destination)
@@ -173,12 +241,12 @@ def update(command: commands.UpdateCommand) -> None:
     if not os.path.exists(command.destination):
         raise ValueError(
             f'destination path {command.destination} does not exists')
-    if os.path.exists(os.path.join(command.destination, command.name + '.csv')):
-        raise ValueError(
-            f'There is already a backup versioned with the name {command.name}')
+    if _version_exists(command.destination, command.name):
+        raise ValueError(f'There is already a backup versioned '
+                         f'with the name {command.name}')
 
-    print(
-        f'Updating backup at {command.destination} with new version {command.name}')
+    print(f'Updating backup at {command.destination} '
+          f'with new version {command.name}')
     snapshot_meta = MetaWriter(command.destination, command.name)
     _process_backup(snapshot_meta, command.source, command.destination)
 
@@ -187,9 +255,10 @@ def check(command: commands.CheckCommand) -> List[str]:
     if not os.path.exists(command.destination):
         raise ValueError(
             f'destination path {command.destination} does not exists')
-    if command.name is not None and not os.path.exists(os.path.join(command.destination, command.name + '.csv')):
-        raise ValueError(
-            f'Backup version named {command.name} does not exists at {command.destination}')
+    if (command.name is not None and
+            not _version_exists(command.destination, command.name)):
+        raise ValueError(f'Backup version named {command.name} '
+                         f'does not exists at {command.destination}')
 
     metas = _metas_to_check(command)
     errors = []
@@ -203,3 +272,20 @@ def check(command: commands.CheckCommand) -> List[str]:
         print('No errors found!')
 
     return errors
+
+
+def restore(command: commands.RestoreCommand) -> None:
+    if not os.path.exists(command.from_source):
+        raise ValueError(
+            f'Backup source path {command.from_source} does not exists')
+    if (os.path.exists(command.to_destination) and
+            any(os.scandir(command.to_destination))):
+        raise ValueError(
+            f'Backup restore destination "{command.to_destination}" '
+            'already exists and is not empty')
+    if command.version_name not in _versions(command.from_source):
+        raise ValueError(
+            f'Backup version {command.version_name} does not exists in source')
+
+    _restore_version(command.from_source, command.version_name,
+                     command.to_destination)

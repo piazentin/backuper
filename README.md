@@ -21,3 +21,16 @@ Check backup integrity:
 ```
 python3 -m backuper check ~/backup/destination/dir
 ```
+
+Restore a backup to a location:
+
+```
+restore --from /backup/source --to /backup/destination --version backup-version
+```
+
+
+## Run tests
+
+```
+python3 -m unittest
+```
