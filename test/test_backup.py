@@ -176,6 +176,22 @@ class BackupIntegrationTest(unittest.TestCase):
                                        to_destination,
                                        'non_existing_version'))
 
+    def test_restore_with_success(self):
+        from_source = self._random_dir('from_source')
+        to_destination = self._random_dir('to_destination')
+        bkp.new(NewCommand('test', self.new_backup['source'], from_source))
+        bkp.restore(RestoreCommand(from_source,
+                                   to_destination,
+                                   'test'))
+
+        comp = filecmp.dircmp(self.new_backup['source'], to_destination)
+        self.assertEqual(['text_file1 copy.txt', 'text_file1.txt'],
+                         comp.common_files)
+        self.assertEqual(['Original-Lena-image.png'],
+                         comp.subdirs['subdir'].common_files)
+        self.assertEqual(['empty dir'],
+                         comp.subdirs['subdir'].common_dirs)
+
 
 if __name__ == '__main__':
     unittest.main()

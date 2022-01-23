@@ -84,9 +84,18 @@ class MetaReader(_MetaFileHandler):
             if isinstance(entry, FileEntry):
                 yield entry
 
+    def dir_entries(self) -> Iterator[DirEntry]:
+        for entry in self.entries():
+            if isinstance(entry, DirEntry):
+                yield entry
 
-def _to_relative_path(root: str, path: str) -> str:
-    return path[len(root):]
+
+def relative_to_absolute_path(root_path: str, relative: str) -> str:
+    return os.path.join(root_path, relative)
+
+
+def absolute_to_relative_path(root_path: str, absolute: str) -> str:
+    return absolute[len(root_path):]
 
 
 def _process_dirs(snapshot_meta: MetaWriter, relative_path: str,
@@ -111,6 +120,22 @@ def normalize_path(path: str) -> str:
     return '/'.join(path.replace('\\', '/').strip('/').split('/'))
 
 
+def create_dir_if_not_exists(dir: str) -> None:
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+
+def copy_file_if_not_exists(file_to_copy: str, destination: str):
+    if not os.path.isfile(destination):
+        filedir = os.path.dirname(destination)
+        create_dir_if_not_exists(filedir)
+        shutil.copyfile(file_to_copy, destination)
+
+
+def backuped_filename(backup_dir: str, hash: str) -> str:
+    return os.path.join(backup_dir, 'data', hash)
+
+
 def _process_files(meta_writer: MetaWriter, full_path: str, relative_path: str,
                    destination_dirname: str, filenames: List[str]) -> None:
     for filename in filenames:
@@ -118,9 +143,8 @@ def _process_files(meta_writer: MetaWriter, full_path: str, relative_path: str,
         full_filename = os.path.join(full_path, filename)
 
         hash = sha1_hash(full_filename)
-        destination_filename = os.path.join(destination_dirname, 'data', hash)
-        if not os.path.isfile(destination_filename):
-            shutil.copyfile(full_filename, destination_filename)
+        destination_filename = backuped_filename(destination_dirname, hash)
+        copy_file_if_not_exists(full_filename, destination_filename)
         meta_writer.add_file(relative_filename, hash)
 
 
@@ -133,7 +157,7 @@ def _process_backup(meta_writer: MetaWriter, source: str,
                     destination: str) -> None:
     with meta_writer:
         for dirpath, dirnames, filenames in os.walk(source, topdown=True):
-            relative_path = _to_relative_path(source, dirpath)
+            relative_path = absolute_to_relative_path(source, dirpath)
             print(f'Processing "{relative_path}"...')
             _process_dirs(meta_writer, relative_path, dirnames)
             _process_files(meta_writer, dirpath,
@@ -157,6 +181,31 @@ def _check_missing_hashes(meta: MetaReader) -> List[str]:
                 errors.append(f'Missing hash {entry.hash} '
                               f'for {entry.name} in {meta.name}')
     return errors
+
+
+def _restore_dir(entry: DirEntry, destination: str) -> None:
+    absolute_path = relative_to_absolute_path(destination,
+                                              entry.name)
+    create_dir_if_not_exists(absolute_path)
+
+
+def _restore_file(backup_path: str, file_entry: FileEntry,
+                  destination_dir: str) -> None:
+    absolute_origin_filename = backuped_filename(backup_path, file_entry.hash)
+    absolute_dest_filename = relative_to_absolute_path(destination_dir,
+                                                       file_entry.name)
+    print(f'Restoring {absolute_origin_filename} to {absolute_dest_filename}')
+    copy_file_if_not_exists(absolute_origin_filename, absolute_dest_filename)
+
+
+def _restore_version(backup_path: str, version: str, destination: str) -> None:
+    reader = MetaReader(backup_path, version)
+    with reader:
+        for entry in reader.entries():
+            if isinstance(entry, DirEntry):
+                _restore_dir(entry, destination)
+            elif isinstance(entry, FileEntry):
+                _restore_file(backup_path, entry, destination)
 
 
 def _versions(backup_path: str) -> List[str]:
@@ -238,4 +287,5 @@ def restore(command: commands.RestoreCommand) -> None:
         raise ValueError(
             f'Backup version {command.version_name} does not exists in source')
 
-    print('Valid restore command!')
+    _restore_version(command.from_source, command.version_name,
+                     command.to_destination)
