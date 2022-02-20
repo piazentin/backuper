@@ -2,6 +2,7 @@ import csv
 import hashlib
 import os
 import shutil
+import pathlib
 from abc import ABC
 from dataclasses import dataclass
 from typing import IO, Iterator, List, Union
@@ -12,7 +13,12 @@ import backuper.commands as commands
 VERSION_FILE_EXT = '.csv'
 ZIPFILE_EXT = '.zip'
 HASHING_BUFFER_SIZE = 65536  # 64kb
-
+ZIP_SKIP_EXTENSIONS = {
+    '.mp3', '.ogg', '.wma', '.7z', '.arj', '.deb', '.pkg', '.rar', '.rpm',
+    '.gz', '.zip', '.jar', '.jpg', '.jpeg', '.png', '.pptx', '.xlsx',
+    '.docx', '.mp4', '.avi', '.mov', '.rm', '.mkv', '.wmv'
+}
+ZIP_MIN_FILESIZE_IN_BYTES = 1024 # 1KB
 
 @dataclass
 class DirEntry:
@@ -150,6 +156,12 @@ def prepare_file_destination(backup_main_dir: str) -> None:
     create_dir_if_not_exists(dirname)
 
 
+def should_zip_file(file_to_copy: str) -> bool:
+    ext = pathlib.Path(file_to_copy).suffix
+    size = os.path.getsize(file_to_copy)
+    return ext not in ZIP_SKIP_EXTENSIONS and size > ZIP_MIN_FILESIZE_IN_BYTES
+
+
 def copy_file_if_not_exists(file_to_copy: str, destination: str) -> None:
     if not os.path.isfile(destination):
         filedir = os.path.dirname(destination)
@@ -175,11 +187,12 @@ def process_file(meta_writer: MetaWriter,
                  zip: bool) -> str:
     filehash = sha1_hash(file_to_copy)
     if not is_file_already_backuped(backup_main_dir, filehash):
-        if zip:
+        should_zip = zip and should_zip_file(file_to_copy)
+        if should_zip:
             create_zipped_file(backup_main_dir, file_to_copy, filehash)
         else:
             filename_at_destination = backuped_filename(backup_main_dir,
-                                                        filehash, zip)
+                                                        filehash, should_zip)
             copy_file_if_not_exists(file_to_copy, filename_at_destination)
     meta_writer.add_file(relative_filename, filehash)
 

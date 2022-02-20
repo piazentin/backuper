@@ -19,7 +19,8 @@ class BackupIntegrationTest(unittest.TestCase):
     new_backup = {
         'source': './test/resources/bkp_test_sources_new',
         'hashes': {'fef9161f9f9a492dba2b1357298f17897849fefc',
-                   'cc2ff24e50730e1b7c238890fc877de269f9bd98'},
+                   'cc2ff24e50730e1b7c238890fc877de269f9bd98',
+                   '10e4b6f822c7493e1aea22d15e515b584b2db7a2'},
         'meta': [
             bkp.FileEntry('text_file1.txt',
                           'fef9161f9f9a492dba2b1357298f17897849fefc'),
@@ -27,6 +28,8 @@ class BackupIntegrationTest(unittest.TestCase):
                           'fef9161f9f9a492dba2b1357298f17897849fefc'),
             bkp.FileEntry('subdir/Original-Lena-image.png',
                           'cc2ff24e50730e1b7c238890fc877de269f9bd98'),
+            bkp.FileEntry('LICENSE',
+                          '10e4b6f822c7493e1aea22d15e515b584b2db7a2'),
             bkp.DirEntry('subdir'),
             bkp.DirEntry('subdir/empty dir')
         ]
@@ -35,13 +38,16 @@ class BackupIntegrationTest(unittest.TestCase):
     update_backup = {
         'source': './test/resources/bkp_test_sources_update',
         'hashes': new_backup['hashes'].union({
-            '7f2f5c0211b62cc0f2da98c3f253bba9dc535b17'
+            '7f2f5c0211b62cc0f2da98c3f253bba9dc535b17',
+            '5b5174193c004d8f27811b961fbaa545b5460f2a'
         }),
         'meta': [
             bkp.FileEntry('text_file1.txt',
                           'fef9161f9f9a492dba2b1357298f17897849fefc'),
             bkp.FileEntry('text_file1 copy.txt',
                           '7f2f5c0211b62cc0f2da98c3f253bba9dc535b17'),
+            bkp.FileEntry('LICENSE',
+                          '5b5174193c004d8f27811b961fbaa545b5460f2a'),
             bkp.DirEntry('subdir'),
             bkp.DirEntry('subdir/empty dir')
         ]
@@ -52,7 +58,7 @@ class BackupIntegrationTest(unittest.TestCase):
             gettempdir(), 'backuper_integration_test'), exist_ok=True)
 
     def tearDown(self) -> None:
-        shutil.rmtree(os.path.join(gettempdir(), 'backuper_integration_test'))
+        pass #shutil.rmtree(os.path.join(gettempdir(), 'backuper_integration_test'))
 
     def _random_dir(self, prefix=''):
         dirname = prefix + datetime.now().strftime("%Y-%m-%dT%H%M%S%f")
