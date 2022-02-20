@@ -5,10 +5,12 @@ import shutil
 from abc import ABC
 from dataclasses import dataclass
 from typing import IO, Iterator, List, Union
+from zipfile import ZipFile, ZIP_DEFLATED
 
 import backuper.commands as commands
 
 VERSION_FILE_EXT = '.csv'
+ZIPFILE_EXT = '.zip'
 HASHING_BUFFER_SIZE = 65536  # 64kb
 
 
@@ -125,27 +127,71 @@ def create_dir_if_not_exists(dir: str) -> None:
         os.makedirs(dir)
 
 
-def copy_file_if_not_exists(file_to_copy: str, destination: str):
+def backuped_dirname(backup_dir: str):
+    return os.path.join(backup_dir, 'data')
+
+
+def backuped_filename(backup_main_dir: str, hash: str, zip: bool) -> str:
+    filename = os.path.join(backuped_dirname(backup_main_dir), hash)
+    if zip:
+        filename = filename + ZIPFILE_EXT
+    return filename
+
+
+def is_file_already_backuped(backup_main_dir: str, filehash: str) -> bool:
+    return (
+        os.path.exists(backuped_filename(backup_main_dir, filehash, False)) or
+        os.path.exists(backuped_filename(backup_main_dir, filehash, True))
+    )
+
+
+def prepare_file_destination(backup_main_dir: str) -> None:
+    dirname = backuped_dirname(backup_main_dir)
+    create_dir_if_not_exists(dirname)
+
+
+def copy_file_if_not_exists(file_to_copy: str, destination: str) -> None:
     if not os.path.isfile(destination):
         filedir = os.path.dirname(destination)
         create_dir_if_not_exists(filedir)
         shutil.copyfile(file_to_copy, destination)
 
 
-def backuped_filename(backup_dir: str, hash: str) -> str:
-    return os.path.join(backup_dir, 'data', hash)
+def create_zipped_file(backup_main_dir: str,
+                       file_to_copy: str,
+                       filehash: str) -> None:
+    if not is_file_already_backuped(backup_main_dir, filehash):
+        prepare_file_destination(backup_main_dir, filehash)
+        filename = backuped_filename(backup_main_dir, filehash, True)
+        with ZipFile(filename) as zipfile:
+            zipfile.write(file_to_copy, filename,
+                          compress_type=ZIP_DEFLATED)
+
+
+def process_file(meta_writer: MetaWriter,
+                 backup_main_dir: str,
+                 relative_filename: str,
+                 file_to_copy: str,
+                 zip: bool) -> str:
+    filehash = sha1_hash(file_to_copy)
+    if not is_file_already_backuped(backup_main_dir, filehash):
+        if zip:
+            create_zipped_file(backup_main_dir, file_to_copy, filehash)
+        else:
+            filename_at_destination = backuped_filename(backup_main_dir,
+                                                        filehash, zip)
+            copy_file_if_not_exists(file_to_copy, filename_at_destination)
+    meta_writer.add_file(relative_filename, filehash)
 
 
 def _process_files(meta_writer: MetaWriter, full_path: str, relative_path: str,
-                   destination_dirname: str, filenames: List[str]) -> None:
+                   backup_main_dir: str, filenames: List[str],
+                   zip: bool) -> None:
     for filename in filenames:
         relative_filename = os.path.join(relative_path, filename)
-        full_filename = os.path.join(full_path, filename)
-
-        hash = sha1_hash(full_filename)
-        destination_filename = backuped_filename(destination_dirname, hash)
-        copy_file_if_not_exists(full_filename, destination_filename)
-        meta_writer.add_file(relative_filename, hash)
+        file_to_copy = os.path.join(full_path, filename)
+        process_file(meta_writer, backup_main_dir, relative_filename,
+                     file_to_copy, zip)
 
 
 def _initialize(path: str) -> None:
@@ -160,8 +206,8 @@ def _process_backup(meta_writer: MetaWriter, source: str,
             relative_path = absolute_to_relative_path(source, dirpath)
             print(f'Processing "{relative_path}"...')
             _process_dirs(meta_writer, relative_path, dirnames)
-            _process_files(meta_writer, dirpath,
-                           relative_path, destination, filenames)
+            _process_files(meta_writer, dirpath, relative_path,
+                           destination, filenames, zip)
 
 
 def _metas_to_check(command: commands.CheckCommand) -> List[MetaReader]:
@@ -191,7 +237,8 @@ def _restore_dir(entry: DirEntry, destination: str) -> None:
 
 def _restore_file(backup_path: str, file_entry: FileEntry,
                   destination_dir: str) -> None:
-    absolute_origin_filename = backuped_filename(backup_path, file_entry.hash)
+    absolute_origin_filename = backuped_filename(backup_path, file_entry.hash,
+                                                 False)
     absolute_dest_filename = relative_to_absolute_path(destination_dir,
                                                        file_entry.name)
     print(f'Restoring {absolute_origin_filename} to {absolute_dest_filename}')
