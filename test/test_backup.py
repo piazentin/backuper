@@ -93,7 +93,7 @@ class BackupIntegrationTest(unittest.TestCase):
         bkp.new(NewCommand('test_new', self.new_backup['source'],
                            destination, False))
         bkp.update(UpdateCommand('test_update',
-                   self.update_backup['source'], destination))
+                   self.update_backup['source'], destination, False))
 
         data_filenames = os.listdir(os.path.join(destination, 'data'))
         self.assertEqual(len(data_filenames), len(
@@ -145,7 +145,7 @@ class BackupIntegrationTest(unittest.TestCase):
         bkp.new(NewCommand(
             'test_new', self.new_backup['source'], destination, False))
         bkp.update(UpdateCommand('test_update',
-                   self.update_backup['source'], destination))
+                   self.update_backup['source'], destination, False))
 
         errors = bkp.check(CheckCommand(destination))
         self.assertEqual(errors, [])

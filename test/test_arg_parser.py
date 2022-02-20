@@ -33,10 +33,14 @@ class ArgParserTest(unittest.TestCase):
 
     def test_update_backup(self):
         args = parser.parse(
-            'update /first/source /second/destination --name BackupName'.split())
+            'update /first/source /second/destination '
+            '--name BackupName'.split())
         self.assertIsInstance(args, c.UpdateCommand)
         self.assertEqual(args, c.UpdateCommand(
-            name='BackupName', source='/first/source', destination='/second/destination'))
+            name='BackupName',
+            source='/first/source',
+            destination='/second/destination',
+            zip=False))
 
     @patch('backuper.argparser._default_name')
     def test_update_backup_default_name(self, _mocked_default_name):
@@ -45,7 +49,10 @@ class ArgParserTest(unittest.TestCase):
         args = parser.parse('update /first/source /second/destination'.split())
         self.assertIsInstance(args, c.UpdateCommand)
         self.assertEqual(args, c.UpdateCommand(
-            name='2021-01-31T120102', source='/first/source', destination='/second/destination'))
+            name='2021-01-31T120102',
+            source='/first/source',
+            destination='/second/destination',
+            zip=False))
 
     def test_check_backup(self):
         args = parser.parse('check /second/destination'.split())
@@ -60,8 +67,11 @@ class ArgParserTest(unittest.TestCase):
 
     def test_restore_backup(self):
         args = parser.parse(
-            'restore --from /backup/source --to /backup/destination --version backup-version'.split())
+            'restore --from /backup/source --to /backup/destination '
+            '--version backup-version'.split())
         self.assertIsInstance(args, c.RestoreCommand)
         self.assertEqual(args, c.RestoreCommand(
-            from_source='/backup/source', to_destination='/backup/destination', version_name='backup-version'
+            from_source='/backup/source',
+            to_destination='/backup/destination',
+            version_name='backup-version'
         ))

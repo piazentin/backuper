@@ -17,7 +17,8 @@ def _to_update_command(namespace):
     return c.UpdateCommand(
         name=namespace.name,
         source=namespace.source,
-        destination=namespace.destination
+        destination=namespace.destination,
+        zip=namespace.zip
     )
 
 
@@ -62,6 +63,9 @@ def parse(args):
         'destination', help='Destination of the backup. Must be the name of an existing backup directory.')
     parser_update.add_argument(
         '--name', '-n', help='Name of the version of the backup. Defaults to now\'s date time formatted as 0000-00-00T000000', dest='name', default=_default_name())
+    parser_update.add_argument(
+        '--zip', help='Should compact the files?', dest='zip', default=False
+    )
     parser_update.set_defaults(func=_to_update_command)
 
     parser_check = subparsers.add_parser('check')
