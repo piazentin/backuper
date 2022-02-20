@@ -161,10 +161,10 @@ def create_zipped_file(backup_main_dir: str,
                        file_to_copy: str,
                        filehash: str) -> None:
     if not is_file_already_backuped(backup_main_dir, filehash):
-        prepare_file_destination(backup_main_dir, filehash)
+        prepare_file_destination(backup_main_dir)
         filename = backuped_filename(backup_main_dir, filehash, True)
-        with ZipFile(filename) as zipfile:
-            zipfile.write(file_to_copy, filename,
+        with ZipFile(filename, mode='x') as zipfile:
+            zipfile.write(file_to_copy, filehash,
                           compress_type=ZIP_DEFLATED)
 
 

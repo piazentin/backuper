@@ -88,6 +88,28 @@ class BackupIntegrationTest(unittest.TestCase):
             for entry in reader.entries():
                 self.assertIn(entry, self.new_backup['meta'])
 
+    def test_new_backup_with_zip(self):
+        destination = self._random_dir('new_backup')
+        command = NewCommand(
+            name='testing',
+            source=self.new_backup['source'],
+            destination=destination,
+            zip=True
+        )
+        bkp.new(command)
+
+        data_filenames = os.listdir(os.path.join(destination, 'data'))
+        self.assertEqual(len(data_filenames),
+                         len(self.new_backup['hashes']))
+        for filename in data_filenames:
+            self.assertIn(filename.strip('.zip'),
+                          self.new_backup['hashes'])
+
+        reader = bkp.MetaReader(destination, 'testing')
+        with reader:
+            for entry in reader.entries():
+                self.assertIn(entry, self.new_backup['meta'])
+
     def test_update_backup(self):
         destination = self._random_dir('update_backup')
         bkp.new(NewCommand('test_new', self.new_backup['source'],
@@ -100,6 +122,24 @@ class BackupIntegrationTest(unittest.TestCase):
             self.update_backup['hashes']))
         for filename in data_filenames:
             self.assertIn(filename, self.update_backup['hashes'])
+
+        reader = bkp.MetaReader(destination, 'test_update')
+        with reader:
+            for entry in reader.entries():
+                self.assertIn(entry, self.update_backup['meta'])
+
+    def test_update_backup_with_zip(self):
+        destination = self._random_dir('update_backup')
+        bkp.new(NewCommand('test_new', self.new_backup['source'],
+                           destination, False))
+        bkp.update(UpdateCommand('test_update',
+                   self.update_backup['source'], destination, True))
+
+        data_filenames = os.listdir(os.path.join(destination, 'data'))
+        self.assertEqual(len(data_filenames), len(
+            self.update_backup['hashes']))
+        for filename in data_filenames:
+            self.assertIn(filename.strip('.zip'), self.update_backup['hashes'])
 
         reader = bkp.MetaReader(destination, 'test_update')
         with reader:
