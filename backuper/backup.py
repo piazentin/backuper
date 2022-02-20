@@ -18,7 +18,8 @@ ZIP_SKIP_EXTENSIONS = {
     '.gz', '.zip', '.jar', '.jpg', '.jpeg', '.png', '.pptx', '.xlsx',
     '.docx', '.mp4', '.avi', '.mov', '.rm', '.mkv', '.wmv'
 }
-ZIP_MIN_FILESIZE_IN_BYTES = 1024 # 1KB
+ZIP_MIN_FILESIZE_IN_BYTES = 1024  # 1KB
+
 
 @dataclass
 class DirEntry:
