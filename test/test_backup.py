@@ -6,14 +6,20 @@ from datetime import datetime
 from tempfile import gettempdir
 
 import backuper.backup as bkp
-from backuper.commands import CheckCommand, NewCommand, RestoreCommand, UpdateCommand
+from backuper.commands import (
+    CheckCommand,
+    NewCommand,
+    RestoreCommand,
+    UpdateCommand
+)
 
 
 class BackupIntegrationTest(unittest.TestCase):
 
     new_backup = {
         'source': './test/resources/bkp_test_sources_new',
-        'hashes': {'fef9161f9f9a492dba2b1357298f17897849fefc', 'cc2ff24e50730e1b7c238890fc877de269f9bd98'},
+        'hashes': {'fef9161f9f9a492dba2b1357298f17897849fefc',
+                   'cc2ff24e50730e1b7c238890fc877de269f9bd98'},
         'meta': [
             bkp.FileEntry('text_file1.txt',
                           'fef9161f9f9a492dba2b1357298f17897849fefc'),
@@ -28,7 +34,9 @@ class BackupIntegrationTest(unittest.TestCase):
 
     update_backup = {
         'source': './test/resources/bkp_test_sources_update',
-        'hashes': new_backup['hashes'].union({'7f2f5c0211b62cc0f2da98c3f253bba9dc535b17'}),
+        'hashes': new_backup['hashes'].union({
+            '7f2f5c0211b62cc0f2da98c3f253bba9dc535b17'
+        }),
         'meta': [
             bkp.FileEntry('text_file1.txt',
                           'fef9161f9f9a492dba2b1357298f17897849fefc'),
@@ -47,7 +55,10 @@ class BackupIntegrationTest(unittest.TestCase):
         shutil.rmtree(os.path.join(gettempdir(), 'backuper_integration_test'))
 
     def _random_dir(self, prefix=''):
-        return os.path.join(gettempdir(), 'backuper_integration_test', prefix + datetime.now().strftime("%Y-%m-%dT%H%M%S%f"))
+        dirname = prefix + datetime.now().strftime("%Y-%m-%dT%H%M%S%f")
+        return os.path.join(gettempdir(),
+                            'backuper_integration_test',
+                            dirname)
 
     def test_normalize_path(self):
         dir = 'direc tory'
@@ -64,7 +75,7 @@ class BackupIntegrationTest(unittest.TestCase):
     def test_new_backup(self):
         destination = self._random_dir('new_backup')
         bkp.new(NewCommand(
-            'testing', self.new_backup['source'], destination))
+            'testing', self.new_backup['source'], destination, False))
 
         data_filenames = os.listdir(os.path.join(destination, 'data'))
         self.assertEqual(len(data_filenames),
@@ -79,7 +90,8 @@ class BackupIntegrationTest(unittest.TestCase):
 
     def test_update_backup(self):
         destination = self._random_dir('update_backup')
-        bkp.new(NewCommand('test_new', self.new_backup['source'], destination))
+        bkp.new(NewCommand('test_new', self.new_backup['source'],
+                           destination, False))
         bkp.update(UpdateCommand('test_update',
                    self.update_backup['source'], destination))
 
@@ -96,7 +108,8 @@ class BackupIntegrationTest(unittest.TestCase):
 
     def test_meta_reader(self):
         destination = self._random_dir('meta_reader')
-        bkp.new(NewCommand('test_new', self.new_backup['source'], destination))
+        bkp.new(NewCommand(
+            'test_new', self.new_backup['source'], destination, False))
 
         reader = bkp.MetaReader(destination, 'test_new')
         with reader:
@@ -107,7 +120,8 @@ class BackupIntegrationTest(unittest.TestCase):
 
     def test_check_backup_version(self):
         destination = self._random_dir('check_backup_name')
-        bkp.new(NewCommand('test_new', self.new_backup['source'], destination))
+        bkp.new(NewCommand(
+            'test_new', self.new_backup['source'], destination, False))
 
         errors = bkp.check(CheckCommand(
             destination=destination, name='test_new'))
@@ -121,12 +135,15 @@ class BackupIntegrationTest(unittest.TestCase):
 
         errors = bkp.check(CheckCommand(
             destination=destination, name='test_new'))
-        self.assertEqual(errors, [
-                         'Missing hash 44efbcfa3f99f75e396a56a119940e2c1f902d2c for file-with-missing-meta in test_new'])
+        self.assertEqual(errors,
+                         ['Missing hash '
+                          '44efbcfa3f99f75e396a56a119940e2c1f902d2c'
+                          ' for file-with-missing-meta in test_new'])
 
     def test_check_all_backup_versions(self):
         destination = self._random_dir('check_backup_all')
-        bkp.new(NewCommand('test_new', self.new_backup['source'], destination))
+        bkp.new(NewCommand(
+            'test_new', self.new_backup['source'], destination, False))
         bkp.update(UpdateCommand('test_update',
                    self.update_backup['source'], destination))
 
@@ -146,8 +163,10 @@ class BackupIntegrationTest(unittest.TestCase):
 
         errors = bkp.check(CheckCommand(destination))
         self.assertEqual(set(errors), {
-            'Missing hash acf6cd23d9aec2664665886e068504e799a0053f for file-with-missing-meta (update) in test_update',
-            'Missing hash 44efbcfa3f99f75e396a56a119940e2c1f902d2c for file-with-missing-meta (new) in test_new'
+            'Missing hash acf6cd23d9aec2664665886e068504e799a0053f '
+            'for file-with-missing-meta (update) in test_update',
+            'Missing hash 44efbcfa3f99f75e396a56a119940e2c1f902d2c '
+            'for file-with-missing-meta (new) in test_new'
         })
 
     def test_restore_source_not_found(self):
@@ -161,7 +180,8 @@ class BackupIntegrationTest(unittest.TestCase):
     def test_restore_destination_not_empty(self):
         from_source = self._random_dir('from_source')
         to_destination = '.'
-        bkp.new(NewCommand('test', self.new_backup['source'], from_source))
+        bkp.new(NewCommand(
+            'test', self.new_backup['source'], from_source, False))
         with self.assertRaises(ValueError):
             bkp.restore(RestoreCommand(from_source,
                                        to_destination,
@@ -170,7 +190,8 @@ class BackupIntegrationTest(unittest.TestCase):
     def test_restore_version_not_found(self):
         from_source = self._random_dir('from_source')
         to_destination = self._random_dir('to_destination')
-        bkp.new(NewCommand('test', self.new_backup['source'], from_source))
+        bkp.new(NewCommand(
+            'test', self.new_backup['source'], from_source, False))
         with self.assertRaises(ValueError):
             bkp.restore(RestoreCommand(from_source,
                                        to_destination,
@@ -179,7 +200,8 @@ class BackupIntegrationTest(unittest.TestCase):
     def test_restore_with_success(self):
         from_source = self._random_dir('from_source')
         to_destination = self._random_dir('to_destination')
-        bkp.new(NewCommand('test', self.new_backup['source'], from_source))
+        bkp.new(NewCommand(
+            'test', self.new_backup['source'], from_source, False))
         bkp.restore(RestoreCommand(from_source,
                                    to_destination,
                                    'test'))

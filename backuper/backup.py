@@ -154,7 +154,7 @@ def _initialize(path: str) -> None:
 
 
 def _process_backup(meta_writer: MetaWriter, source: str,
-                    destination: str) -> None:
+                    destination: str, zip: bool) -> None:
     with meta_writer:
         for dirpath, dirnames, filenames in os.walk(source, topdown=True):
             relative_path = absolute_to_relative_path(source, dirpath)
@@ -232,7 +232,8 @@ def new(command: commands.NewCommand) -> None:
 
     snapshot_meta = MetaWriter(command.destination, command.name)
     _initialize(command.destination)
-    _process_backup(snapshot_meta, command.source, command.destination)
+    _process_backup(snapshot_meta, command.source,
+                    command.destination, command.zip)
 
 
 def update(command: commands.UpdateCommand) -> None:
@@ -248,7 +249,7 @@ def update(command: commands.UpdateCommand) -> None:
     print(f'Updating backup at {command.destination} '
           f'with new version {command.name}')
     snapshot_meta = MetaWriter(command.destination, command.name)
-    _process_backup(snapshot_meta, command.source, command.destination)
+    _process_backup(snapshot_meta, command.source, command.destination, False)
 
 
 def check(command: commands.CheckCommand) -> List[str]:

@@ -11,8 +11,12 @@ class ArgParserTest(unittest.TestCase):
         args = parser.parse(
             'new /first/source /second/destination -n BackupName'.split())
         self.assertIsInstance(args, c.NewCommand)
-        self.assertEqual(args, c.NewCommand(
-            name='BackupName', source='/first/source', destination='/second/destination'))
+        self.assertEqual(args,
+                         c.NewCommand(
+                             name='BackupName',
+                             source='/first/source',
+                             destination='/second/destination',
+                             zip=False))
 
     @patch('backuper.argparser._default_name')
     def test_new_backup_default_name(self, _mocked_default_name):
@@ -22,7 +26,10 @@ class ArgParserTest(unittest.TestCase):
             'new /first/source /second/destination'.split())
         self.assertIsInstance(args, c.NewCommand)
         self.assertEqual(args, c.NewCommand(
-            name='2021-01-31T120102', source='/first/source', destination='/second/destination'))
+            name='2021-01-31T120102',
+            source='/first/source',
+            destination='/second/destination',
+            zip=False))
 
     def test_update_backup(self):
         args = parser.parse(
@@ -52,7 +59,8 @@ class ArgParserTest(unittest.TestCase):
             destination='/second/destination', name='testName'))
 
     def test_restore_backup(self):
-        args = parser.parse('restore --from /backup/source --to /backup/destination --version backup-version'.split())
+        args = parser.parse(
+            'restore --from /backup/source --to /backup/destination --version backup-version'.split())
         self.assertIsInstance(args, c.RestoreCommand)
         self.assertEqual(args, c.RestoreCommand(
             from_source='/backup/source', to_destination='/backup/destination', version_name='backup-version'

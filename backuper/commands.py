@@ -7,10 +7,12 @@ class NewCommand:
     name: str
     source: str
     destination: str
+    zip: bool
 
 
 @dataclass
 class UpdateCommand:
+    # TODO add zip flag do update
     name: str
     source: str
     destination: str
