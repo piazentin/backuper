@@ -58,7 +58,7 @@ class BackupIntegrationTest(unittest.TestCase):
             gettempdir(), 'backuper_integration_test'), exist_ok=True)
 
     def tearDown(self) -> None:
-        pass #shutil.rmtree(os.path.join(gettempdir(), 'backuper_integration_test'))
+        shutil.rmtree(os.path.join(gettempdir(), 'backuper_integration_test'))
 
     def _random_dir(self, prefix=''):
         dirname = prefix + datetime.now().strftime("%Y-%m-%dT%H%M%S%f")
