@@ -5,18 +5,37 @@ import backuper.commands as c
 
 
 def _to_new_command(namespace):
-    return c.NewCommand(name=namespace.name, source=namespace.source, destination=namespace.destination)
+    return c.NewCommand(
+        name=namespace.name,
+        source=namespace.source,
+        destination=namespace.destination,
+        zip=namespace.zip
+    )
 
 
 def _to_update_command(namespace):
-    return c.UpdateCommand(name=namespace.name, source=namespace.source, destination=namespace.destination)
+    return c.UpdateCommand(
+        name=namespace.name,
+        source=namespace.source,
+        destination=namespace.destination,
+        zip=namespace.zip
+    )
 
 
 def _to_check_command(namespace):
-    return c.CheckCommand(destination=namespace.destination, name=namespace.name)
+    return c.CheckCommand(
+        destination=namespace.destination,
+        name=namespace.name
+    )
+
 
 def _to_restore_command(namespace):
-    return c.RestoreCommand(from_source=namespace.from_source, to_destination=namespace.to_destination, version_name=namespace.version)
+    return c.RestoreCommand(
+        from_source=namespace.from_source,
+        to_destination=namespace.to_destination,
+        version_name=namespace.version
+    )
+
 
 def _default_name() -> str:
     return datetime.now().strftime("%Y-%m-%dT%H%M%S")
@@ -33,6 +52,9 @@ def parse(args):
         'destination', help='Destination of the backup. Must be the name of a new directory.')
     parser_new.add_argument(
         '--name', '-n', help='Name of the version of the backup. Defaults to now\'s date time formatted as 0000-00-00T000000', dest='name', default=_default_name())
+    parser_new.add_argument(
+        '--zip', help='Should compact the files?', dest='zip', default=False
+    )
     parser_new.set_defaults(func=_to_new_command)
 
     parser_update = subparsers.add_parser('update')
@@ -41,6 +63,9 @@ def parse(args):
         'destination', help='Destination of the backup. Must be the name of an existing backup directory.')
     parser_update.add_argument(
         '--name', '-n', help='Name of the version of the backup. Defaults to now\'s date time formatted as 0000-00-00T000000', dest='name', default=_default_name())
+    parser_update.add_argument(
+        '--zip', help='Should compact the files?', dest='zip', default=False
+    )
     parser_update.set_defaults(func=_to_update_command)
 
     parser_check = subparsers.add_parser('check')
