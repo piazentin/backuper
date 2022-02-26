@@ -44,3 +44,14 @@ def migrate_1_to_zip(backup_main_dir):
             print(f'Gonna zip {filename}')
             zip_hashed(bkp_filename, hash)
             os.remove(bkp_filename)
+
+
+def migrate_2_flatdir_to_subdirs(backup_main_dir):
+    files = os.listdir(os.path.join(backup_main_dir, 'data'))
+    for file in files:
+        current_filename = os.path.join(backup_main_dir, 'data', file)
+        if os.path.isfile(current_filename):
+            dirname = bkp.backuped_dirname(backup_main_dir, file)
+            new_filename = os.path.join(dirname, file)
+            bkp.create_dir_if_not_exists(dirname)
+            os.rename(current_filename, new_filename)

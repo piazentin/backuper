@@ -4,6 +4,7 @@ import unittest
 import filecmp
 from datetime import datetime
 from tempfile import gettempdir
+from typing import List
 
 import backuper.backup as bkp
 from backuper.commands import (
@@ -14,13 +15,27 @@ from backuper.commands import (
 )
 
 
+def list_all_files_recursive(base_path: str) -> List[str]:
+    def dir_filenames(dirpath, filenames):
+        return [os.path.join(dirpath, filename)
+                for filename in filenames]
+
+    files = []
+    dirlist = [base_path]
+    while len(dirlist) > 0:
+        for (dirpath, dirnames, filenames) in os.walk(dirlist.pop()):
+            dirlist.extend(dirnames)
+            files.extend(dir_filenames(dirpath, filenames))
+    return [f[len(base_path):] for f in files]
+
+
 class BackupIntegrationTest(unittest.TestCase):
 
     new_backup = {
         'source': './test/resources/bkp_test_sources_new',
-        'hashes': {'fef9161f9f9a492dba2b1357298f17897849fefc',
-                   'cc2ff24e50730e1b7c238890fc877de269f9bd98',
-                   '10e4b6f822c7493e1aea22d15e515b584b2db7a2'},
+        'hashes': {'/f/e/f/9/fef9161f9f9a492dba2b1357298f17897849fefc',
+                   '/c/c/2/f/cc2ff24e50730e1b7c238890fc877de269f9bd98',
+                   '/1/0/e/4/10e4b6f822c7493e1aea22d15e515b584b2db7a2'},
         'meta': [
             bkp.FileEntry('text_file1.txt',
                           'fef9161f9f9a492dba2b1357298f17897849fefc'),
@@ -38,8 +53,8 @@ class BackupIntegrationTest(unittest.TestCase):
     update_backup = {
         'source': './test/resources/bkp_test_sources_update',
         'hashes': new_backup['hashes'].union({
-            '7f2f5c0211b62cc0f2da98c3f253bba9dc535b17',
-            '5b5174193c004d8f27811b961fbaa545b5460f2a'
+            '/7/f/2/f/7f2f5c0211b62cc0f2da98c3f253bba9dc535b17',
+            '/5/b/5/1/5b5174193c004d8f27811b961fbaa545b5460f2a'
         }),
         'meta': [
             bkp.FileEntry('text_file1.txt',
@@ -83,7 +98,9 @@ class BackupIntegrationTest(unittest.TestCase):
         bkp.new(NewCommand(
             'testing', self.new_backup['source'], destination, False))
 
-        data_filenames = os.listdir(os.path.join(destination, 'data'))
+        data_filenames = list_all_files_recursive(
+            os.path.join(destination, 'data')
+        )
         self.assertEqual(len(data_filenames),
                          len(self.new_backup['hashes']))
         for filename in data_filenames:
@@ -104,7 +121,9 @@ class BackupIntegrationTest(unittest.TestCase):
         )
         bkp.new(command)
 
-        data_filenames = os.listdir(os.path.join(destination, 'data'))
+        data_filenames = list_all_files_recursive(
+            os.path.join(destination, 'data')
+        )
         self.assertEqual(len(data_filenames),
                          len(self.new_backup['hashes']))
         for filename in data_filenames:
@@ -123,7 +142,9 @@ class BackupIntegrationTest(unittest.TestCase):
         bkp.update(UpdateCommand('test_update',
                    self.update_backup['source'], destination, False))
 
-        data_filenames = os.listdir(os.path.join(destination, 'data'))
+        data_filenames = list_all_files_recursive(
+            os.path.join(destination, 'data')
+        )
         self.assertEqual(len(data_filenames), len(
             self.update_backup['hashes']))
         for filename in data_filenames:
@@ -141,7 +162,9 @@ class BackupIntegrationTest(unittest.TestCase):
         bkp.update(UpdateCommand('test_update',
                    self.update_backup['source'], destination, True))
 
-        data_filenames = os.listdir(os.path.join(destination, 'data'))
+        data_filenames = list_all_files_recursive(
+            os.path.join(destination, 'data')
+        )
         self.assertEqual(len(data_filenames), len(
             self.update_backup['hashes']))
         for filename in data_filenames:
@@ -253,7 +276,7 @@ class BackupIntegrationTest(unittest.TestCase):
                                    'test'))
 
         comp = filecmp.dircmp(self.new_backup['source'], to_destination)
-        self.assertEqual(['text_file1 copy.txt', 'text_file1.txt'],
+        self.assertEqual(['LICENSE', 'text_file1 copy.txt', 'text_file1.txt'],
                          comp.common_files)
         self.assertEqual(['Original-Lena-image.png'],
                          comp.subdirs['subdir'].common_files)
