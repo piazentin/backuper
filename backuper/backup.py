@@ -134,12 +134,13 @@ def create_dir_if_not_exists(dir: str) -> None:
         os.makedirs(dir)
 
 
-def backuped_dirname(backup_dir: str):
-    return os.path.join(backup_dir, 'data')
+def backuped_dirname(backup_dir: str, filehash: str) -> str:
+    return os.path.join(backup_dir, 'data',
+                        filehash[0], filehash[1], filehash[2], filehash[3])
 
 
 def backuped_filename(backup_main_dir: str, hash: str, zip: bool) -> str:
-    filename = os.path.join(backuped_dirname(backup_main_dir), hash)
+    filename = os.path.join(backuped_dirname(backup_main_dir, hash), hash)
     if zip:
         filename = filename + ZIPFILE_EXT
     return filename
@@ -152,8 +153,8 @@ def is_file_already_backuped(backup_main_dir: str, filehash: str) -> bool:
     )
 
 
-def prepare_file_destination(backup_main_dir: str) -> None:
-    dirname = backuped_dirname(backup_main_dir)
+def prepare_file_destination(backup_main_dir: str, filehash: str) -> None:
+    dirname = backuped_dirname(backup_main_dir, filehash)
     create_dir_if_not_exists(dirname)
 
 
@@ -174,7 +175,7 @@ def create_zipped_file(backup_main_dir: str,
                        file_to_copy: str,
                        filehash: str) -> None:
     if not is_file_already_backuped(backup_main_dir, filehash):
-        prepare_file_destination(backup_main_dir)
+        prepare_file_destination(backup_main_dir, filehash)
         filename = backuped_filename(backup_main_dir, filehash, True)
         with ZipFile(filename, mode='x') as zipfile:
             zipfile.write(file_to_copy, filehash,
@@ -236,8 +237,7 @@ def _check_missing_hashes(meta: MetaReader) -> List[str]:
     errors = []
     with meta:
         for entry in meta.file_entries():
-            hash_filename = os.path.join(meta.destination, 'data', entry.hash)
-            if not os.path.exists(hash_filename):
+            if not is_file_already_backuped(meta.destination, entry.hash):
                 errors.append(f'Missing hash {entry.hash} '
                               f'for {entry.name} in {meta.name}')
     return errors
