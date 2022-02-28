@@ -1,20 +1,19 @@
-import base64
+import backuper.utils as utils
 import os
 
-from cryptography.fernet import Fernet
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes, padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from typing import Tuple, Dict
+from typing import Dict
 
 
 CRYPTO_META_FILENAME = 'meta.txt'
 CRYPTO_VERSION = b'\x30'
 
 
-def generate_key_derivation(salt: bytes, master_password: str) -> bytes:
+def derivate_key(salt: bytes, password: str) -> bytes:
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
@@ -22,7 +21,7 @@ def generate_key_derivation(salt: bytes, master_password: str) -> bytes:
         iterations=100000,
         backend=default_backend()
     )
-    return base64.urlsafe_b64encode(kdf.derive(master_password.encode()))
+    return kdf.derive(password.encode())
 
 
 def read_crypto_meta(backup_main_dir: str) -> Dict[str, str]:
@@ -40,11 +39,6 @@ def write_crypto_meta(backup_main_dir: str, vars: Dict[str, str]):
     with open(meta_filename, mode='w', encoding="utf-8") as meta_file:
         for key, val in vars.items():
             meta_file.write(f'{key}="{val}"\n')
-
-
-def open_dek(salt: bytes, master_password: str, dek: bytes) -> bytes:
-    kek = generate_key_derivation(salt, master_password)
-    return base64.urlsafe_b64decode(Fernet(kek).decrypt(dek))
 
 
 class Crypto:
@@ -65,8 +59,8 @@ class Crypto:
                 encryptor.update(padded_data) +
                 encryptor.finalize())
 
-    def encrypt_base64(self, plain: bytes):
-        return base64.urlsafe_b64encode(self.encrypt(plain))
+    def encrypt_base64(self, plain: bytes) -> str:
+        return utils.to_base64str(self.encrypt(plain))
 
     def decrypt(self, encrypted: bytes) -> bytes:
         if bytes(encrypted[0:1]) != CRYPTO_VERSION:
@@ -81,26 +75,28 @@ class Crypto:
             decryptor.update(encrypted[17:]) + decryptor.finalize()
         ) + unpadder.finalize()
 
-    def decrypt_base64(self, encrypted: bytes) -> bytes:
-        return self.decrypt(base64.urlsafe_b64decode(encrypted))
+    def decrypt_base64(self, encrypted: str) -> bytes:
+        return self.decrypt(utils.from_base64str(encrypted))
 
 
 def new_crypto(backup_main_dir: str, master_password: str) -> Crypto:
     vars = read_crypto_meta(backup_main_dir)
-    salt = base64.urlsafe_b64decode(vars['kek_salt'].encode('UTF-8'))
-    encrypted_dek = vars['dek'].encode('UTF-8')
-    dek = open_dek(salt, master_password, encrypted_dek)
+    salt = utils.from_base64str(vars['kek_salt'])
+    kek = derivate_key(salt, master_password)
+
+    encrypted_dek = utils.from_base64str(vars['dek_base64'])
+    dek = Crypto(kek).decrypt(encrypted_dek)
     return Crypto(dek)
 
 
-def setup_backup_encryption_key(backup_main_dir: str, master_password: str):
+def setup_backup_encryption_key(backup_main_dir: str, password: str):
     salt = os.urandom(16)
-    key = generate_key_derivation(salt, master_password)
-    data_key = Fernet.generate_key()
-    fernet = Fernet(key)
-    encrypted_data_key = fernet.encrypt(data_key)
+    key = derivate_key(salt, password)
 
-    salt_str = base64.urlsafe_b64encode(salt).decode('UTF-8')
-    dek_str = encrypted_data_key.decode('UTF-8')
-    vars = {'kek_salt': salt_str, 'dek': dek_str}
+    plain_dek = os.urandom(32)
+    encrypted_dek = Crypto(key).encrypt(plain_dek)
+
+    salt_str = utils.to_base64str(salt)
+    dek_str = utils.to_base64str(encrypted_dek)
+    vars = {'kek_salt': salt_str, 'dek_base64': dek_str}
     write_crypto_meta(backup_main_dir, vars)

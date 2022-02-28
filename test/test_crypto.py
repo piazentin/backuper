@@ -18,7 +18,7 @@ class CryptoTest(unittest.TestCase):
         self.assertTrue(os.path.isfile(expected_meta_path))
         meta = crypto.read_crypto_meta(dirname)
         self.assertEqual(
-            {'kek_salt', 'dek'},
+            {'kek_salt', 'dek_base64'},
             set(meta.keys())
         )
 
@@ -34,23 +34,20 @@ class CryptoTest(unittest.TestCase):
 
         self.assertDictEqual(written_vars, read_vars)
 
-    def test_generate_key_derivation(self):
+    def test_derivate_key(self):
         salt = os.urandom(16)
         password = aux.random_string(random.randint(2, 128))
 
-        key = crypto.generate_key_derivation(salt, password)
+        key = crypto.derivate_key(salt, password)
         self.assertEqual(
             key,
-            crypto.generate_key_derivation(salt, password)
+            crypto.derivate_key(salt, password)
         )
 
         self.assertEqual(
             32,
-            len(base64.urlsafe_b64decode(key))
+            len(key)
         )
-
-    def test_open_dek(self):
-        pass
 
     def test_encrypt_decrypt(self):
         pass
