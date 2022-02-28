@@ -53,7 +53,7 @@ def parse(args):
     parser_new.add_argument(
         '--name', '-n', help='Name of the version of the backup. Defaults to now\'s date time formatted as 0000-00-00T000000', dest='name', default=_default_name())
     parser_new.add_argument(
-        '--zip', help='Should compact the files?', dest='zip', default=False
+        '--zip',  action='store_true', help='Should compact the files?', dest='zip', default=False
     )
     parser_new.set_defaults(func=_to_new_command)
 
@@ -64,7 +64,7 @@ def parse(args):
     parser_update.add_argument(
         '--name', '-n', help='Name of the version of the backup. Defaults to now\'s date time formatted as 0000-00-00T000000', dest='name', default=_default_name())
     parser_update.add_argument(
-        '--zip', help='Should compact the files?', dest='zip', default=False
+        '--zip', action='store_true', help='Should compact the files?', dest='zip', default=False
     )
     parser_update.set_defaults(func=_to_update_command)
 

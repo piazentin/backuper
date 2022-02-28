@@ -18,6 +18,18 @@ class ArgParserTest(unittest.TestCase):
                              destination='/second/destination',
                              zip=False))
 
+    def test_new_backup_with_zip(self):
+        args = parser.parse(
+            'new /first/source /second/destination -n BackupName --zip'.split()
+        )
+        self.assertIsInstance(args, c.NewCommand)
+        self.assertEqual(args,
+                         c.NewCommand(
+                             name='BackupName',
+                             source='/first/source',
+                             destination='/second/destination',
+                             zip=True))
+
     @patch('backuper.argparser._default_name')
     def test_new_backup_default_name(self, _mocked_default_name):
         _mocked_default_name.return_value = '2021-01-31T120102'
@@ -41,6 +53,17 @@ class ArgParserTest(unittest.TestCase):
             source='/first/source',
             destination='/second/destination',
             zip=False))
+
+    def test_update_backup_with_zip(self):
+        args = parser.parse(
+            'update /first/source /second/destination '
+            '--zip --name BackupName'.split())
+        self.assertIsInstance(args, c.UpdateCommand)
+        self.assertEqual(args, c.UpdateCommand(
+            name='BackupName',
+            source='/first/source',
+            destination='/second/destination',
+            zip=True))
 
     @patch('backuper.argparser._default_name')
     def test_update_backup_default_name(self, _mocked_default_name):
