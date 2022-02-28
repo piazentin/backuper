@@ -18,7 +18,7 @@ class BackupIntegrationTest(unittest.TestCase):
     new_backup = {
         'source': './test/resources/bkp_test_sources_new',
         'hashes': {'/f/e/f/9/fef9161f9f9a492dba2b1357298f17897849fefc',
-                   '/c/c/2/f/cc2ff24e50730e1b7c238890fc877de269f9bd98',
+                   '/0/7/c/8/07c8762861e8f1927708408702b1fd747032f050',
                    '/1/0/e/4/10e4b6f822c7493e1aea22d15e515b584b2db7a2'},
         'meta': [
             bkp.FileEntry('text_file1.txt',
@@ -26,7 +26,7 @@ class BackupIntegrationTest(unittest.TestCase):
             bkp.FileEntry('text_file1 copy.txt',
                           'fef9161f9f9a492dba2b1357298f17897849fefc'),
             bkp.FileEntry('subdir/Original-Lena-image.png',
-                          'cc2ff24e50730e1b7c238890fc877de269f9bd98'),
+                          '07c8762861e8f1927708408702b1fd747032f050'),
             bkp.FileEntry('LICENSE',
                           '10e4b6f822c7493e1aea22d15e515b584b2db7a2'),
             bkp.DirEntry('subdir'),

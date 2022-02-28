@@ -2,7 +2,7 @@ import sys
 
 import backuper.argparser as parser
 import backuper.backup as bkp
-from backuper.commands import CheckCommand, NewCommand, UpdateCommand
+from backuper.commands import CheckCommand, NewCommand, RestoreCommand, UpdateCommand
 
 
 def run_with_args():
@@ -14,6 +14,8 @@ def run_with_args():
         bkp.update(command)
     elif isinstance(command, CheckCommand):
         bkp.check(command)
+    elif isinstance(command, RestoreCommand):
+        bkp.restore(command)
     else:
         raise ValueError(f'Unrecognized command {command}')
 
