@@ -2,7 +2,6 @@ import os
 import unittest
 import filecmp
 
-from importlib_metadata import version
 import test.aux as aux
 
 import backuper.backup as bkp
