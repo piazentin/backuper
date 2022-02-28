@@ -64,7 +64,7 @@ class CryptoTest(unittest.TestCase):
         key = os.urandom(32)
 
         file_to_encrypt = ('./test/resources/bkp_test_sources_new/'
-                           'subdir/Original-Lena-image.png')
+                           'subdir/starry_night.png')
         data_to_encrypt = None
         with open(file_to_encrypt, 'rb') as f:
             data_to_encrypt = f.read()

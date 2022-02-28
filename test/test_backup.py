@@ -25,7 +25,7 @@ class BackupIntegrationTest(unittest.TestCase):
                           'fef9161f9f9a492dba2b1357298f17897849fefc'),
             bkp.FileEntry('text_file1 copy.txt',
                           'fef9161f9f9a492dba2b1357298f17897849fefc'),
-            bkp.FileEntry('subdir/Original-Lena-image.png',
+            bkp.FileEntry('subdir/starry_night.png',
                           '07c8762861e8f1927708408702b1fd747032f050'),
             bkp.FileEntry('LICENSE',
                           '10e4b6f822c7493e1aea22d15e515b584b2db7a2'),
@@ -330,7 +330,7 @@ class BackupIntegrationTest(unittest.TestCase):
         comp = filecmp.dircmp(self.new_backup['source'], to_destination)
         self.assertEqual(['LICENSE', 'text_file1 copy.txt', 'text_file1.txt'],
                          comp.common_files)
-        self.assertEqual(['Original-Lena-image.png'],
+        self.assertEqual(['starry_night.png'],
                          comp.subdirs['subdir'].common_files)
         self.assertEqual(['empty dir'],
                          comp.subdirs['subdir'].common_dirs)
