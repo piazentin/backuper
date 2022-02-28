@@ -1,4 +1,3 @@
-from asyncore import file_dispatcher
 import backuper.crypto as crypto
 import backuper.utils as utils
 import os
