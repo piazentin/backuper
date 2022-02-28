@@ -1,6 +1,8 @@
 import os
 import shutil
 from datetime import datetime
+import random
+import string
 from tempfile import gettempdir
 from typing import List
 
@@ -37,3 +39,8 @@ def list_all_files_recursive(base_path: str) -> List[str]:
             dirlist.extend(dirnames)
             files.extend(dir_filenames(dirpath, filenames))
     return [f[len(base_path):] for f in files]
+
+
+def random_string(lenght: int = 12) -> str:
+    non_whitespace = string.digits + string.ascii_letters + string.punctuation
+    return ''.join(random.sample(non_whitespace, lenght))

@@ -25,7 +25,7 @@ def generate_key_derivation(salt: bytes, master_password: str) -> bytes:
     return base64.urlsafe_b64encode(kdf.derive(master_password.encode()))
 
 
-def read_crypto_meta(backup_main_dir: str) -> Tuple[bytes, bytes]:
+def read_crypto_meta(backup_main_dir: str) -> Dict[bytes, bytes]:
     meta_vars = {}
     filename = os.path.join(backup_main_dir, CRYPTO_META_FILENAME)
     with open(filename, mode='r') as meta_file:
