@@ -1,6 +1,8 @@
 import os
 import unittest
 import filecmp
+
+from importlib_metadata import version
 import test.aux as aux
 
 import backuper.backup as bkp
@@ -69,7 +71,12 @@ class BackupIntegrationTest(unittest.TestCase):
     def test_new_backup(self):
         destination = aux.gen_temp_dir_path('new_backup')
         bkp.new(NewCommand(
-            'testing', self.new_backup['source'], destination, False))
+            'testing',
+            self.new_backup['source'],
+            destination,
+            password=None,
+            zip=False
+        ))
 
         data_filenames = aux.list_all_files_recursive(
             os.path.join(destination, 'data')
@@ -86,13 +93,13 @@ class BackupIntegrationTest(unittest.TestCase):
 
     def test_new_backup_with_zip(self):
         destination = aux.gen_temp_dir_path('new_backup')
-        command = NewCommand(
-            name='testing',
+        bkp.new(NewCommand(
+            version='testing',
             source=self.new_backup['source'],
-            destination=destination,
+            location=destination,
+            password=None,
             zip=True
-        )
-        bkp.new(command)
+        ))
 
         data_filenames = aux.list_all_files_recursive(
             os.path.join(destination, 'data')
@@ -110,10 +117,20 @@ class BackupIntegrationTest(unittest.TestCase):
 
     def test_update_backup(self):
         destination = aux.gen_temp_dir_path('update_backup')
-        bkp.new(NewCommand('test_new', self.new_backup['source'],
-                           destination, False))
-        bkp.update(UpdateCommand('test_update',
-                   self.update_backup['source'], destination, False))
+        bkp.new(NewCommand(
+            'test_new',
+            self.new_backup['source'],
+            destination,
+            password=None,
+            zip=False
+        ))
+        bkp.update(UpdateCommand(
+            'test_update',
+            self.update_backup['source'],
+            destination,
+            password=None,
+            zip=False
+        ))
 
         data_filenames = aux.list_all_files_recursive(
             os.path.join(destination, 'data')
@@ -130,10 +147,20 @@ class BackupIntegrationTest(unittest.TestCase):
 
     def test_update_backup_with_zip(self):
         destination = aux.gen_temp_dir_path('update_backup')
-        bkp.new(NewCommand('test_new', self.new_backup['source'],
-                           destination, False))
-        bkp.update(UpdateCommand('test_update',
-                   self.update_backup['source'], destination, True))
+        bkp.new(NewCommand(
+            'test_new',
+            self.new_backup['source'],
+            destination,
+            password=None,
+            zip=False
+        ))
+        bkp.update(UpdateCommand(
+            'test_update',
+            self.update_backup['source'],
+            destination,
+            password=None,
+            zip=True
+        ))
 
         data_filenames = aux.list_all_files_recursive(
             os.path.join(destination, 'data')
@@ -151,7 +178,12 @@ class BackupIntegrationTest(unittest.TestCase):
     def test_meta_reader(self):
         destination = aux.gen_temp_dir_path('meta_reader')
         bkp.new(NewCommand(
-            'test_new', self.new_backup['source'], destination, False))
+            'test_new',
+            self.new_backup['source'],
+            destination,
+            password=None,
+            zip=False
+        ))
 
         reader = bkp.MetaReader(destination, 'test_new')
         with reader:
@@ -163,10 +195,17 @@ class BackupIntegrationTest(unittest.TestCase):
     def test_check_backup_version(self):
         destination = aux.gen_temp_dir_path('check_backup_name')
         bkp.new(NewCommand(
-            'test_new', self.new_backup['source'], destination, False))
+            'test_new',
+            self.new_backup['source'],
+            destination,
+            password=None,
+            zip=False
+        ))
 
         errors = bkp.check(CheckCommand(
-            destination=destination, name='test_new'))
+            location=destination,
+            version='test_new'
+        ))
         self.assertEqual(errors, [])
 
         # corrupt meta file inserting non existing hash
@@ -176,7 +215,9 @@ class BackupIntegrationTest(unittest.TestCase):
                                  '44efbcfa3f99f75e396a56a119940e2c1f902d2c')
 
         errors = bkp.check(CheckCommand(
-            destination=destination, name='test_new'))
+            location=destination,
+            version='test_new'
+        ))
         self.assertEqual(errors,
                          ['Missing hash '
                           '44efbcfa3f99f75e396a56a119940e2c1f902d2c'
@@ -185,9 +226,19 @@ class BackupIntegrationTest(unittest.TestCase):
     def test_check_all_backup_versions(self):
         destination = aux.gen_temp_dir_path('check_backup_all')
         bkp.new(NewCommand(
-            'test_new', self.new_backup['source'], destination, False))
-        bkp.update(UpdateCommand('test_update',
-                   self.update_backup['source'], destination, False))
+            'test_new',
+            self.new_backup['source'],
+            destination,
+            password=None,
+            zip=False
+        ))
+        bkp.update(UpdateCommand(
+            'test_update',
+            self.update_backup['source'],
+            destination,
+            password=None,
+            zip=False
+        ))
 
         errors = bkp.check(CheckCommand(destination))
         self.assertEqual(errors, [])
@@ -215,38 +266,67 @@ class BackupIntegrationTest(unittest.TestCase):
         from_source = aux.gen_temp_dir_path('non_existing')
         to_destination = aux.gen_temp_dir_path('to_destination')
         with self.assertRaises(ValueError):
-            bkp.restore(RestoreCommand(from_source,
-                                       to_destination,
-                                       'test'))
+            bkp.restore(RestoreCommand(
+                from_source,
+                to_destination,
+                version_name='test',
+                password=None
+            ))
 
     def test_restore_destination_not_empty(self):
         from_source = aux.gen_temp_dir_path('from_source')
         to_destination = '.'
         bkp.new(NewCommand(
-            'test', self.new_backup['source'], from_source, False))
+            'test',
+            self.new_backup['source'],
+            from_source,
+            password=None,
+            zip=False
+        ))
+
         with self.assertRaises(ValueError):
-            bkp.restore(RestoreCommand(from_source,
-                                       to_destination,
-                                       'test'))
+            bkp.restore(RestoreCommand(
+                from_source,
+                to_destination,
+                version_name='test',
+                password=None
+            ))
 
     def test_restore_version_not_found(self):
         from_source = aux.gen_temp_dir_path('from_source')
         to_destination = aux.gen_temp_dir_path('to_destination')
         bkp.new(NewCommand(
-            'test', self.new_backup['source'], from_source, False))
+            'test',
+            self.new_backup['source'],
+            from_source,
+            password=None,
+            zip=False
+        ))
+
         with self.assertRaises(ValueError):
-            bkp.restore(RestoreCommand(from_source,
-                                       to_destination,
-                                       'non_existing_version'))
+            bkp.restore(RestoreCommand(
+                from_source,
+                to_destination,
+                version_name='non_existing_version',
+                password=None
+            ))
 
     def test_restore_with_success(self):
         from_source = aux.gen_temp_dir_path('from_source')
         to_destination = aux.gen_temp_dir_path('to_destination')
         bkp.new(NewCommand(
-            'test', self.new_backup['source'], from_source, False))
-        bkp.restore(RestoreCommand(from_source,
-                                   to_destination,
-                                   'test'))
+            'test',
+            self.new_backup['source'],
+            from_source,
+            password=None,
+            zip=False
+        ))
+        bkp.restore(RestoreCommand(
+            from_source,
+            to_destination,
+            version_name='test',
+            password=None
+        ))
 
         comp = filecmp.dircmp(self.new_backup['source'], to_destination)
         self.assertEqual(['LICENSE', 'text_file1 copy.txt', 'text_file1.txt'],

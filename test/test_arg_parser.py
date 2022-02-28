@@ -13,9 +13,9 @@ class ArgParserTest(unittest.TestCase):
         self.assertIsInstance(args, c.NewCommand)
         self.assertEqual(args,
                          c.NewCommand(
-                             name='BackupName',
+                             version='BackupName',
                              source='/first/source',
-                             destination='/second/destination',
+                             location='/second/destination',
                              zip=False,
                              password=None))
 
@@ -26,9 +26,9 @@ class ArgParserTest(unittest.TestCase):
         self.assertIsInstance(args, c.NewCommand)
         self.assertEqual(args,
                          c.NewCommand(
-                             name='BackupName',
+                             version='BackupName',
                              source='/first/source',
-                             destination='/second/destination',
+                             location='/second/destination',
                              zip=True,
                              password=None))
 
@@ -40,9 +40,9 @@ class ArgParserTest(unittest.TestCase):
         self.assertIsInstance(args, c.NewCommand)
         self.assertEqual(args,
                          c.NewCommand(
-                             name='BackupName',
+                             version='BackupName',
                              source='/first/source',
-                             destination='/second/destination',
+                             location='/second/destination',
                              zip=True,
                              password='^YabadabaDo_'))
 
@@ -54,9 +54,9 @@ class ArgParserTest(unittest.TestCase):
             'new /first/source /second/destination'.split())
         self.assertIsInstance(args, c.NewCommand)
         self.assertEqual(args, c.NewCommand(
-            name='2021-01-31T120102',
+            version='2021-01-31T120102',
             source='/first/source',
-            destination='/second/destination',
+            location='/second/destination',
             zip=False,
             password=None))
 
@@ -66,9 +66,9 @@ class ArgParserTest(unittest.TestCase):
             '--name BackupName'.split())
         self.assertIsInstance(args, c.UpdateCommand)
         self.assertEqual(args, c.UpdateCommand(
-            name='BackupName',
+            version='BackupName',
             source='/first/source',
-            destination='/second/destination',
+            location='/second/destination',
             zip=False,
             password=None))
 
@@ -78,9 +78,9 @@ class ArgParserTest(unittest.TestCase):
             '--zip --name BackupName'.split())
         self.assertIsInstance(args, c.UpdateCommand)
         self.assertEqual(args, c.UpdateCommand(
-            name='BackupName',
+            version='BackupName',
             source='/first/source',
-            destination='/second/destination',
+            location='/second/destination',
             zip=True,
             password=None))
 
@@ -90,9 +90,9 @@ class ArgParserTest(unittest.TestCase):
             '--zip --name BackupName -p ^YabadabaDo_'.split())
         self.assertIsInstance(args, c.UpdateCommand)
         self.assertEqual(args, c.UpdateCommand(
-            name='BackupName',
+            version='BackupName',
             source='/first/source',
-            destination='/second/destination',
+            location='/second/destination',
             zip=True,
             password='^YabadabaDo_'))
 
@@ -103,9 +103,9 @@ class ArgParserTest(unittest.TestCase):
         args = parser.parse('update /first/source /second/destination'.split())
         self.assertIsInstance(args, c.UpdateCommand)
         self.assertEqual(args, c.UpdateCommand(
-            name='2021-01-31T120102',
+            version='2021-01-31T120102',
             source='/first/source',
-            destination='/second/destination',
+            location='/second/destination',
             zip=False,
             password=None))
 
@@ -113,33 +113,33 @@ class ArgParserTest(unittest.TestCase):
         args = parser.parse('check /second/destination'.split())
         self.assertIsInstance(args, c.CheckCommand)
         self.assertEqual(args, c.CheckCommand(
-            destination='/second/destination', name=None))
+            location='/second/destination', version=None))
 
         args = parser.parse('check /second/destination -n testName'.split())
         self.assertIsInstance(args, c.CheckCommand)
         self.assertEqual(args, c.CheckCommand(
-            destination='/second/destination', name='testName'))
+            location='/second/destination', version='testName'))
 
     def test_restore_backup(self):
         args = parser.parse(
-            'restore --from /backup/source --to /backup/destination '
+            'restore /backup/source /backup/destination '
             '--version backup-version'.split())
         self.assertIsInstance(args, c.RestoreCommand)
         self.assertEqual(args, c.RestoreCommand(
-            from_source='/backup/source',
-            to_destination='/backup/destination',
+            location='/backup/source',
+            destination='/backup/destination',
             version_name='backup-version',
             password=None
         ))
 
     def test_restore_backup_with_password(self):
         args = parser.parse(
-            'restore --from /backup/source --to /backup/destination '
+            'restore /backup/source /backup/destination '
             '--version backup-version -p &Yaba*Daba(Do)'.split())
         self.assertIsInstance(args, c.RestoreCommand)
         self.assertEqual(args, c.RestoreCommand(
-            from_source='/backup/source',
-            to_destination='/backup/destination',
+            location='/backup/source',
+            destination='/backup/destination',
             version_name='backup-version',
             password='&Yaba*Daba(Do)'
         ))

@@ -34,18 +34,18 @@ class FileEntry:
 
 class _MetaFileHandler(ABC):
     destination: str
-    name: str
+    version: str
     is_open: bool
 
     _filename: str
     _file: IO
 
-    def __init__(self, destination: str, name: str) -> None:
-        name = name[:-4] if name.endswith('.csv') else name
+    def __init__(self, destination: str, version: str) -> None:
+        version = version[:-4] if version.endswith('.csv') else version
 
         self.destination = destination
-        self.name = name
-        self._filename = os.path.join(destination, name + '.csv')
+        self.version = version
+        self._filename = os.path.join(destination, version + '.csv')
         self.is_open = False
 
     def _open(self, open_mode):
@@ -226,11 +226,11 @@ def _process_backup(meta_writer: MetaWriter, source: str,
 
 
 def _metas_to_check(command: commands.CheckCommand) -> List[MetaReader]:
-    if command.name:
-        return [MetaReader(command.destination, command.name)]
+    if command.version:
+        return [MetaReader(command.location, command.version)]
     else:
-        return [MetaReader(command.destination, n)
-                for n in os.listdir(command.destination) if n.endswith('.csv')]
+        return [MetaReader(command.location, n)
+                for n in os.listdir(command.location) if n.endswith('.csv')]
 
 
 def _check_missing_hashes(meta: MetaReader) -> List[str]:
@@ -239,7 +239,7 @@ def _check_missing_hashes(meta: MetaReader) -> List[str]:
         for entry in meta.file_entries():
             if not is_file_already_backuped(meta.destination, entry.hash):
                 errors.append(f'Missing hash {entry.hash} '
-                              f'for {entry.name} in {meta.name}')
+                              f'for {entry.name} in {meta.version}')
     return errors
 
 
@@ -284,44 +284,44 @@ def _version_exists(backup_path: str, version: str):
 def new(command: commands.NewCommand) -> None:
     if not os.path.exists(command.source):
         raise ValueError(f'source path {command.source} does not exists')
-    if os.path.exists(command.destination):
+    if os.path.exists(command.location):
         raise ValueError(
-            f'destination path {command.destination} already exists')
+            f'destination path {command.location} already exists')
 
     print(f'Creating new backup from {command.source} '
-          f'into {command.destination}')
+          f'into {command.location}')
 
-    snapshot_meta = MetaWriter(command.destination, command.name)
-    _initialize(command.destination)
+    snapshot_meta = MetaWriter(command.location, command.version)
+    _initialize(command.location)
     _process_backup(snapshot_meta, command.source,
-                    command.destination, command.zip)
+                    command.location, command.zip)
 
 
 def update(command: commands.UpdateCommand) -> None:
     if not os.path.exists(command.source):
         raise ValueError(f'source path {command.source} does not exists')
-    if not os.path.exists(command.destination):
+    if not os.path.exists(command.location):
         raise ValueError(
-            f'destination path {command.destination} does not exists')
-    if _version_exists(command.destination, command.name):
+            f'destination path {command.location} does not exists')
+    if _version_exists(command.location, command.version):
         raise ValueError(f'There is already a backup versioned '
-                         f'with the name {command.name}')
+                         f'with the name {command.version}')
 
-    print(f'Updating backup at {command.destination} '
-          f'with new version {command.name}')
-    snapshot_meta = MetaWriter(command.destination, command.name)
-    _process_backup(snapshot_meta, command.source, command.destination,
+    print(f'Updating backup at {command.location} '
+          f'with new version {command.version}')
+    snapshot_meta = MetaWriter(command.location, command.version)
+    _process_backup(snapshot_meta, command.source, command.location,
                     command.zip)
 
 
 def check(command: commands.CheckCommand) -> List[str]:
-    if not os.path.exists(command.destination):
+    if not os.path.exists(command.location):
         raise ValueError(
-            f'destination path {command.destination} does not exists')
-    if (command.name is not None and
-            not _version_exists(command.destination, command.name)):
-        raise ValueError(f'Backup version named {command.name} '
-                         f'does not exists at {command.destination}')
+            f'destination path {command.location} does not exists')
+    if (command.version is not None and
+            not _version_exists(command.location, command.version)):
+        raise ValueError(f'Backup version named {command.version} '
+                         f'does not exists at {command.location}')
 
     metas = _metas_to_check(command)
     errors = []
@@ -338,17 +338,17 @@ def check(command: commands.CheckCommand) -> List[str]:
 
 
 def restore(command: commands.RestoreCommand) -> None:
-    if not os.path.exists(command.from_source):
+    if not os.path.exists(command.location):
         raise ValueError(
-            f'Backup source path {command.from_source} does not exists')
-    if (os.path.exists(command.to_destination) and
-            any(os.scandir(command.to_destination))):
+            f'Backup source path {command.location} does not exists')
+    if (os.path.exists(command.destination) and
+            any(os.scandir(command.destination))):
         raise ValueError(
-            f'Backup restore destination "{command.to_destination}" '
+            f'Backup restore destination "{command.destination}" '
             'already exists and is not empty')
-    if command.version_name not in _versions(command.from_source):
+    if command.version_name not in _versions(command.location):
         raise ValueError(
             f'Backup version {command.version_name} does not exists in source')
 
-    _restore_version(command.from_source, command.version_name,
-                     command.to_destination)
+    _restore_version(command.location, command.version_name,
+                     command.destination)

@@ -4,31 +4,31 @@ from typing import Optional
 
 @dataclass
 class NewCommand:
-    name: str
+    version: str
     source: str
-    destination: str
+    location: str
     password: str
     zip: bool
 
 
 @dataclass
 class UpdateCommand:
-    name: str
+    version: str
     source: str
-    destination: str
+    location: str
     password: str
     zip: bool
 
 
 @dataclass
 class CheckCommand:
-    destination: str
-    name: Optional[str] = None
+    location: str
+    version: Optional[str] = None
 
 
 @dataclass
 class RestoreCommand:
-    from_source: str
-    to_destination: str
+    location: str
+    destination: str
     version_name: str
     password: str
