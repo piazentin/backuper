@@ -16,7 +16,8 @@ class ArgParserTest(unittest.TestCase):
                              name='BackupName',
                              source='/first/source',
                              destination='/second/destination',
-                             zip=False))
+                             zip=False,
+                             password=None))
 
     def test_new_backup_with_zip(self):
         args = parser.parse(
@@ -28,7 +29,22 @@ class ArgParserTest(unittest.TestCase):
                              name='BackupName',
                              source='/first/source',
                              destination='/second/destination',
-                             zip=True))
+                             zip=True,
+                             password=None))
+
+    def test_new_backup_with_password(self):
+        args = parser.parse(
+            'new /first/source /second/destination -n BackupName '
+            '--zip --password ^YabadabaDo_'.split()
+        )
+        self.assertIsInstance(args, c.NewCommand)
+        self.assertEqual(args,
+                         c.NewCommand(
+                             name='BackupName',
+                             source='/first/source',
+                             destination='/second/destination',
+                             zip=True,
+                             password='^YabadabaDo_'))
 
     @patch('backuper.argparser._default_name')
     def test_new_backup_default_name(self, _mocked_default_name):
@@ -41,7 +57,8 @@ class ArgParserTest(unittest.TestCase):
             name='2021-01-31T120102',
             source='/first/source',
             destination='/second/destination',
-            zip=False))
+            zip=False,
+            password=None))
 
     def test_update_backup(self):
         args = parser.parse(
@@ -52,7 +69,8 @@ class ArgParserTest(unittest.TestCase):
             name='BackupName',
             source='/first/source',
             destination='/second/destination',
-            zip=False))
+            zip=False,
+            password=None))
 
     def test_update_backup_with_zip(self):
         args = parser.parse(
@@ -63,7 +81,20 @@ class ArgParserTest(unittest.TestCase):
             name='BackupName',
             source='/first/source',
             destination='/second/destination',
-            zip=True))
+            zip=True,
+            password=None))
+
+    def test_update_backup_with_password(self):
+        args = parser.parse(
+            'update /first/source /second/destination '
+            '--zip --name BackupName -p ^YabadabaDo_'.split())
+        self.assertIsInstance(args, c.UpdateCommand)
+        self.assertEqual(args, c.UpdateCommand(
+            name='BackupName',
+            source='/first/source',
+            destination='/second/destination',
+            zip=True,
+            password='^YabadabaDo_'))
 
     @patch('backuper.argparser._default_name')
     def test_update_backup_default_name(self, _mocked_default_name):
@@ -75,7 +106,8 @@ class ArgParserTest(unittest.TestCase):
             name='2021-01-31T120102',
             source='/first/source',
             destination='/second/destination',
-            zip=False))
+            zip=False,
+            password=None))
 
     def test_check_backup(self):
         args = parser.parse('check /second/destination'.split())
@@ -96,5 +128,18 @@ class ArgParserTest(unittest.TestCase):
         self.assertEqual(args, c.RestoreCommand(
             from_source='/backup/source',
             to_destination='/backup/destination',
-            version_name='backup-version'
+            version_name='backup-version',
+            password=None
+        ))
+
+    def test_restore_backup_with_password(self):
+        args = parser.parse(
+            'restore --from /backup/source --to /backup/destination '
+            '--version backup-version -p &Yaba*Daba(Do)'.split())
+        self.assertIsInstance(args, c.RestoreCommand)
+        self.assertEqual(args, c.RestoreCommand(
+            from_source='/backup/source',
+            to_destination='/backup/destination',
+            version_name='backup-version',
+            password='&Yaba*Daba(Do)'
         ))

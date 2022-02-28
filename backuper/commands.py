@@ -7,6 +7,7 @@ class NewCommand:
     name: str
     source: str
     destination: str
+    password: str
     zip: bool
 
 
@@ -15,6 +16,7 @@ class UpdateCommand:
     name: str
     source: str
     destination: str
+    password: str
     zip: bool
 
 
@@ -29,3 +31,4 @@ class RestoreCommand:
     from_source: str
     to_destination: str
     version_name: str
+    password: str

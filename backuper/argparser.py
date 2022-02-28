@@ -9,6 +9,7 @@ def _to_new_command(namespace):
         name=namespace.name,
         source=namespace.source,
         destination=namespace.destination,
+        password=namespace.password,
         zip=namespace.zip
     )
 
@@ -18,6 +19,7 @@ def _to_update_command(namespace):
         name=namespace.name,
         source=namespace.source,
         destination=namespace.destination,
+        password=namespace.password,
         zip=namespace.zip
     )
 
@@ -33,12 +35,22 @@ def _to_restore_command(namespace):
     return c.RestoreCommand(
         from_source=namespace.from_source,
         to_destination=namespace.to_destination,
-        version_name=namespace.version
+        version_name=namespace.version,
+        password=namespace.password
     )
 
 
 def _default_name() -> str:
     return datetime.now().strftime("%Y-%m-%dT%H%M%S")
+
+
+def with_password_arg(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        '--password', '-p',
+        dest='password',
+        default=None,
+        help='Password used to encrypt files. If not informed, assume no password protection'
+    )
 
 
 def parse(args):
@@ -55,6 +67,7 @@ def parse(args):
     parser_new.add_argument(
         '--zip',  action='store_true', help='Should compact the files?', dest='zip', default=False
     )
+    with_password_arg(parser_new)
     parser_new.set_defaults(func=_to_new_command)
 
     parser_update = subparsers.add_parser('update')
@@ -66,6 +79,7 @@ def parse(args):
     parser_update.add_argument(
         '--zip', action='store_true', help='Should compact the files?', dest='zip', default=False
     )
+    with_password_arg(parser_update)
     parser_update.set_defaults(func=_to_update_command)
 
     parser_check = subparsers.add_parser('check')
@@ -82,6 +96,7 @@ def parse(args):
         '--to', required=True, help='Empty directory in which the version of the backup will be restored to', dest="to_destination", default=None)
     parser_restore.add_argument(
         '--version', required=True, help='Version name of the backup to restore', default=None)
+    with_password_arg(parser_restore)
     parser_restore.set_defaults(func=_to_restore_command)
 
     parsed = parser.parse_args(args)
