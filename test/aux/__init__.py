@@ -43,4 +43,4 @@ def list_all_files_recursive(base_path: str) -> List[str]:
 
 def random_string(lenght: int = 12) -> str:
     non_whitespace = string.digits + string.ascii_letters + string.punctuation
-    return ''.join(random.sample(non_whitespace, lenght))
+    return ''.join(random.choices(non_whitespace, k=lenght))

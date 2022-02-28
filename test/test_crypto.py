@@ -1,5 +1,7 @@
 import backuper.crypto as crypto
+import base64
 import os
+import random
 import test.aux as aux
 import unittest
 
@@ -33,7 +35,19 @@ class CryptoTest(unittest.TestCase):
         self.assertDictEqual(written_vars, read_vars)
 
     def test_generate_key_derivation(self):
-        pass
+        salt = os.urandom(16)
+        password = aux.random_string(random.randint(2, 128))
+
+        key = crypto.generate_key_derivation(salt, password)
+        self.assertEqual(
+            key,
+            crypto.generate_key_derivation(salt, password)
+        )
+
+        self.assertEqual(
+            32,
+            len(base64.urlsafe_b64decode(key))
+        )
 
     def test_open_dek(self):
         pass
