@@ -2,7 +2,12 @@ import sys
 
 import backuper.argparser as parser
 import backuper.backup as bkp
-from backuper.commands import CheckCommand, NewCommand, RestoreCommand, UpdateCommand
+from backuper.commands import (
+    CheckCommand,
+    NewCommand,
+    RestoreCommand,
+    UpdateCommand
+)
 
 
 def run_with_args():
