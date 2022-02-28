@@ -21,7 +21,16 @@ class CryptoTest(unittest.TestCase):
         )
 
     def test_write_read_meta(self):
-        pass
+        written_vars = {
+            'a': '12kjdhgfsjkdr1234"',
+            'b': 'aloha  '
+        }
+        dirname = aux.gen_temp_dir('write_read_meta')
+
+        crypto.write_crypto_meta(dirname, written_vars)
+        read_vars = crypto.read_crypto_meta(dirname)
+
+        self.assertDictEqual(written_vars, read_vars)
 
     def test_generate_key_derivation(self):
         pass
