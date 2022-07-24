@@ -10,6 +10,8 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 import backuper.implementation.commands as commands
 import backuper.implementation.config as config
+from backuper.implementation.csv_db import CsvDb
+from backuper.implementation.models import Version
 
 
 @dataclass
@@ -272,14 +274,6 @@ def _restore_version(backup_path: str, version: str, destination: str) -> None:
                 _restore_file(backup_path, entry, destination)
 
 
-def _versions(backup_path: str) -> List[str]:
-    return [
-        f.strip(config.VERSION_FILE_EXT)
-        for f in os.listdir(backup_path)
-        if f.endswith(config.VERSION_FILE_EXT)
-    ]
-
-
 def _version_exists(backup_path: str, version: str):
     return (
         backup_path is not None
@@ -344,6 +338,9 @@ def check(command: commands.CheckCommand) -> List[str]:
 
 
 def restore(command: commands.RestoreCommand) -> None:
+    db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
+    version = Version(command.version_name)
+
     if not os.path.exists(command.location):
         raise ValueError(f"Backup source path {command.location} does not exists")
     if os.path.exists(command.destination) and any(os.scandir(command.destination)):
@@ -351,7 +348,7 @@ def restore(command: commands.RestoreCommand) -> None:
             f'Backup restore destination "{command.destination}" '
             "already exists and is not empty"
         )
-    if command.version_name not in _versions(command.location):
+    if version not in db.get_all_versions():
         raise ValueError(
             f"Backup version {command.version_name} does not exists in source"
         )

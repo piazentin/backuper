@@ -1,4 +1,12 @@
-VERSION_FILE_EXT = ".csv"
+from dataclasses import dataclass
+
+
+@dataclass
+class CsvDbConfig:
+    backup_dir: str
+    csv_file_extension: str = ".csv"
+
+
 ZIPFILE_EXT = ".zip"
 HASHING_BUFFER_SIZE = 65536  # 64kb
 ZIP_SKIP_EXTENSIONS = {
