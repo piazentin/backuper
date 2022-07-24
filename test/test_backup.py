@@ -1,6 +1,7 @@
 import os
 import unittest
 import filecmp
+from backuper.implementation import models
 
 import test.aux as aux
 
@@ -23,16 +24,16 @@ class BackupIntegrationTest(unittest.TestCase):
             "/1/0/e/4/10e4b6f822c7493e1aea22d15e515b584b2db7a2",
         },
         "meta": [
-            bkp.FileEntry("text_file1.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"),
-            bkp.FileEntry(
+            models.FileEntry("text_file1.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"),
+            models.FileEntry(
                 "text_file1 copy.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"
             ),
-            bkp.FileEntry(
+            models.FileEntry(
                 "subdir/starry_night.png", "07c8762861e8f1927708408702b1fd747032f050"
             ),
-            bkp.FileEntry("LICENSE", "10e4b6f822c7493e1aea22d15e515b584b2db7a2"),
-            bkp.DirEntry("subdir"),
-            bkp.DirEntry("subdir/empty dir"),
+            models.FileEntry("LICENSE", "10e4b6f822c7493e1aea22d15e515b584b2db7a2"),
+            models.DirEntry("subdir"),
+            models.DirEntry("subdir/empty dir"),
         ],
     }
 
@@ -45,13 +46,13 @@ class BackupIntegrationTest(unittest.TestCase):
             }
         ),
         "meta": [
-            bkp.FileEntry("text_file1.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"),
-            bkp.FileEntry(
+            models.FileEntry("text_file1.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"),
+            models.FileEntry(
                 "text_file1 copy.txt", "7f2f5c0211b62cc0f2da98c3f253bba9dc535b17"
             ),
-            bkp.FileEntry("LICENSE", "5b5174193c004d8f27811b961fbaa545b5460f2a"),
-            bkp.DirEntry("subdir"),
-            bkp.DirEntry("subdir/empty dir"),
+            models.FileEntry("LICENSE", "5b5174193c004d8f27811b961fbaa545b5460f2a"),
+            models.DirEntry("subdir"),
+            models.DirEntry("subdir/empty dir"),
         ],
     }
 

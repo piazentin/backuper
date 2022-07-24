@@ -4,25 +4,15 @@ import os
 import shutil
 import pathlib
 from abc import ABC
-from dataclasses import dataclass
-from typing import IO, Iterator, List, Union
+from typing import IO, Iterator, List
 from zipfile import ZipFile, ZIP_DEFLATED
+from backuper.implementation import csv_db
 
 import backuper.implementation.commands as commands
 import backuper.implementation.config as config
 from backuper.implementation.csv_db import CsvDb
-from backuper.implementation.models import Version
-
-
-@dataclass
-class DirEntry:
-    name: str
-
-
-@dataclass
-class FileEntry:
-    name: str
-    hash: str
+from backuper.implementation.filestore import Filestore
+import backuper.implementation.models as models
 
 
 class _MetaFileHandler(ABC):
@@ -74,21 +64,21 @@ class MetaReader(_MetaFileHandler):
     def __enter__(self) -> "MetaReader":
         self._open("r")
 
-    def entries(self) -> Iterator[Union[DirEntry, FileEntry]]:
+    def entries(self) -> Iterator[models.FileSystemObject]:
         for row in csv.reader(self._file, delimiter=",", quotechar='"'):
             if row[0] == "d":
-                yield DirEntry(row[1])
+                yield models.DirEntry(row[1])
             elif row[0] == "f":
-                yield FileEntry(row[1], row[2])
+                yield models.FileEntry(row[1], row[2])
 
-    def file_entries(self) -> Iterator[FileEntry]:
+    def file_entries(self) -> Iterator[models.FileEntry]:
         for entry in self.entries():
-            if isinstance(entry, FileEntry):
+            if isinstance(entry, models.FileEntry):
                 yield entry
 
-    def dir_entries(self) -> Iterator[DirEntry]:
+    def dir_entries(self) -> Iterator[models.DirEntry]:
         for entry in self.entries():
-            if isinstance(entry, DirEntry):
+            if isinstance(entry, models.DirEntry):
                 yield entry
 
 
@@ -228,35 +218,23 @@ def _process_backup(
             )
 
 
-def _metas_to_check(command: commands.CheckCommand) -> List[MetaReader]:
-    if command.version:
-        return [MetaReader(command.location, command.version)]
-    else:
-        return [
-            MetaReader(command.location, n)
-            for n in os.listdir(command.location)
-            if n.endswith(".csv")
-        ]
-
-
-def _check_missing_hashes(meta: MetaReader) -> List[str]:
+def _check_missing_hashes(version: models.Version, db: CsvDb, filestore: Filestore) -> List[str]:
     errors = []
-    with meta:
-        for entry in meta.file_entries():
-            if not is_file_already_backuped(meta.destination, entry.hash):
+    for file in db.get_files_for_version(version):
+        if not is_file_already_backuped(filestore._config.backup_dir, file.hash):
                 errors.append(
-                    f"Missing hash {entry.hash} " f"for {entry.name} in {meta.version}"
+                    f"Missing hash {file.hash} " f"for {file.name} in {version.name}"
                 )
     return errors
 
 
-def _restore_dir(entry: DirEntry, destination: str) -> None:
+def _restore_dir(entry: models.DirEntry, destination: str) -> None:
     absolute_path = relative_to_absolute_path(destination, entry.name)
     create_dir_if_not_exists(absolute_path)
 
 
 def _restore_file(
-    backup_path: str, file_entry: FileEntry, destination_dir: str
+    backup_path: str, file_entry: models.FileEntry, destination_dir: str
 ) -> None:
     absolute_origin_filename = backuped_filename(backup_path, file_entry.hash, False)
     absolute_dest_filename = relative_to_absolute_path(destination_dir, file_entry.name)
@@ -264,14 +242,12 @@ def _restore_file(
     copy_file_if_not_exists(absolute_origin_filename, absolute_dest_filename)
 
 
-def _restore_version(backup_path: str, version: str, destination: str) -> None:
-    reader = MetaReader(backup_path, version)
-    with reader:
-        for entry in reader.entries():
-            if isinstance(entry, DirEntry):
-                _restore_dir(entry, destination)
-            elif isinstance(entry, FileEntry):
-                _restore_file(backup_path, entry, destination)
+def _restore_version(version: models.Version, destination: str, db: CsvDb, filestore: Filestore) -> None:
+    for entry in db.get_fs_objects_for_version(version):
+        if isinstance(entry, models.DirEntry):
+            _restore_dir(entry, destination)
+        elif isinstance(entry, models.FileEntry):
+            _restore_file(filestore._config.backup_dir, entry, destination)
 
 
 def _version_exists(backup_path: str, version: str):
@@ -313,21 +289,28 @@ def update(command: commands.UpdateCommand) -> None:
 
 
 def check(command: commands.CheckCommand) -> List[str]:
+    db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
+    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location))
+
     if not os.path.exists(command.location):
         raise ValueError(f"destination path {command.location} does not exists")
-    if command.version is not None and not _version_exists(
+
+    if command.version is None:
+        versions = db.get_all_versions()
+    elif _version_exists(
         command.location, command.version
     ):
+        versions = [models.Version(command.version)]
+    else:
         raise ValueError(
             f"Backup version named {command.version} "
             f"does not exists at {command.location}"
         )
 
-    metas = _metas_to_check(command)
     errors = []
 
-    for meta in metas:
-        errors += _check_missing_hashes(meta)
+    for version in versions:
+        errors += _check_missing_hashes(version, db, filestore)
 
     for error in errors:
         print(error)
@@ -339,7 +322,8 @@ def check(command: commands.CheckCommand) -> List[str]:
 
 def restore(command: commands.RestoreCommand) -> None:
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
-    version = Version(command.version_name)
+    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location))
+    version = models.Version(command.version_name)
 
     if not os.path.exists(command.location):
         raise ValueError(f"Backup source path {command.location} does not exists")
@@ -353,4 +337,4 @@ def restore(command: commands.RestoreCommand) -> None:
             f"Backup version {command.version_name} does not exists in source"
         )
 
-    _restore_version(command.location, command.version_name, command.destination)
+    _restore_version(version, command.destination, db, filestore)
