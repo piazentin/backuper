@@ -4,85 +4,164 @@ from datetime import datetime
 import backuper.commands as c
 
 
-def _to_new_command(namespace):
-    return c.NewCommand(
-        name=namespace.name,
-        source=namespace.source,
-        destination=namespace.destination,
-        zip=namespace.zip
-    )
-
-
-def _to_update_command(namespace):
-    return c.UpdateCommand(
-        name=namespace.name,
-        source=namespace.source,
-        destination=namespace.destination,
-        zip=namespace.zip
-    )
-
-
-def _to_check_command(namespace):
-    return c.CheckCommand(
-        destination=namespace.destination,
-        name=namespace.name
-    )
-
-
-def _to_restore_command(namespace):
-    return c.RestoreCommand(
-        from_source=namespace.from_source,
-        to_destination=namespace.to_destination,
-        version_name=namespace.version
-    )
-
-
 def _default_name() -> str:
     return datetime.now().strftime("%Y-%m-%dT%H%M%S")
+
+
+def with_source_arg(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        'source',
+        help='Source directory to backup.\n'
+             'This is where the data to be backuped is.'
+    )
+
+
+def with_destination_arg(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        'destination',
+        default=None,
+        help='Destination to restore to.\n'
+             'This is where your backuped data will be copied to.'
+    )
+
+
+def with_location_arg(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        'location',
+        help='Backup data location. This is where your data is backuped.\n'
+             'Must be an empty directory for the creation of a new backup.\n'
+             'Must be an existing backup directory for a restore,'
+             ' check, or update.'
+    )
+
+
+VERSION_ARG_ALIASES = ['--name', '-n', '--version', '-v']
+
+
+def with_version_arg(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        *VERSION_ARG_ALIASES,
+        dest='version',
+        default=_default_name(),
+        help='Optional named version of the backup.\n'
+             'Defaults to now\'s datetime formatted as 0000-00-00T000000'
+    )
+
+
+def with_check_version_arg(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        *VERSION_ARG_ALIASES,
+        dest='version',
+        default=None,
+        help='Optional of the version of the backup to check.\n'
+             'If not informed, will check all versions.'
+    )
+
+
+def with_restore_version_arg(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        *VERSION_ARG_ALIASES,
+        dest='version',
+        default=None,
+        required=True,
+        help='Named version of the backup that will be restored.'
+    )
+
+
+def with_password_arg(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        '--password', '-p',
+        dest='password',
+        default=None,
+        help='Password used to encrypt files. '
+             'If not informed, assume no password protection'
+    )
+
+
+def with_zip_arg(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        '--zip', '-z',
+        dest='zip',
+        default=False,
+        action='store_true',
+        help='Optional flag to indicate either to use Zip compaction or not'
+    )
+
+
+def configure_new_parser(parser: argparse.ArgumentParser):
+    def to_command(ns):
+        return c.NewCommand(
+            version=ns.version,
+            source=ns.source,
+            location=ns.location,
+            password=ns.password,
+            zip=ns.zip
+        )
+
+    with_source_arg(parser)
+    with_location_arg(parser)
+    with_version_arg(parser)
+    with_zip_arg(parser)
+    with_password_arg(parser)
+    parser.set_defaults(func=to_command)
+
+
+def configure_update_parser(parser: argparse.ArgumentParser):
+    def to_command(ns):
+        return c.UpdateCommand(
+            version=ns.version,
+            source=ns.source,
+            location=ns.location,
+            password=ns.password,
+            zip=ns.zip
+        )
+
+    with_source_arg(parser)
+    with_location_arg(parser)
+    with_version_arg(parser)
+    with_zip_arg(parser)
+    with_password_arg(parser)
+    parser.set_defaults(func=to_command)
+
+
+def configure_check_parser(parser: argparse.ArgumentParser):
+    def to_command(ns):
+        return c.CheckCommand(
+            location=ns.location,
+            version=ns.version
+        )
+
+    with_location_arg(parser)
+    with_check_version_arg(parser)
+    parser.set_defaults(func=to_command)
+
+
+def configure_restore_parser(parser: argparse.ArgumentParser):
+    def to_command(ns):
+        return c.RestoreCommand(
+            location=ns.location,
+            destination=ns.destination,
+            version_name=ns.version,
+            password=ns.password
+        )
+
+    with_location_arg(parser)
+    with_destination_arg(parser)
+    with_restore_version_arg(parser)
+    with_password_arg(parser)
+    parser.set_defaults(func=to_command)
 
 
 def parse(args):
     parser = argparse.ArgumentParser('Backup utility')
     subparsers = parser.add_subparsers(
-        title='Valid commands: new, update, check, restore')
-
-    parser_new = subparsers.add_parser('new')
-    parser_new.add_argument('source', help='Source directory to backup')
-    parser_new.add_argument(
-        'destination', help='Destination of the backup. Must be the name of a new directory.')
-    parser_new.add_argument(
-        '--name', '-n', help='Name of the version of the backup. Defaults to now\'s date time formatted as 0000-00-00T000000', dest='name', default=_default_name())
-    parser_new.add_argument(
-        '--zip', help='Should compact the files?', dest='zip', default=False
+        title='Valid commands: new, update, check, restore'
     )
-    parser_new.set_defaults(func=_to_new_command)
 
-    parser_update = subparsers.add_parser('update')
-    parser_update.add_argument('source', help='Source directory to backup')
-    parser_update.add_argument(
-        'destination', help='Destination of the backup. Must be the name of an existing backup directory.')
-    parser_update.add_argument(
-        '--name', '-n', help='Name of the version of the backup. Defaults to now\'s date time formatted as 0000-00-00T000000', dest='name', default=_default_name())
-    parser_update.add_argument(
-        '--zip', help='Should compact the files?', dest='zip', default=False
-    )
-    parser_update.set_defaults(func=_to_update_command)
-
-    parser_check = subparsers.add_parser('check')
-    parser_check.add_argument(
-        'destination', help='Destination of the existing backup directory')
-    parser_check.add_argument(
-        '--name', '-n', help='Optional of the version of the backup to check. If not informed, will check all versions', dest='name', default=None)
-    parser_check.set_defaults(func=_to_check_command)
-
-    parser_restore = subparsers.add_parser('restore')
-    parser_restore.add_argument(
-        '--from', required=True, help='Source directory containing the backup data', dest='from_source', default=None)
-    parser_restore.add_argument(
-        '--to', required=True, help='Empty directory in which the version of the backup will be restored to', dest="to_destination", default=None)
-    parser_restore.add_argument(
-        '--version', required=True, help='Version name of the backup to restore', default=None)
-    parser_restore.set_defaults(func=_to_restore_command)
+    configure_new_parser(subparsers.add_parser('new'))
+    configure_update_parser(subparsers.add_parser('update'))
+    configure_check_parser(subparsers.add_parser('check'))
+    configure_restore_parser(subparsers.add_parser('restore'))
 
     parsed = parser.parse_args(args)
     return parsed.func(parsed)
