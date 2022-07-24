@@ -7,15 +7,15 @@ from tempfile import gettempdir
 from typing import List
 
 
-TEMP_SUBDIR = 'backuper'
+TEMP_SUBDIR = "backuper"
 
 
-def gen_temp_dir_path(prefix: str = '') -> str:
+def gen_temp_dir_path(prefix: str = "") -> str:
     dirname = prefix + datetime.now().strftime("%Y-%m-%dT%H%M%S%f")
     return os.path.join(gettempdir(), TEMP_SUBDIR, dirname)
 
 
-def gen_temp_dir(prefix: str = '') -> str:
+def gen_temp_dir(prefix: str = "") -> str:
     dirpath = gen_temp_dir_path(prefix)
     os.makedirs(dirpath, exist_ok=True)
     return dirpath
@@ -29,8 +29,7 @@ def rm_temp_dirs():
 
 def list_all_files_recursive(base_path: str) -> List[str]:
     def dir_filenames(dirpath, filenames):
-        return [os.path.join(dirpath, filename)
-                for filename in filenames]
+        return [os.path.join(dirpath, filename) for filename in filenames]
 
     files = []
     dirlist = [base_path]
@@ -38,9 +37,9 @@ def list_all_files_recursive(base_path: str) -> List[str]:
         for (dirpath, dirnames, filenames) in os.walk(dirlist.pop()):
             dirlist.extend(dirnames)
             files.extend(dir_filenames(dirpath, filenames))
-    return [f[len(base_path):] for f in files]
+    return [f[len(base_path) :] for f in files]
 
 
 def random_string(lenght: int = 12) -> str:
     non_whitespace = string.digits + string.ascii_letters + string.punctuation
-    return ''.join(random.choices(non_whitespace, k=lenght))
+    return "".join(random.choices(non_whitespace, k=lenght))

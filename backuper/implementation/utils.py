@@ -1,6 +1,6 @@
 import base64
 
-DEFAULT_ENCODING = 'UTF-8'
+DEFAULT_ENCODING = "UTF-8"
 
 
 def to_base64str(data: bytes) -> str:
