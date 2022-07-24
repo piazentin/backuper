@@ -2,8 +2,7 @@ import hashlib
 import os
 import shutil
 import pathlib
-from abc import ABC
-from typing import IO, List
+from typing import List
 from zipfile import ZipFile, ZIP_DEFLATED
 
 import backuper.implementation.commands as commands
@@ -11,51 +10,6 @@ import backuper.implementation.config as config
 from backuper.implementation.csv_db import CsvDb
 from backuper.implementation.filestore import Filestore
 import backuper.implementation.models as models
-
-
-class _MetaFileHandler(ABC):
-    destination: str
-    version: str
-    is_open: bool
-
-    _filename: str
-    _file: IO
-
-    def __init__(self, destination: str, version: str) -> None:
-        version = version[:-4] if version.endswith(".csv") else version
-
-        self.destination = destination
-        self.version = version
-        self._filename = os.path.join(destination, version + ".csv")
-        self.is_open = False
-
-    def _open(self, open_mode):
-        if not self.is_open:
-            self._file = open(self._filename, open_mode, encoding="utf-8")
-            self.is_open = True
-        return self
-
-    def __exit__(self, *_) -> None:
-        if self.is_open:
-            self._file.close()
-            self.is_open = False
-
-
-class MetaWriter(_MetaFileHandler):
-    def __enter__(self) -> "MetaWriter":
-        return self._open("x")
-
-    def add_dir(self, dirname: str) -> None:
-        if not self.is_open:
-            raise ValueError("Meta is not open for writing")
-        normalized = normalize_path(dirname)
-        self._file.write(f'"d","{normalized}",""\n')
-
-    def add_file(self, filename: str, hash: str) -> None:
-        if not self.is_open:
-            raise ValueError("Meta is not open for writing")
-        normalized = normalize_path(filename)
-        self._file.write(f'"f","{normalized}","{hash}"\n')
 
 
 def relative_to_absolute_path(root_path: str, relative: str) -> str:
@@ -67,11 +21,11 @@ def absolute_to_relative_path(root_path: str, absolute: str) -> str:
 
 
 def _process_dirs(
-    snapshot_meta: MetaWriter, relative_path: str, dirs: List[str]
+    version: models.Version, relative_path: str, dirs: List[str], db: CsvDb
 ) -> None:
     for dir in dirs:
         dirname = os.path.join(relative_path, dir)
-        snapshot_meta.add_dir(dirname)
+        db.insert_dir(version, models.DirEntry(dirname))
 
 
 def sha1_hash(filename: str) -> str:
@@ -83,10 +37,6 @@ def sha1_hash(filename: str) -> str:
                 break
             sha1.update(data)
     return sha1.hexdigest()
-
-
-def normalize_path(path: str) -> str:
-    return "/".join(path.replace("\\", "/").strip("/").split("/"))
 
 
 def create_dir_if_not_exists(dir: str) -> None:
@@ -143,11 +93,12 @@ def create_zipped_file(backup_main_dir: str, file_to_copy: str, filehash: str) -
 
 
 def process_file(
-    meta_writer: MetaWriter,
+    version: models.Version,
     backup_main_dir: str,
     relative_filename: str,
     file_to_copy: str,
     zip: bool,
+    db: CsvDb,
 ) -> str:
     filehash = sha1_hash(file_to_copy)
     if not is_file_already_backuped(backup_main_dir, filehash):
@@ -159,21 +110,22 @@ def process_file(
                 backup_main_dir, filehash, should_zip
             )
             copy_file_if_not_exists(file_to_copy, filename_at_destination)
-    meta_writer.add_file(relative_filename, filehash)
+    db.insert_file(version, models.FileEntry(relative_filename, filehash))
 
 
 def _process_files(
-    meta_writer: MetaWriter,
+    version: models.Version,
     full_path: str,
     relative_path: str,
     backup_main_dir: str,
     filenames: List[str],
     zip: bool,
+    db: CsvDb,
 ) -> None:
     for filename in filenames:
         relative_filename = os.path.join(relative_path, filename)
         file_to_copy = os.path.join(full_path, filename)
-        process_file(meta_writer, backup_main_dir, relative_filename, file_to_copy, zip)
+        process_file(version, backup_main_dir, relative_filename, file_to_copy, zip, db)
 
 
 def _initialize(path: str) -> None:
@@ -182,16 +134,13 @@ def _initialize(path: str) -> None:
 
 
 def _process_backup(
-    meta_writer: MetaWriter, source: str, destination: str, zip: bool
+    version: models.Version, source: str, destination: str, zip: bool, db: CsvDb
 ) -> None:
-    with meta_writer:
-        for dirpath, dirnames, filenames in os.walk(source, topdown=True):
-            relative_path = absolute_to_relative_path(source, dirpath)
-            print(f'Processing "{relative_path}"...')
-            _process_dirs(meta_writer, relative_path, dirnames)
-            _process_files(
-                meta_writer, dirpath, relative_path, destination, filenames, zip
-            )
+    for dirpath, dirnames, filenames in os.walk(source, topdown=True):
+        relative_path = absolute_to_relative_path(source, dirpath)
+        print(f'Processing "{relative_path}"...')
+        _process_dirs(version, relative_path, dirnames, db)
+        _process_files(version, dirpath, relative_path, destination, filenames, zip, db)
 
 
 def _check_missing_hashes(
@@ -239,6 +188,9 @@ def _version_exists(backup_path: str, version: str):
 
 
 def new(command: commands.NewCommand) -> None:
+    db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
+    version = models.Version(command.version)
+
     if not os.path.exists(command.source):
         raise ValueError(f"source path {command.source} does not exists")
     if os.path.exists(command.location):
@@ -246,12 +198,14 @@ def new(command: commands.NewCommand) -> None:
 
     print(f"Creating new backup from {command.source} " f"into {command.location}")
 
-    snapshot_meta = MetaWriter(command.location, command.version)
     _initialize(command.location)
-    _process_backup(snapshot_meta, command.source, command.location, command.zip)
+    _process_backup(version, command.source, command.location, command.zip, db)
 
 
 def update(command: commands.UpdateCommand) -> None:
+    db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
+    version = models.Version(command.version)
+
     if not os.path.exists(command.source):
         raise ValueError(f"source path {command.source} does not exists")
     if not os.path.exists(command.location):
@@ -264,8 +218,7 @@ def update(command: commands.UpdateCommand) -> None:
     print(
         f"Updating backup at {command.location} " f"with new version {command.version}"
     )
-    snapshot_meta = MetaWriter(command.location, command.version)
-    _process_backup(snapshot_meta, command.source, command.location, command.zip)
+    _process_backup(version, command.source, command.location, command.zip, db)
 
 
 def check(command: commands.CheckCommand) -> List[str]:

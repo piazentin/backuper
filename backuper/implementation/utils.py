@@ -3,6 +3,10 @@ import base64
 DEFAULT_ENCODING = "UTF-8"
 
 
+def normalize_path(path: str) -> str:
+    return "/".join(path.replace("\\", "/").strip("/").split("/"))
+
+
 def to_base64str(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).decode(DEFAULT_ENCODING)
 

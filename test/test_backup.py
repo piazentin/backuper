@@ -1,7 +1,7 @@
 import os
 import unittest
 import filecmp
-from backuper.implementation import models
+from backuper.implementation import models, utils
 from backuper.implementation.config import CsvDbConfig
 from backuper.implementation.csv_db import CsvDb
 
@@ -67,16 +67,16 @@ class BackupIntegrationTest(unittest.TestCase):
 
     def test_normalize_path(self):
         dir = "direc tory"
-        self.assertEqual(bkp.normalize_path(dir), dir)
+        self.assertEqual(utils.normalize_path(dir), dir)
 
         nix_filename = "/subdir/another dir/file.name.csv"
         self.assertEqual(
-            bkp.normalize_path(nix_filename), "subdir/another dir/file.name.csv"
+            utils.normalize_path(nix_filename), "subdir/another dir/file.name.csv"
         )
 
         windows_filename = "\\subdir\\another dir\\file.name.csv"
         self.assertEqual(
-            bkp.normalize_path(windows_filename), "subdir/another dir/file.name.csv"
+            utils.normalize_path(windows_filename), "subdir/another dir/file.name.csv"
         )
 
     def test_new_backup(self):
@@ -214,12 +214,15 @@ class BackupIntegrationTest(unittest.TestCase):
         errors = bkp.check(CheckCommand(location=destination, version="test_new"))
         self.assertEqual(errors, [])
 
-        # corrupt meta file inserting non existing hash
-        meta_writer = bkp.MetaWriter(destination, "test_new")
-        with meta_writer._open("a"):
-            meta_writer.add_file(
+        # corrupt db by inserting non existing hash
+        version = models.Version("test_new")
+        db = CsvDb(CsvDbConfig(destination))
+        db.insert_file(
+            version,
+            models.FileEntry(
                 "file-with-missing-meta", "44efbcfa3f99f75e396a56a119940e2c1f902d2c"
-            )
+            ),
+        )
 
         errors = bkp.check(CheckCommand(location=destination, version="test_new"))
         self.assertEqual(
@@ -255,20 +258,22 @@ class BackupIntegrationTest(unittest.TestCase):
         errors = bkp.check(CheckCommand(destination))
         self.assertEqual(errors, [])
 
-        # corrupt meta file inserting non existing hash
-        meta_writer = bkp.MetaWriter(destination, "test_new")
-        with meta_writer._open("a"):
-            meta_writer.add_file(
+        # corrupt db inserting non existing hash
+        db = CsvDb(CsvDbConfig(destination))
+        db.insert_file(
+            models.Version("test_new"),
+            models.FileEntry(
                 "file-with-missing-meta (new)",
                 "44efbcfa3f99f75e396a56a119940e2c1f902d2c",
-            )
-
-        meta_writer = bkp.MetaWriter(destination, "test_update")
-        with meta_writer._open("a"):
-            meta_writer.add_file(
+            ),
+        )
+        db.insert_file(
+            models.Version("test_update"),
+            models.FileEntry(
                 "file-with-missing-meta (update)",
                 "acf6cd23d9aec2664665886e068504e799a0053f",
-            )
+            ),
+        )
 
         errors = bkp.check(CheckCommand(destination))
         self.assertEqual(
