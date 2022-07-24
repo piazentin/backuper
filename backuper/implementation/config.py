@@ -6,6 +6,7 @@ class CsvDbConfig:
     backup_dir: str
     csv_file_extension: str = ".csv"
 
+
 @dataclass
 class FilestoreConfig:
     backup_dir: str

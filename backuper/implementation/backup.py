@@ -1,12 +1,10 @@
-import csv
 import hashlib
 import os
 import shutil
 import pathlib
 from abc import ABC
-from typing import IO, Iterator, List
+from typing import IO, List
 from zipfile import ZipFile, ZIP_DEFLATED
-from backuper.implementation import csv_db
 
 import backuper.implementation.commands as commands
 import backuper.implementation.config as config
@@ -58,28 +56,6 @@ class MetaWriter(_MetaFileHandler):
             raise ValueError("Meta is not open for writing")
         normalized = normalize_path(filename)
         self._file.write(f'"f","{normalized}","{hash}"\n')
-
-
-class MetaReader(_MetaFileHandler):
-    def __enter__(self) -> "MetaReader":
-        self._open("r")
-
-    def entries(self) -> Iterator[models.FileSystemObject]:
-        for row in csv.reader(self._file, delimiter=",", quotechar='"'):
-            if row[0] == "d":
-                yield models.DirEntry(row[1])
-            elif row[0] == "f":
-                yield models.FileEntry(row[1], row[2])
-
-    def file_entries(self) -> Iterator[models.FileEntry]:
-        for entry in self.entries():
-            if isinstance(entry, models.FileEntry):
-                yield entry
-
-    def dir_entries(self) -> Iterator[models.DirEntry]:
-        for entry in self.entries():
-            if isinstance(entry, models.DirEntry):
-                yield entry
 
 
 def relative_to_absolute_path(root_path: str, relative: str) -> str:
@@ -218,13 +194,15 @@ def _process_backup(
             )
 
 
-def _check_missing_hashes(version: models.Version, db: CsvDb, filestore: Filestore) -> List[str]:
+def _check_missing_hashes(
+    version: models.Version, db: CsvDb, filestore: Filestore
+) -> List[str]:
     errors = []
     for file in db.get_files_for_version(version):
         if not is_file_already_backuped(filestore._config.backup_dir, file.hash):
-                errors.append(
-                    f"Missing hash {file.hash} " f"for {file.name} in {version.name}"
-                )
+            errors.append(
+                f"Missing hash {file.hash} " f"for {file.name} in {version.name}"
+            )
     return errors
 
 
@@ -242,7 +220,9 @@ def _restore_file(
     copy_file_if_not_exists(absolute_origin_filename, absolute_dest_filename)
 
 
-def _restore_version(version: models.Version, destination: str, db: CsvDb, filestore: Filestore) -> None:
+def _restore_version(
+    version: models.Version, destination: str, db: CsvDb, filestore: Filestore
+) -> None:
     for entry in db.get_fs_objects_for_version(version):
         if isinstance(entry, models.DirEntry):
             _restore_dir(entry, destination)
@@ -297,9 +277,7 @@ def check(command: commands.CheckCommand) -> List[str]:
 
     if command.version is None:
         versions = db.get_all_versions()
-    elif _version_exists(
-        command.location, command.version
-    ):
+    elif _version_exists(command.location, command.version):
         versions = [models.Version(command.version)]
     else:
         raise ValueError(

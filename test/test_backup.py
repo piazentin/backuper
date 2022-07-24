@@ -2,6 +2,8 @@ import os
 import unittest
 import filecmp
 from backuper.implementation import models
+from backuper.implementation.config import CsvDbConfig
+from backuper.implementation.csv_db import CsvDb
 
 import test.aux as aux
 
@@ -24,7 +26,9 @@ class BackupIntegrationTest(unittest.TestCase):
             "/1/0/e/4/10e4b6f822c7493e1aea22d15e515b584b2db7a2",
         },
         "meta": [
-            models.FileEntry("text_file1.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"),
+            models.FileEntry(
+                "text_file1.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"
+            ),
             models.FileEntry(
                 "text_file1 copy.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"
             ),
@@ -46,7 +50,9 @@ class BackupIntegrationTest(unittest.TestCase):
             }
         ),
         "meta": [
-            models.FileEntry("text_file1.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"),
+            models.FileEntry(
+                "text_file1.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"
+            ),
             models.FileEntry(
                 "text_file1 copy.txt", "7f2f5c0211b62cc0f2da98c3f253bba9dc535b17"
             ),
@@ -90,10 +96,9 @@ class BackupIntegrationTest(unittest.TestCase):
         for filename in data_filenames:
             self.assertIn(filename, self.new_backup["hashes"])
 
-        reader = bkp.MetaReader(destination, "testing")
-        with reader:
-            for entry in reader.entries():
-                self.assertIn(entry, self.new_backup["meta"])
+        db = CsvDb(CsvDbConfig(destination))
+        for entry in db.get_fs_objects_for_version(models.Version("testing")):
+            self.assertIn(entry, self.new_backup["meta"])
 
     def test_new_backup_with_zip(self):
         destination = aux.gen_temp_dir_path("new_backup")
@@ -112,10 +117,9 @@ class BackupIntegrationTest(unittest.TestCase):
         for filename in data_filenames:
             self.assertIn(filename.strip(".zip"), self.new_backup["hashes"])
 
-        reader = bkp.MetaReader(destination, "testing")
-        with reader:
-            for entry in reader.entries():
-                self.assertIn(entry, self.new_backup["meta"])
+        db = CsvDb(CsvDbConfig(destination))
+        for entry in db.get_fs_objects_for_version(models.Version("testing")):
+            self.assertIn(entry, self.new_backup["meta"])
 
     def test_update_backup(self):
         destination = aux.gen_temp_dir_path("update_backup")
@@ -143,10 +147,9 @@ class BackupIntegrationTest(unittest.TestCase):
         for filename in data_filenames:
             self.assertIn(filename, self.update_backup["hashes"])
 
-        reader = bkp.MetaReader(destination, "test_update")
-        with reader:
-            for entry in reader.entries():
-                self.assertIn(entry, self.update_backup["meta"])
+        db = CsvDb(CsvDbConfig(destination))
+        for entry in db.get_fs_objects_for_version(models.Version("test_update")):
+            self.assertIn(entry, self.update_backup["meta"])
 
     def test_update_backup_with_zip(self):
         destination = aux.gen_temp_dir_path("update_backup")
@@ -174,10 +177,9 @@ class BackupIntegrationTest(unittest.TestCase):
         for filename in data_filenames:
             self.assertIn(filename.strip(".zip"), self.update_backup["hashes"])
 
-        reader = bkp.MetaReader(destination, "test_update")
-        with reader:
-            for entry in reader.entries():
-                self.assertIn(entry, self.update_backup["meta"])
+        db = CsvDb(CsvDbConfig(destination))
+        for entry in db.get_fs_objects_for_version(models.Version("test_update")):
+            self.assertIn(entry, self.update_backup["meta"])
 
     def test_meta_reader(self):
         destination = aux.gen_temp_dir_path("meta_reader")
@@ -191,12 +193,11 @@ class BackupIntegrationTest(unittest.TestCase):
             )
         )
 
-        reader = bkp.MetaReader(destination, "test_new")
-        with reader:
-            entries = list(reader.entries())
-
+        db = CsvDb(CsvDbConfig(destination))
         for expected in self.new_backup["meta"]:
-            self.assertIn(expected, entries)
+            self.assertIn(
+                expected, db.get_fs_objects_for_version(models.Version("test_new"))
+            )
 
     def test_check_backup_version(self):
         destination = aux.gen_temp_dir_path("check_backup_name")
