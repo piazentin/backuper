@@ -28,6 +28,7 @@ ZIP_SKIP_EXTENSIONS = {
     ".rm",
     ".mkv",
     ".wmv",
+    ".tar.xz",
 }
 ZIP_MIN_FILESIZE_IN_BYTES = 1024  # 1KB
 

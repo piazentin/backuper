@@ -84,7 +84,7 @@ def with_zip_arg(parser: argparse.ArgumentParser):
         "--zip",
         "-z",
         dest="zip",
-        default=False,
+        default=True,
         action="store_true",
         help="Optional flag to indicate either to use Zip compaction or not",
     )
