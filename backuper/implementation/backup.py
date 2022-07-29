@@ -1,5 +1,4 @@
 import os
-import shutil
 import backuper.implementation.utils as utils
 from typing import List
 
@@ -88,17 +87,13 @@ def _check_missing_hashes(
     return errors
 
 
-def _restore_dir(entry: models.DirEntry, destination: str) -> None:
-    absolute_path = utils.relative_to_absolute_path(destination, entry.name)
-    create_dir_if_not_exists(absolute_path)
-
-
 def _restore_version(
     version: models.Version, destination: str, db: CsvDb, filestore: Filestore
 ) -> None:
     for entry in db.get_fs_objects_for_version(version):
         if isinstance(entry, models.DirEntry):
-            _restore_dir(entry, destination)
+            absolute_path = utils.relative_to_absolute_path(destination, entry.name)
+            create_dir_if_not_exists(absolute_path)
         elif isinstance(entry, models.StoredFile):
             print(f"Restoring {entry.restore_path} to {destination}")
             filestore.restore(entry, destination)

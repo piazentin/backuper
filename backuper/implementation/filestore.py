@@ -60,7 +60,6 @@ class Filestore:
                 sha1.update(data)
 
                 if is_compressed:
-                    # TODO test if zipping/unzipping is working alright
                     zipinfo = ZipInfo(f"part{str(parts_counter).rjust(4, '0')}")
                     zip_archive.writestr(zipinfo, data)
                 else:
@@ -104,11 +103,14 @@ class Filestore:
         absolute_restored_location = utils.relative_to_absolute_path(
             restore_to_path, stored_file.restore_path
         )
+
         os.makedirs(os.path.dirname(absolute_restored_location), exist_ok=True)
 
         if stored_file.is_compressed:
-            shutil.copyfile(
-                absolute_stored_location, absolute_restored_location
-            )  # TODO
+            with ZipFile(absolute_stored_location, "r") as zipfile, open(
+                absolute_restored_location, "wb"
+            ) as restored:
+                for name in sorted(zipfile.namelist()):
+                    restored.write(zipfile.read(name))
         else:
             shutil.copyfile(absolute_stored_location, absolute_restored_location)

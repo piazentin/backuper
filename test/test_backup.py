@@ -453,6 +453,27 @@ class BackupIntegrationTest(unittest.TestCase):
         self.assertEqual(["starry_night.png"], comp.subdirs["subdir"].common_files)
         self.assertEqual(["empty dir"], comp.subdirs["subdir"].common_dirs)
 
+    def test_restore_with_zip(self):
+        from_source = aux.gen_temp_dir_path("from_source")
+        to_destination = aux.gen_temp_dir_path("restore_with_zip_to_destination")
+        bkp.new(
+            NewCommand(
+                "test", self.new_backup["source"], from_source, password=None, zip=True
+            )
+        )
+        bkp.restore(
+            RestoreCommand(
+                from_source, to_destination, version_name="test", password=None
+            )
+        )
+
+        comp = filecmp.dircmp(self.new_backup["source"], to_destination)
+        self.assertEqual(
+            ["LICENSE", "text_file1 copy.txt", "text_file1.txt"], comp.common_files
+        )
+        self.assertEqual(["starry_night.png"], comp.subdirs["subdir"].common_files)
+        self.assertEqual(["empty dir"], comp.subdirs["subdir"].common_dirs)
+
 
 if __name__ == "__main__":
     unittest.main()
