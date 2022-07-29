@@ -27,3 +27,13 @@ FileSystemObject = Union[DirEntry, FileEntry]
 @dataclass
 class Version:
     name: str
+
+
+StoredLocation = str
+
+
+@dataclass
+class StoredFile:
+    restore_path: str
+    sha1hash: str
+    stored_location: StoredLocation

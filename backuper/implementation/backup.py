@@ -2,6 +2,7 @@ import hashlib
 import os
 import shutil
 import pathlib
+import backuper.implementation.utils as utils
 from typing import List
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -10,14 +11,6 @@ import backuper.implementation.config as config
 from backuper.implementation.csv_db import CsvDb
 from backuper.implementation.filestore import Filestore
 import backuper.implementation.models as models
-
-
-def relative_to_absolute_path(root_path: str, relative: str) -> str:
-    return os.path.join(root_path, relative)
-
-
-def absolute_to_relative_path(root_path: str, absolute: str) -> str:
-    return absolute[len(root_path) :]
 
 
 def _process_dirs(
@@ -99,17 +92,20 @@ def process_file(
     file_to_copy: str,
     zip: bool,
     db: CsvDb,
+    filestore: Filestore,
 ) -> str:
     filehash = sha1_hash(file_to_copy)
     if not is_file_already_backuped(backup_main_dir, filehash):
         should_zip = zip and should_zip_file(file_to_copy)
-        if should_zip:
-            create_zipped_file(backup_main_dir, file_to_copy, filehash)
-        else:
-            filename_at_destination = backuped_filename(
-                backup_main_dir, filehash, should_zip
-            )
-            copy_file_if_not_exists(file_to_copy, filename_at_destination)
+        stored_file = filestore.put(file_to_copy, relative_filename)
+        print(stored_file)
+        # if should_zip:
+        #     create_zipped_file(backup_main_dir, file_to_copy, filehash)
+        # else:
+        #     filename_at_destination = backuped_filename(
+        #         backup_main_dir, filehash, should_zip
+        #     )
+        #     copy_file_if_not_exists(file_to_copy, filename_at_destination)
     db.insert_file(version, models.FileEntry(relative_filename, filehash))
 
 
@@ -121,11 +117,20 @@ def _process_files(
     filenames: List[str],
     zip: bool,
     db: CsvDb,
+    filestore: Filestore,
 ) -> None:
     for filename in filenames:
         relative_filename = os.path.join(relative_path, filename)
         file_to_copy = os.path.join(full_path, filename)
-        process_file(version, backup_main_dir, relative_filename, file_to_copy, zip, db)
+        process_file(
+            version,
+            backup_main_dir,
+            relative_filename,
+            file_to_copy,
+            zip,
+            db,
+            filestore,
+        )
 
 
 def _initialize(path: str) -> None:
@@ -134,13 +139,20 @@ def _initialize(path: str) -> None:
 
 
 def _process_backup(
-    version: models.Version, source: str, destination: str, zip: bool, db: CsvDb
+    version: models.Version,
+    source: str,
+    destination: str,
+    zip: bool,
+    db: CsvDb,
+    filestore: Filestore,
 ) -> None:
     for dirpath, dirnames, filenames in os.walk(source, topdown=True):
-        relative_path = absolute_to_relative_path(source, dirpath)
+        relative_path = utils.absolute_to_relative_path(source, dirpath)
         print(f'Processing "{relative_path}"...')
         _process_dirs(version, relative_path, dirnames, db)
-        _process_files(version, dirpath, relative_path, destination, filenames, zip, db)
+        _process_files(
+            version, dirpath, relative_path, destination, filenames, zip, db, filestore
+        )
 
 
 def _check_missing_hashes(
@@ -156,7 +168,7 @@ def _check_missing_hashes(
 
 
 def _restore_dir(entry: models.DirEntry, destination: str) -> None:
-    absolute_path = relative_to_absolute_path(destination, entry.name)
+    absolute_path = utils.relative_to_absolute_path(destination, entry.name)
     create_dir_if_not_exists(absolute_path)
 
 
@@ -164,7 +176,9 @@ def _restore_file(
     backup_path: str, file_entry: models.FileEntry, destination_dir: str
 ) -> None:
     absolute_origin_filename = backuped_filename(backup_path, file_entry.hash, False)
-    absolute_dest_filename = relative_to_absolute_path(destination_dir, file_entry.name)
+    absolute_dest_filename = utils.relative_to_absolute_path(
+        destination_dir, file_entry.name
+    )
     print(f"Restoring {absolute_origin_filename} to {absolute_dest_filename}")
     copy_file_if_not_exists(absolute_origin_filename, absolute_dest_filename)
 
@@ -189,6 +203,7 @@ def _version_exists(backup_path: str, version: str):
 
 def new(command: commands.NewCommand) -> None:
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
+    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location, zip_enabled=command.zip))
     version = models.Version(command.version)
 
     if not os.path.exists(command.source):
@@ -199,11 +214,14 @@ def new(command: commands.NewCommand) -> None:
     print(f"Creating new backup from {command.source} " f"into {command.location}")
 
     _initialize(command.location)
-    _process_backup(version, command.source, command.location, command.zip, db)
+    _process_backup(
+        version, command.source, command.location, command.zip, db, filestore
+    )
 
 
 def update(command: commands.UpdateCommand) -> None:
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
+    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location, zip_enabled=command.zip))
     version = models.Version(command.version)
 
     if not os.path.exists(command.source):
@@ -218,7 +236,9 @@ def update(command: commands.UpdateCommand) -> None:
     print(
         f"Updating backup at {command.location} " f"with new version {command.version}"
     )
-    _process_backup(version, command.source, command.location, command.zip, db)
+    _process_backup(
+        version, command.source, command.location, command.zip, db, filestore
+    )
 
 
 def check(command: commands.CheckCommand) -> List[str]:
