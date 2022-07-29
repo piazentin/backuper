@@ -36,6 +36,14 @@ class Filestore:
         def relative_dir_from_hash(filehash: str) -> str:
             return os.path.join(filehash[0], filehash[1], filehash[2], filehash[3])
 
+        properties_key = "#".join(
+            [
+                restore_path,
+                str(os.path.getsize(origin_file)),
+                str(os.path.getmtime(origin_file)),
+            ]
+        )
+
         with open(origin_file, mode="rb") as f:
             sha1 = hashlib.sha1()
             temp_name = str(uuid4())
@@ -91,7 +99,11 @@ class Filestore:
 
             restore_path_normalized = utils.normalize_path(restore_path)
             return models.StoredFile(
-                restore_path_normalized, hash, stored_location, is_compressed
+                restore_path_normalized,
+                hash,
+                stored_location,
+                properties_key,
+                is_compressed,
             )
 
     def restore(

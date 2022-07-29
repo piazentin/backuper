@@ -68,43 +68,17 @@ def with_restore_version_arg(parser: argparse.ArgumentParser):
     )
 
 
-def with_password_arg(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--password",
-        "-p",
-        dest="password",
-        default=None,
-        help="Password used to encrypt files. "
-        "If not informed, assume no password protection",
-    )
-
-
-def with_zip_arg(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--zip",
-        "-z",
-        dest="zip",
-        default=True,
-        action="store_true",
-        help="Optional flag to indicate either to use Zip compaction or not",
-    )
-
-
 def configure_new_parser(parser: argparse.ArgumentParser):
     def to_command(ns):
         return c.NewCommand(
             version=ns.version,
             source=ns.source,
             location=ns.location,
-            password=ns.password,
-            zip=ns.zip,
         )
 
     with_source_arg(parser)
     with_location_arg(parser)
     with_version_arg(parser)
-    with_zip_arg(parser)
-    with_password_arg(parser)
     parser.set_defaults(func=to_command)
 
 
@@ -114,15 +88,11 @@ def configure_update_parser(parser: argparse.ArgumentParser):
             version=ns.version,
             source=ns.source,
             location=ns.location,
-            password=ns.password,
-            zip=ns.zip,
         )
 
     with_source_arg(parser)
     with_location_arg(parser)
     with_version_arg(parser)
-    with_zip_arg(parser)
-    with_password_arg(parser)
     parser.set_defaults(func=to_command)
 
 
@@ -141,13 +111,11 @@ def configure_restore_parser(parser: argparse.ArgumentParser):
             location=ns.location,
             destination=ns.destination,
             version_name=ns.version,
-            password=ns.password,
         )
 
     with_location_arg(parser)
     with_destination_arg(parser)
     with_restore_version_arg(parser)
-    with_password_arg(parser)
     parser.set_defaults(func=to_command)
 
 

@@ -6,7 +6,7 @@ from backuper.implementation import utils
 StoredLocation = str
 
 
-@dataclass
+@dataclass(frozen=True)
 class DirEntry:
     name: str
 
@@ -19,11 +19,12 @@ class Version:
     name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class StoredFile:
     restore_path: str
     sha1hash: str
     stored_location: StoredLocation
+    properties_key: str
     is_compressed: bool
 
 

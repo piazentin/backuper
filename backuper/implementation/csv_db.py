@@ -9,7 +9,7 @@ def _fileobject_db_to_model(row) -> models.FileSystemObject:
     if row[0] == "d":
         return models.DirEntry(row[1])
     elif row[0] == "f":
-        return models.StoredFile(row[1], row[2], row[3], row[4] == "True")
+        return models.StoredFile(row[1], row[2], row[3], row[4], row[5] == "True")
 
 
 class CsvDb:
@@ -48,6 +48,15 @@ class CsvDb:
                 for row in csv.reader(file, delimiter=",", quotechar='"')
             ]
 
+    def get_dirs_for_version(self, version: models.Version) -> List[models.DirEntry]:
+        version_file = self._csv_path_from_name(version.name)
+        with open(version_file, "r", encoding="utf-8") as file:
+            return [
+                _fileobject_db_to_model(row)
+                for row in csv.reader(file, delimiter=",", quotechar='"')
+                if row[0] == "d"
+            ]
+
     def get_files_for_version(self, version: models.Version) -> List[models.StoredFile]:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "r", encoding="utf-8") as file:
@@ -66,5 +75,5 @@ class CsvDb:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "a") as writer:
             writer.write(
-                f'"f","{file.restore_path}","{file.sha1hash}","{file.stored_location}","{file.is_compressed}"\n'
+                f'"f","{file.restore_path}","{file.sha1hash}","{file.stored_location}","{file.properties_key}","{file.is_compressed}"\n'
             )

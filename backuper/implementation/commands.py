@@ -7,8 +7,6 @@ class NewCommand:
     version: str
     source: str
     location: str
-    password: str
-    zip: bool
 
 
 @dataclass
@@ -16,8 +14,6 @@ class UpdateCommand:
     version: str
     source: str
     location: str
-    password: str
-    zip: bool
 
 
 @dataclass
@@ -31,4 +27,3 @@ class RestoreCommand:
     location: str
     destination: str
     version_name: str
-    password: str

@@ -107,7 +107,9 @@ def new(command: commands.NewCommand) -> None:
 
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
     filestore = Filestore(
-        config.FilestoreConfig(backup_dir=command.location, zip_enabled=command.zip)
+        config.FilestoreConfig(
+            backup_dir=command.location, zip_enabled=config.ZIP_ENABLED
+        )
     )
     version = models.Version(command.version)
 
@@ -118,7 +120,9 @@ def new(command: commands.NewCommand) -> None:
 def update(command: commands.UpdateCommand) -> None:
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
     filestore = Filestore(
-        config.FilestoreConfig(backup_dir=command.location, zip_enabled=command.zip)
+        config.FilestoreConfig(
+            backup_dir=command.location, zip_enabled=config.ZIP_ENABLED
+        )
     )
     version = models.Version(command.version)
 
