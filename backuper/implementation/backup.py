@@ -1,10 +1,7 @@
-import hashlib
 import os
 import shutil
-import pathlib
 import backuper.implementation.utils as utils
 from typing import List
-from zipfile import ZipFile, ZIP_DEFLATED
 
 import backuper.implementation.commands as commands
 import backuper.implementation.config as config
@@ -19,17 +16,6 @@ def _process_dirs(
     for dir in dirs:
         dirname = os.path.join(relative_path, dir)
         db.insert_dir(version, models.DirEntry(dirname))
-
-
-def sha1_hash(filename: str) -> str:
-    sha1 = hashlib.sha1()
-    with open(filename, "rb") as f:
-        while True:
-            data = f.read(config.HASHING_BUFFER_SIZE)
-            if not data:
-                break
-            sha1.update(data)
-    return sha1.hexdigest()
 
 
 def create_dir_if_not_exists(dir: str) -> None:
@@ -61,15 +47,6 @@ def prepare_file_destination(backup_main_dir: str, filehash: str) -> None:
     create_dir_if_not_exists(dirname)
 
 
-def should_zip_file(file_to_copy: str) -> bool:
-    ext = pathlib.Path(file_to_copy).suffix
-    size = os.path.getsize(file_to_copy)
-    return (
-        ext not in config.ZIP_SKIP_EXTENSIONS
-        and size > config.ZIP_MIN_FILESIZE_IN_BYTES
-    )
-
-
 def copy_file_if_not_exists(file_to_copy: str, destination: str) -> None:
     if not os.path.isfile(destination):
         filedir = os.path.dirname(destination)
@@ -77,72 +54,24 @@ def copy_file_if_not_exists(file_to_copy: str, destination: str) -> None:
         shutil.copyfile(file_to_copy, destination)
 
 
-def create_zipped_file(backup_main_dir: str, file_to_copy: str, filehash: str) -> None:
-    if not is_file_already_backuped(backup_main_dir, filehash):
-        prepare_file_destination(backup_main_dir, filehash)
-        filename = backuped_filename(backup_main_dir, filehash, True)
-        with ZipFile(filename, mode="x") as zipfile:
-            zipfile.write(file_to_copy, filehash, compress_type=ZIP_DEFLATED)
-
-
-def process_file(
-    version: models.Version,
-    backup_main_dir: str,
-    relative_filename: str,
-    file_to_copy: str,
-    zip: bool,
-    db: CsvDb,
-    filestore: Filestore,
-) -> str:
-    filehash = sha1_hash(file_to_copy)
-    if not is_file_already_backuped(backup_main_dir, filehash):
-        should_zip = zip and should_zip_file(file_to_copy)
-        stored_file = filestore.put(file_to_copy, relative_filename)
-        print(stored_file)
-        # if should_zip:
-        #     create_zipped_file(backup_main_dir, file_to_copy, filehash)
-        # else:
-        #     filename_at_destination = backuped_filename(
-        #         backup_main_dir, filehash, should_zip
-        #     )
-        #     copy_file_if_not_exists(file_to_copy, filename_at_destination)
-    db.insert_file(version, models.FileEntry(relative_filename, filehash))
-
-
 def _process_files(
     version: models.Version,
     full_path: str,
     relative_path: str,
-    backup_main_dir: str,
     filenames: List[str],
-    zip: bool,
     db: CsvDb,
     filestore: Filestore,
 ) -> None:
     for filename in filenames:
-        relative_filename = os.path.join(relative_path, filename)
         file_to_copy = os.path.join(full_path, filename)
-        process_file(
-            version,
-            backup_main_dir,
-            relative_filename,
-            file_to_copy,
-            zip,
-            db,
-            filestore,
-        )
-
-
-def _initialize(path: str) -> None:
-    os.makedirs(path)
-    os.mkdir(os.path.join(path, "data"))
+        relative_filename = os.path.join(relative_path, filename)
+        stored_file = filestore.put(file_to_copy, relative_filename)
+        db.insert_file(version, models.FileEntry(relative_filename, stored_file.sha1hash))
 
 
 def _process_backup(
     version: models.Version,
     source: str,
-    destination: str,
-    zip: bool,
     db: CsvDb,
     filestore: Filestore,
 ) -> None:
@@ -151,7 +80,7 @@ def _process_backup(
         print(f'Processing "{relative_path}"...')
         _process_dirs(version, relative_path, dirnames, db)
         _process_files(
-            version, dirpath, relative_path, destination, filenames, zip, db, filestore
+            version, dirpath, relative_path, filenames, db, filestore
         )
 
 
@@ -193,29 +122,19 @@ def _restore_version(
             _restore_file(filestore._config.backup_dir, entry, destination)
 
 
-def _version_exists(backup_path: str, version: str):
-    return (
-        backup_path is not None
-        and version is not None
-        and os.path.exists(os.path.join(backup_path, version + ".csv"))
-    )
-
-
 def new(command: commands.NewCommand) -> None:
-    db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
-    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location, zip_enabled=command.zip))
-    version = models.Version(command.version)
-
     if not os.path.exists(command.source):
         raise ValueError(f"source path {command.source} does not exists")
     if os.path.exists(command.location):
         raise ValueError(f"destination path {command.location} already exists")
 
-    print(f"Creating new backup from {command.source} " f"into {command.location}")
+    db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
+    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location, zip_enabled=command.zip))
+    version = models.Version(command.version)
 
-    _initialize(command.location)
+    print(f"Creating new backup from {command.source} " f"into {command.location}")
     _process_backup(
-        version, command.source, command.location, command.zip, db, filestore
+        version, command.source, db, filestore
     )
 
 
@@ -228,7 +147,7 @@ def update(command: commands.UpdateCommand) -> None:
         raise ValueError(f"source path {command.source} does not exists")
     if not os.path.exists(command.location):
         raise ValueError(f"destination path {command.location} does not exists")
-    if _version_exists(command.location, command.version):
+    if db.maybe_get_version_by_name(command.version):
         raise ValueError(
             f"There is already a backup versioned " f"with the name {command.version}"
         )
@@ -237,7 +156,7 @@ def update(command: commands.UpdateCommand) -> None:
         f"Updating backup at {command.location} " f"with new version {command.version}"
     )
     _process_backup(
-        version, command.source, command.location, command.zip, db, filestore
+        version, command.source, db, filestore
     )
 
 
@@ -250,13 +169,15 @@ def check(command: commands.CheckCommand) -> List[str]:
 
     if command.version is None:
         versions = db.get_all_versions()
-    elif _version_exists(command.location, command.version):
-        versions = [models.Version(command.version)]
     else:
-        raise ValueError(
+        try:
+            versions = [db.get_version_by_name(command.version)]
+        except:
+            raise ValueError(
             f"Backup version named {command.version} "
             f"does not exists at {command.location}"
         )
+
 
     errors = []
 

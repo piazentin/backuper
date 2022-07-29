@@ -13,6 +13,7 @@ class Filestore:
         self._root_path = utils.relative_to_absolute_path(
             self._config.backup_dir, self._config.backup_data_dir
         )
+        os.makedirs(self._root_path, exist_ok=True)
 
     def is_compression_eligible(self, origin_file: os.PathLike) -> bool:
         ext = pathlib.Path(origin_file).suffix
@@ -56,6 +57,7 @@ class Filestore:
                 sha1.update(data)
 
                 if zip_archive:
+                    # TODO test if zipping/unzipping is working alright
                     zipinfo = ZipInfo(f"part{str(parts_counter).rjust(4, '0')}")
                     zip_archive.writestr(zipinfo, data)
                 else:
