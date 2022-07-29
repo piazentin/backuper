@@ -26,16 +26,67 @@ class BackupIntegrationTest(unittest.TestCase):
             "/1/0/e/4/10e4b6f822c7493e1aea22d15e515b584b2db7a2",
         },
         "meta": [
-            models.FileEntry(
-                "text_file1.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"
+            models.StoredFile(
+                "text_file1.txt",
+                "fef9161f9f9a492dba2b1357298f17897849fefc",
+                "f/e/f/9/fef9161f9f9a492dba2b1357298f17897849fefc",
+                False,
             ),
-            models.FileEntry(
-                "text_file1 copy.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"
+            models.StoredFile(
+                "text_file1 copy.txt",
+                "fef9161f9f9a492dba2b1357298f17897849fefc",
+                "f/e/f/9/fef9161f9f9a492dba2b1357298f17897849fefc",
+                False,
             ),
-            models.FileEntry(
-                "subdir/starry_night.png", "07c8762861e8f1927708408702b1fd747032f050"
+            models.StoredFile(
+                "subdir/starry_night.png",
+                "07c8762861e8f1927708408702b1fd747032f050",
+                "0/7/c/8/07c8762861e8f1927708408702b1fd747032f050",
+                False,
             ),
-            models.FileEntry("LICENSE", "10e4b6f822c7493e1aea22d15e515b584b2db7a2"),
+            models.StoredFile(
+                "LICENSE",
+                "10e4b6f822c7493e1aea22d15e515b584b2db7a2",
+                "1/0/e/4/10e4b6f822c7493e1aea22d15e515b584b2db7a2",
+                False,
+            ),
+            models.DirEntry("subdir"),
+            models.DirEntry("subdir/empty dir"),
+        ],
+    }
+
+    new_backup_with_zip = {
+        "source": "./test/resources/bkp_test_sources_new",
+        "hashes": {
+            "/f/e/f/9/fef9161f9f9a492dba2b1357298f17897849fefc",
+            "/0/7/c/8/07c8762861e8f1927708408702b1fd747032f050",
+            "/1/0/e/4/10e4b6f822c7493e1aea22d15e515b584b2db7a2",
+        },
+        "meta": [
+            models.StoredFile(
+                "text_file1.txt",
+                "fef9161f9f9a492dba2b1357298f17897849fefc",
+                "f/e/f/9/fef9161f9f9a492dba2b1357298f17897849fefc",
+                False,
+            ),
+            models.StoredFile(
+                "text_file1 copy.txt",
+                "fef9161f9f9a492dba2b1357298f17897849fefc",
+                "f/e/f/9/fef9161f9f9a492dba2b1357298f17897849fefc",
+                False,
+            ),
+            models.StoredFile(
+                "subdir/starry_night.png",
+                "07c8762861e8f1927708408702b1fd747032f050",
+                "0/7/c/8/07c8762861e8f1927708408702b1fd747032f050",
+                False,
+            ),
+            models.StoredFile(
+                "LICENSE",
+                "10e4b6f822c7493e1aea22d15e515b584b2db7a2",
+                "1/0/e/4/10e4b6f822c7493e1aea22d15e515b584b2db7a2.zip",
+                True,
+            ),
             models.DirEntry("subdir"),
             models.DirEntry("subdir/empty dir"),
         ],
@@ -50,20 +101,63 @@ class BackupIntegrationTest(unittest.TestCase):
             }
         ),
         "meta": [
-            models.FileEntry(
-                "text_file1.txt", "fef9161f9f9a492dba2b1357298f17897849fefc"
+            models.StoredFile(
+                "text_file1.txt",
+                "fef9161f9f9a492dba2b1357298f17897849fefc",
+                "f/e/f/9/fef9161f9f9a492dba2b1357298f17897849fefc",
+                False,
             ),
-            models.FileEntry(
-                "text_file1 copy.txt", "7f2f5c0211b62cc0f2da98c3f253bba9dc535b17"
+            models.StoredFile(
+                "text_file1 copy.txt",
+                "7f2f5c0211b62cc0f2da98c3f253bba9dc535b17",
+                "7/f/2/f/7f2f5c0211b62cc0f2da98c3f253bba9dc535b17",
+                False,
             ),
-            models.FileEntry("LICENSE", "5b5174193c004d8f27811b961fbaa545b5460f2a"),
+            models.StoredFile(
+                "LICENSE",
+                "5b5174193c004d8f27811b961fbaa545b5460f2a",
+                "5/b/5/1/5b5174193c004d8f27811b961fbaa545b5460f2a",
+                False,
+            ),
+            models.DirEntry("subdir"),
+            models.DirEntry("subdir/empty dir"),
+        ],
+    }
+
+    update_backup_with_zip = {
+        "source": "./test/resources/bkp_test_sources_update",
+        "hashes": new_backup["hashes"].union(
+            {
+                "/7/f/2/f/7f2f5c0211b62cc0f2da98c3f253bba9dc535b17",
+                "/5/b/5/1/5b5174193c004d8f27811b961fbaa545b5460f2a",
+            }
+        ),
+        "meta": [
+            models.StoredFile(
+                "text_file1.txt",
+                "fef9161f9f9a492dba2b1357298f17897849fefc",
+                "f/e/f/9/fef9161f9f9a492dba2b1357298f17897849fefc",
+                False,
+            ),
+            models.StoredFile(
+                "text_file1 copy.txt",
+                "7f2f5c0211b62cc0f2da98c3f253bba9dc535b17",
+                "7/f/2/f/7f2f5c0211b62cc0f2da98c3f253bba9dc535b17",
+                False,
+            ),
+            models.StoredFile(
+                "LICENSE",
+                "5b5174193c004d8f27811b961fbaa545b5460f2a",
+                "5/b/5/1/5b5174193c004d8f27811b961fbaa545b5460f2a.zip",
+                True,
+            ),
             models.DirEntry("subdir"),
             models.DirEntry("subdir/empty dir"),
         ],
     }
 
     def tearDown(self) -> None:
-        aux.rm_temp_dirs()
+        pass  # aux.rm_temp_dirs()
 
     def test_normalize_path(self):
         dir = "direc tory"
@@ -119,7 +213,7 @@ class BackupIntegrationTest(unittest.TestCase):
 
         db = CsvDb(CsvDbConfig(destination))
         for entry in db.get_fs_objects_for_version(models.Version("testing")):
-            self.assertIn(entry, self.new_backup["meta"])
+            self.assertIn(entry, self.new_backup_with_zip["meta"])
 
     def test_update_backup(self):
         destination = aux.gen_temp_dir_path("update_backup")
@@ -179,7 +273,7 @@ class BackupIntegrationTest(unittest.TestCase):
 
         db = CsvDb(CsvDbConfig(destination))
         for entry in db.get_fs_objects_for_version(models.Version("test_update")):
-            self.assertIn(entry, self.update_backup["meta"])
+            self.assertIn(entry, self.update_backup_with_zip["meta"])
 
     def test_meta_reader(self):
         destination = aux.gen_temp_dir_path("meta_reader")
@@ -219,8 +313,11 @@ class BackupIntegrationTest(unittest.TestCase):
         db = CsvDb(CsvDbConfig(destination))
         db.insert_file(
             version,
-            models.FileEntry(
-                "file-with-missing-meta", "44efbcfa3f99f75e396a56a119940e2c1f902d2c"
+            models.StoredFile(
+                "file-with-missing-meta",
+                "44efbcfa3f99f75e396a56a119940e2c1f902d2c",
+                "/4/4/e/f/44efbcfa3f99f75e396a56a119940e2c1f902d2c",
+                False,
             ),
         )
 
@@ -262,16 +359,20 @@ class BackupIntegrationTest(unittest.TestCase):
         db = CsvDb(CsvDbConfig(destination))
         db.insert_file(
             models.Version("test_new"),
-            models.FileEntry(
+            models.StoredFile(
                 "file-with-missing-meta (new)",
                 "44efbcfa3f99f75e396a56a119940e2c1f902d2c",
+                "/4/4/e/f/44efbcfa3f99f75e396a56a119940e2c1f902d2c",
+                False,
             ),
         )
         db.insert_file(
             models.Version("test_update"),
-            models.FileEntry(
+            models.StoredFile(
                 "file-with-missing-meta (update)",
                 "acf6cd23d9aec2664665886e068504e799a0053f",
+                "/a/c/f/6/acf6cd23d9aec2664665886e068504e799a0053f",
+                False,
             ),
         )
 

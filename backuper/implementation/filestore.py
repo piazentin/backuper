@@ -1,6 +1,7 @@
 import hashlib
 import os
 import pathlib
+import shutil
 from uuid import uuid4
 from zipfile import ZipFile, ZipInfo
 from backuper.implementation import models, utils
@@ -27,13 +28,13 @@ class Filestore:
     def exists(self, stored_location: models.StoredLocation) -> bool:
         return False
 
-    def put(self, origin_file: os.PathLike, restore_path: str) -> models.StoredFile:
+    def put(
+        self, origin_file: os.PathLike, restore_path: os.PathLike
+    ) -> models.StoredFile:
         # TODO handle IO exceptions and cleanup
 
-        def final_dir_from_hash(filehash: str) -> str:
-            return os.path.join(
-                self._root_path, filehash[0], filehash[1], filehash[2], filehash[3]
-            )
+        def relative_dir_from_hash(filehash: str) -> str:
+            return os.path.join(filehash[0], filehash[1], filehash[2], filehash[3])
 
         with open(origin_file, mode="rb") as f:
             sha1 = hashlib.sha1()
@@ -41,7 +42,9 @@ class Filestore:
             absolute_temp_name = utils.relative_to_absolute_path(
                 self._root_path, temp_name
             )
-            if self.is_compression_eligible(origin_file):
+
+            is_compressed = self.is_compression_eligible(origin_file)
+            if is_compressed:
                 zip_archive = ZipFile(absolute_temp_name, "x")
                 archive = None
             else:
@@ -56,7 +59,7 @@ class Filestore:
                     break
                 sha1.update(data)
 
-                if zip_archive:
+                if is_compressed:
                     # TODO test if zipping/unzipping is working alright
                     zipinfo = ZipInfo(f"part{str(parts_counter).rjust(4, '0')}")
                     zip_archive.writestr(zipinfo, data)
@@ -64,24 +67,48 @@ class Filestore:
                     archive.write(data)
 
             hash = sha1.hexdigest()
-            final_dir = final_dir_from_hash(hash)
+            relative_dir = relative_dir_from_hash(hash)
+            absolute_dir = utils.relative_to_absolute_path(
+                self._root_path, relative_dir
+            )
 
-            if zip_archive:
+            if is_compressed:
                 zip_archive.close()
                 final_name = f"{hash}.zip"
             else:
                 archive.close()
                 final_name = hash
 
-            locator = os.path.join(final_dir, final_name)
+            stored_location = os.path.join(relative_dir, final_name)
             absolute_final_name = utils.relative_to_absolute_path(
-                self._root_path, locator
+                self._root_path, stored_location
             )
 
-            os.makedirs(final_dir, exist_ok=True)
+            os.makedirs(absolute_dir, exist_ok=True)
             if not os.path.exists(absolute_final_name):
                 os.rename(absolute_temp_name, absolute_final_name)
             else:
                 os.remove(absolute_temp_name)
 
-            return models.StoredFile(restore_path, hash, locator)
+            restore_path_normalized = utils.normalize_path(restore_path)
+            return models.StoredFile(
+                restore_path_normalized, hash, stored_location, is_compressed
+            )
+
+    def restore(
+        self, stored_file: models.StoredFile, restore_to_path: os.PathLike
+    ) -> None:
+        absolute_stored_location = utils.relative_to_absolute_path(
+            self._root_path, stored_file.stored_location
+        )
+        absolute_restored_location = utils.relative_to_absolute_path(
+            restore_to_path, stored_file.restore_path
+        )
+        os.makedirs(os.path.dirname(absolute_restored_location), exist_ok=True)
+
+        if stored_file.is_compressed:
+            shutil.copyfile(
+                absolute_stored_location, absolute_restored_location
+            )  # TODO
+        else:
+            shutil.copyfile(absolute_stored_location, absolute_restored_location)

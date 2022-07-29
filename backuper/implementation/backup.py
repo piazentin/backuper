@@ -47,13 +47,6 @@ def prepare_file_destination(backup_main_dir: str, filehash: str) -> None:
     create_dir_if_not_exists(dirname)
 
 
-def copy_file_if_not_exists(file_to_copy: str, destination: str) -> None:
-    if not os.path.isfile(destination):
-        filedir = os.path.dirname(destination)
-        create_dir_if_not_exists(filedir)
-        shutil.copyfile(file_to_copy, destination)
-
-
 def _process_files(
     version: models.Version,
     full_path: str,
@@ -66,7 +59,7 @@ def _process_files(
         file_to_copy = os.path.join(full_path, filename)
         relative_filename = os.path.join(relative_path, filename)
         stored_file = filestore.put(file_to_copy, relative_filename)
-        db.insert_file(version, models.FileEntry(relative_filename, stored_file.sha1hash))
+        db.insert_file(version, stored_file)
 
 
 def _process_backup(
@@ -79,9 +72,7 @@ def _process_backup(
         relative_path = utils.absolute_to_relative_path(source, dirpath)
         print(f'Processing "{relative_path}"...')
         _process_dirs(version, relative_path, dirnames, db)
-        _process_files(
-            version, dirpath, relative_path, filenames, db, filestore
-        )
+        _process_files(version, dirpath, relative_path, filenames, db, filestore)
 
 
 def _check_missing_hashes(
@@ -89,9 +80,10 @@ def _check_missing_hashes(
 ) -> List[str]:
     errors = []
     for file in db.get_files_for_version(version):
-        if not is_file_already_backuped(filestore._config.backup_dir, file.hash):
+        if not is_file_already_backuped(filestore._config.backup_dir, file.sha1hash):
             errors.append(
-                f"Missing hash {file.hash} " f"for {file.name} in {version.name}"
+                f"Missing hash {file.sha1hash} "
+                f"for {file.restore_path} in {version.name}"
             )
     return errors
 
@@ -101,25 +93,15 @@ def _restore_dir(entry: models.DirEntry, destination: str) -> None:
     create_dir_if_not_exists(absolute_path)
 
 
-def _restore_file(
-    backup_path: str, file_entry: models.FileEntry, destination_dir: str
-) -> None:
-    absolute_origin_filename = backuped_filename(backup_path, file_entry.hash, False)
-    absolute_dest_filename = utils.relative_to_absolute_path(
-        destination_dir, file_entry.name
-    )
-    print(f"Restoring {absolute_origin_filename} to {absolute_dest_filename}")
-    copy_file_if_not_exists(absolute_origin_filename, absolute_dest_filename)
-
-
 def _restore_version(
     version: models.Version, destination: str, db: CsvDb, filestore: Filestore
 ) -> None:
     for entry in db.get_fs_objects_for_version(version):
         if isinstance(entry, models.DirEntry):
             _restore_dir(entry, destination)
-        elif isinstance(entry, models.FileEntry):
-            _restore_file(filestore._config.backup_dir, entry, destination)
+        elif isinstance(entry, models.StoredFile):
+            print(f"Restoring {entry.restore_path} to {destination}")
+            filestore.restore(entry, destination)
 
 
 def new(command: commands.NewCommand) -> None:
@@ -129,18 +111,20 @@ def new(command: commands.NewCommand) -> None:
         raise ValueError(f"destination path {command.location} already exists")
 
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
-    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location, zip_enabled=command.zip))
+    filestore = Filestore(
+        config.FilestoreConfig(backup_dir=command.location, zip_enabled=command.zip)
+    )
     version = models.Version(command.version)
 
     print(f"Creating new backup from {command.source} " f"into {command.location}")
-    _process_backup(
-        version, command.source, db, filestore
-    )
+    _process_backup(version, command.source, db, filestore)
 
 
 def update(command: commands.UpdateCommand) -> None:
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
-    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location, zip_enabled=command.zip))
+    filestore = Filestore(
+        config.FilestoreConfig(backup_dir=command.location, zip_enabled=command.zip)
+    )
     version = models.Version(command.version)
 
     if not os.path.exists(command.source):
@@ -155,9 +139,7 @@ def update(command: commands.UpdateCommand) -> None:
     print(
         f"Updating backup at {command.location} " f"with new version {command.version}"
     )
-    _process_backup(
-        version, command.source, db, filestore
-    )
+    _process_backup(version, command.source, db, filestore)
 
 
 def check(command: commands.CheckCommand) -> List[str]:
@@ -174,10 +156,9 @@ def check(command: commands.CheckCommand) -> List[str]:
             versions = [db.get_version_by_name(command.version)]
         except:
             raise ValueError(
-            f"Backup version named {command.version} "
-            f"does not exists at {command.location}"
-        )
-
+                f"Backup version named {command.version} "
+                f"does not exists at {command.location}"
+            )
 
     errors = []
 

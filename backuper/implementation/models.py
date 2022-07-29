@@ -3,6 +3,8 @@ from typing import Union
 
 from backuper.implementation import utils
 
+StoredLocation = str
+
 
 @dataclass
 class DirEntry:
@@ -13,23 +15,8 @@ class DirEntry:
 
 
 @dataclass
-class FileEntry:
-    name: str
-    hash: str
-
-    def normalized_path(self) -> str:
-        return utils.normalize_path(self.name)
-
-
-FileSystemObject = Union[DirEntry, FileEntry]
-
-
-@dataclass
 class Version:
     name: str
-
-
-StoredLocation = str
 
 
 @dataclass
@@ -37,3 +24,7 @@ class StoredFile:
     restore_path: str
     sha1hash: str
     stored_location: StoredLocation
+    is_compressed: bool
+
+
+FileSystemObject = Union[DirEntry, StoredFile]

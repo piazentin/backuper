@@ -9,7 +9,7 @@ def _fileobject_db_to_model(row) -> models.FileSystemObject:
     if row[0] == "d":
         return models.DirEntry(row[1])
     elif row[0] == "f":
-        return models.FileEntry(row[1], row[2])
+        return models.StoredFile(row[1], row[2], row[3], row[4] == "True")
 
 
 class CsvDb:
@@ -48,7 +48,7 @@ class CsvDb:
                 for row in csv.reader(file, delimiter=",", quotechar='"')
             ]
 
-    def get_files_for_version(self, version: models.Version) -> List[models.FileEntry]:
+    def get_files_for_version(self, version: models.Version) -> List[models.StoredFile]:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "r", encoding="utf-8") as file:
             return [
@@ -62,7 +62,9 @@ class CsvDb:
         with open(version_file, "a") as writer:
             writer.write(f'"d","{dir.normalized_path()}",""\n')
 
-    def insert_file(self, version: models.Version, file: models.FileEntry) -> None:
+    def insert_file(self, version: models.Version, file: models.StoredFile) -> None:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "a") as writer:
-            writer.write(f'"f","{file.normalized_path()}","{file.hash}"\n')
+            writer.write(
+                f'"f","{file.restore_path}","{file.sha1hash}","{file.stored_location}","{file.is_compressed}"\n'
+            )
