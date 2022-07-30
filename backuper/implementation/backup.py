@@ -17,35 +17,6 @@ def _process_dirs(
         db.insert_dir(version, models.DirEntry(dirname))
 
 
-def create_dir_if_not_exists(dir: str) -> None:
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-
-
-def backuped_dirname(backup_dir: str, filehash: str) -> str:
-    return os.path.join(
-        backup_dir, "data", filehash[0], filehash[1], filehash[2], filehash[3]
-    )
-
-
-def backuped_filename(backup_main_dir: str, hash: str, zip: bool) -> str:
-    filename = os.path.join(backuped_dirname(backup_main_dir, hash), hash)
-    if zip:
-        filename = filename + config.ZIPFILE_EXT
-    return filename
-
-
-def is_file_already_backuped(backup_main_dir: str, filehash: str) -> bool:
-    return os.path.exists(
-        backuped_filename(backup_main_dir, filehash, False)
-    ) or os.path.exists(backuped_filename(backup_main_dir, filehash, True))
-
-
-def prepare_file_destination(backup_main_dir: str, filehash: str) -> None:
-    dirname = backuped_dirname(backup_main_dir, filehash)
-    create_dir_if_not_exists(dirname)
-
-
 def _process_files(
     version: models.Version,
     full_path: str,
@@ -74,12 +45,12 @@ def _process_backup(
         _process_files(version, dirpath, relative_path, filenames, db, filestore)
 
 
-def _check_missing_hashes(
+def _check_missing_stored_files(
     version: models.Version, db: CsvDb, filestore: Filestore
 ) -> List[str]:
     errors = []
     for file in db.get_files_for_version(version):
-        if not is_file_already_backuped(filestore._config.backup_dir, file.sha1hash):
+        if not filestore.exists(file.stored_location):
             errors.append(
                 f"Missing hash {file.sha1hash} "
                 f"for {file.restore_path} in {version.name}"
@@ -93,7 +64,7 @@ def _restore_version(
     for entry in db.get_fs_objects_for_version(version):
         if isinstance(entry, models.DirEntry):
             absolute_path = utils.relative_to_absolute_path(destination, entry.name)
-            create_dir_if_not_exists(absolute_path)
+            os.makedirs(absolute_path, exist_ok=True)
         elif isinstance(entry, models.StoredFile):
             print(f"Restoring {entry.restore_path} to {destination}")
             filestore.restore(entry, destination)
@@ -162,7 +133,7 @@ def check(command: commands.CheckCommand) -> List[str]:
     errors = []
 
     for version in versions:
-        errors += _check_missing_hashes(version, db, filestore)
+        errors += _check_missing_stored_files(version, db, filestore)
 
     for error in errors:
         print(error)

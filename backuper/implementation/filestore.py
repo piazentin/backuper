@@ -26,7 +26,8 @@ class Filestore:
         )
 
     def exists(self, stored_location: models.StoredLocation) -> bool:
-        return False
+        absolute_location = os.path.join(self._root_path, stored_location)
+        return os.path.exists(absolute_location)
 
     def put(
         self, origin_file: os.PathLike, restore_path: os.PathLike
