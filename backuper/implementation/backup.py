@@ -80,7 +80,8 @@ def new(command: commands.NewCommand) -> None:
     filestore = Filestore(
         config.FilestoreConfig(
             backup_dir=command.location, zip_enabled=config.ZIP_ENABLED
-        )
+        ),
+        db,
     )
     version = models.Version(command.version)
 
@@ -93,7 +94,8 @@ def update(command: commands.UpdateCommand) -> None:
     filestore = Filestore(
         config.FilestoreConfig(
             backup_dir=command.location, zip_enabled=config.ZIP_ENABLED
-        )
+        ),
+        db,
     )
     version = models.Version(command.version)
 
@@ -103,18 +105,16 @@ def update(command: commands.UpdateCommand) -> None:
         raise ValueError(f"destination path {command.location} does not exists")
     if db.maybe_get_version_by_name(command.version):
         raise ValueError(
-            f"There is already a backup versioned " f"with the name {command.version}"
+            f"There is already a backup versioned with the name {command.version}"
         )
 
-    print(
-        f"Updating backup at {command.location} " f"with new version {command.version}"
-    )
+    print(f"Updating backup at {command.location} with new version {command.version}")
     _process_backup(version, command.source, db, filestore)
 
 
 def check(command: commands.CheckCommand) -> List[str]:
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
-    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location))
+    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location), db)
 
     if not os.path.exists(command.location):
         raise ValueError(f"destination path {command.location} does not exists")
@@ -145,7 +145,7 @@ def check(command: commands.CheckCommand) -> List[str]:
 
 def restore(command: commands.RestoreCommand) -> None:
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
-    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location))
+    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location), db)
     version = models.Version(command.version_name)
 
     if not os.path.exists(command.location):

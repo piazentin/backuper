@@ -24,7 +24,6 @@ class StoredFile:
     restore_path: str
     sha1hash: str
     stored_location: StoredLocation
-    properties_key: str
     is_compressed: bool
 
 

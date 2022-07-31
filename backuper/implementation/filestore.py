@@ -6,15 +6,23 @@ from uuid import uuid4
 from zipfile import ZipFile, ZipInfo
 from backuper.implementation import models, utils
 from backuper.implementation.config import FilestoreConfig
+from backuper.implementation.csv_db import CsvDb
 
 
 class Filestore:
-    def __init__(self, config: FilestoreConfig) -> None:
+    def __init__(self, config: FilestoreConfig, db: CsvDb) -> None:
         self._config = config
         self._root_path = utils.relative_to_absolute_path(
             self._config.backup_dir, self._config.backup_data_dir
         )
         os.makedirs(self._root_path, exist_ok=True)
+        version = db.get_most_recent_version()
+        if version is None:
+            self.hash_to_stored_file = dict()
+        else:
+            self.hash_to_stored_file = {
+                sf.sha1hash: sf for sf in db.get_files_for_version(version)
+            }
 
     def is_compression_eligible(self, origin_file: os.PathLike) -> bool:
         ext = pathlib.Path(origin_file).suffix
@@ -37,13 +45,17 @@ class Filestore:
         def relative_dir_from_hash(filehash: str) -> str:
             return os.path.join(filehash[0], filehash[1], filehash[2], filehash[3])
 
-        properties_key = "#".join(
-            [
-                restore_path,
-                str(os.path.getsize(origin_file)),
-                str(os.path.getmtime(origin_file)),
-            ]
-        )
+        restore_path_normalized = utils.normalize_path(restore_path)
+
+        hash = "<no hash>"
+        if hash in self.hash_to_stored_file.keys():
+            existing_stored_file = self.hash_to_stored_file[hash]
+            return models.StoredFile(
+                restore_path_normalized,
+                existing_stored_file.sha1hash,
+                existing_stored_file.stored_location,
+                existing_stored_file.is_compressed,
+            )
 
         with open(origin_file, mode="rb") as f:
             sha1 = hashlib.sha1()
@@ -98,12 +110,10 @@ class Filestore:
             else:
                 os.remove(absolute_temp_name)
 
-            restore_path_normalized = utils.normalize_path(restore_path)
             return models.StoredFile(
                 restore_path_normalized,
                 hash,
                 stored_location,
-                properties_key,
                 is_compressed,
             )
 

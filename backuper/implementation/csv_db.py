@@ -1,4 +1,5 @@
 import csv
+from operator import attrgetter
 import os
 from typing import List, Optional
 from backuper.implementation.config import CsvDbConfig
@@ -9,7 +10,10 @@ def _fileobject_db_to_model(row) -> models.FileSystemObject:
     if row[0] == "d":
         return models.DirEntry(row[1])
     elif row[0] == "f":
-        return models.StoredFile(row[1], row[2], row[3], row[4], row[5] == "True")
+        _, restore_path, sha1hash, stored_location, is_compressed = row
+        return models.StoredFile(
+            restore_path, sha1hash, stored_location, is_compressed == "True"
+        )
 
 
 class CsvDb:
@@ -31,6 +35,13 @@ class CsvDb:
         if os.path.exists(self._csv_path_from_name(name)):
             return models.Version(name)
         return None
+
+    def get_most_recent_version(self) -> Optional[models.Version]:
+        versions = sorted(self.get_all_versions(), key=attrgetter("name"), reverse=True)
+        if len(versions) > 0:
+            return versions[0]
+        else:
+            return None
 
     def get_version_by_name(self, name: str) -> models.Version:
         if self.maybe_get_version_by_name(name):
@@ -75,5 +86,5 @@ class CsvDb:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "a") as writer:
             writer.write(
-                f'"f","{file.restore_path}","{file.sha1hash}","{file.stored_location}","{file.properties_key}","{file.is_compressed}"\n'
+                f'"f","{file.restore_path}","{file.sha1hash}","{file.stored_location}","{file.is_compressed}"\n'
             )

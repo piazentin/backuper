@@ -169,6 +169,9 @@ class BackupIntegrationTest(unittest.TestCase):
         )
 
         data_filenames = aux.list_all_files_recursive(os.path.join(destination, "data"))
+        print("datafilenames=================================================")
+        print(data_filenames)
+        print(self.update_backup["hashes"])
         self.assertEqual(len(data_filenames), len(self.update_backup["hashes"]))
         for filename in data_filenames:
             self.assertIn(filename, self.update_backup["hashes"])
@@ -231,7 +234,6 @@ class BackupIntegrationTest(unittest.TestCase):
                 "file-with-missing-meta",
                 "44efbcfa3f99f75e396a56a119940e2c1f902d2c",
                 "/4/4/e/f/44efbcfa3f99f75e396a56a119940e2c1f902d2c",
-                "anything",
                 False,
             ),
         )
@@ -274,7 +276,6 @@ class BackupIntegrationTest(unittest.TestCase):
                 "file-with-missing-meta (new)",
                 "44efbcfa3f99f75e396a56a119940e2c1f902d2c",
                 "/4/4/e/f/44efbcfa3f99f75e396a56a119940e2c1f902d2c",
-                "anything",
                 False,
             ),
         )
@@ -284,7 +285,6 @@ class BackupIntegrationTest(unittest.TestCase):
                 "file-with-missing-meta (update)",
                 "acf6cd23d9aec2664665886e068504e799a0053f",
                 "/a/c/f/6/acf6cd23d9aec2664665886e068504e799a0053f",
-                "anything",
                 False,
             ),
         )
