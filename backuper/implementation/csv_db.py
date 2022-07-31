@@ -1,12 +1,12 @@
 import csv
 from operator import attrgetter
 import os
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from backuper.implementation.config import CsvDbConfig
 import backuper.implementation.models as models
 
 
-def _fileobject_db_to_model(row) -> models.FileSystemObject:
+def csvrow_to_model(row) -> models.FileSystemObject:
     if row[0] == "d":
         return models.DirEntry(row[1])
     elif row[0] == "f":
@@ -16,18 +16,28 @@ def _fileobject_db_to_model(row) -> models.FileSystemObject:
         )
 
 
+def model_to_csvrow(model: models.FileSystemObject) -> str:
+    if isinstance(model, models.DirEntry):
+        return f'"d","{model.normalized_path()}",""\n'
+    elif isinstance(model, models.StoredFile):
+        return f'"f","{model.restore_path}","{model.sha1hash}","{model.stored_location}","{model.is_compressed}"\n'
+    else:
+        raise ValueError("Do not know how to parse object")
+
+
 class CsvDb:
     def __init__(self, config: CsvDbConfig) -> None:
         self._config = config
-        os.makedirs(self._config.backup_dir, exist_ok=True)
+        self.db_dir = os.path.join(self._config.backup_dir, self._config.backup_db_dir)
+        os.makedirs(self.db_dir, exist_ok=True)
 
     def _csv_path_from_name(self, name: str) -> os.PathLike:
-        return os.path.join(self._config.backup_dir, name + ".csv")
+        return os.path.join(self.db_dir, name + self._config.csv_file_extension)
 
     def get_all_versions(self) -> List[models.Version]:
         return [
             models.Version(f.strip(self._config.csv_file_extension))
-            for f in os.listdir(self._config.backup_dir)
+            for f in os.listdir(self.db_dir)
             if f.endswith(self._config.csv_file_extension)
         ]
 
@@ -55,7 +65,7 @@ class CsvDb:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "r", encoding="utf-8") as file:
             return [
-                _fileobject_db_to_model(row)
+                csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')
             ]
 
@@ -63,16 +73,20 @@ class CsvDb:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "r", encoding="utf-8") as file:
             return [
-                _fileobject_db_to_model(row)
+                csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')
                 if row[0] == "d"
             ]
 
     def get_files_for_version(self, version: models.Version) -> List[models.StoredFile]:
+
         version_file = self._csv_path_from_name(version.name)
+        if not os.path.exists(version_file):
+            return []
+
         with open(version_file, "r", encoding="utf-8") as file:
             return [
-                _fileobject_db_to_model(row)
+                csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')
                 if row[0] == "f"
             ]
@@ -80,11 +94,9 @@ class CsvDb:
     def insert_dir(self, version: models.Version, dir: models.DirEntry) -> None:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "a") as writer:
-            writer.write(f'"d","{dir.normalized_path()}",""\n')
+            writer.write(model_to_csvrow(dir))
 
     def insert_file(self, version: models.Version, file: models.StoredFile) -> None:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "a") as writer:
-            writer.write(
-                f'"f","{file.restore_path}","{file.sha1hash}","{file.stored_location}","{file.is_compressed}"\n'
-            )
+            writer.write(model_to_csvrow(file))

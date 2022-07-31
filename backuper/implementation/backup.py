@@ -1,4 +1,7 @@
+from datetime import datetime
 import os
+from pathlib import Path
+from backuper.implementation.analyze import Analyze
 import backuper.implementation.utils as utils
 from typing import List
 
@@ -9,40 +12,27 @@ from backuper.implementation.filestore import Filestore
 import backuper.implementation.models as models
 
 
-def _process_dirs(
-    version: models.Version, relative_path: str, dirs: List[str], db: CsvDb
-) -> None:
-    for dir in dirs:
-        dirname = os.path.join(relative_path, dir)
-        db.insert_dir(version, models.DirEntry(dirname))
-
-
-def _process_files(
-    version: models.Version,
-    full_path: str,
-    relative_path: str,
-    filenames: List[str],
-    db: CsvDb,
-    filestore: Filestore,
-) -> None:
-    for filename in filenames:
-        file_to_copy = os.path.join(full_path, filename)
-        relative_filename = os.path.join(relative_path, filename)
-        stored_file = filestore.put(file_to_copy, relative_filename)
-        db.insert_file(version, stored_file)
-
-
 def _process_backup(
     version: models.Version,
     source: str,
     db: CsvDb,
     filestore: Filestore,
 ) -> None:
-    for dirpath, dirnames, filenames in os.walk(source, topdown=True):
-        relative_path = utils.absolute_to_relative_path(source, dirpath)
-        print(f'Processing "{relative_path}"...')
-        _process_dirs(version, relative_path, dirnames, db)
-        _process_files(version, dirpath, relative_path, filenames, db, filestore)
+    print("Running analysis... This may take a while.")
+    analyze = Analyze(source)
+    title_str = f"+++++ BACKUP ANALYSIS RESULT FOR VERSION {version.name} +++++"
+    print(title_str)
+    print(f"Number of directories: {len(analyze.dirs)}")
+    print(f"Number of files: {len(analyze.files)}")
+    print(f"Total size of files: {sum(f.size for f in analyze.files)}")
+    print("+" * len(title_str))
+
+    for dir in analyze.dirs:
+        db.insert_dir(version, models.DirEntry(dir.relative_path))
+
+    for file in analyze.files:
+        stored_file = filestore.put(file.absolute_path, file.relative_path, file.hash)
+        db.insert_file(version, stored_file)
 
 
 def _check_missing_stored_files(

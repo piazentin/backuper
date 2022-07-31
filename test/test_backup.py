@@ -1,5 +1,5 @@
-from math import exp
 import os
+from pathlib import Path
 from typing import Set
 import unittest
 import filecmp
@@ -62,6 +62,7 @@ class BackupIntegrationTest(unittest.TestCase):
 
     def setUp(self) -> None:
         test_dirs = os.path.join(self.new_backup["source"], "subdir", "empty dir")
+        Path(os.path.join(self.update_backup["source"], "LICENSE")).touch(exist_ok=True)
         os.makedirs(test_dirs, exist_ok=True)
         return super().setUp()
 

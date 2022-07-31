@@ -1,5 +1,8 @@
 import base64
+import hashlib
 import os
+
+from backuper.implementation import config
 
 DEFAULT_ENCODING = "UTF-8"
 
@@ -22,3 +25,11 @@ def relative_to_absolute_path(root_path: str, relative: str) -> str:
 
 def absolute_to_relative_path(root_path: str, absolute: str) -> str:
     return absolute[len(root_path) :]
+
+
+def compute_hash(file: os.PathLike, buffer_size=config.HASHING_BUFFER_SIZE) -> str:
+    with open(file, "rb") as f:
+        data = f.read(buffer_size)
+        sha1 = hashlib.sha1()
+        sha1.update(data)
+    return sha1.hexdigest()

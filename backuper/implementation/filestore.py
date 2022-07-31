@@ -1,7 +1,7 @@
-import hashlib
 import os
 import pathlib
 import shutil
+from typing import Optional
 from zipfile import ZipFile
 from backuper.implementation import models, utils
 from backuper.implementation.config import FilestoreConfig
@@ -28,15 +28,11 @@ class Filestore:
         absolute_location = os.path.join(self._root_path, stored_location)
         return os.path.exists(absolute_location)
 
-    def compute_hash(self, origin_file: os.PathLike) -> str:
-        with open(origin_file, "rb") as f:
-            data = f.read(self._config.buffer_size)
-            sha1 = hashlib.sha1()
-            sha1.update(data)
-        return sha1.hexdigest()
-
     def put(
-        self, origin_file: os.PathLike, restore_path: os.PathLike
+        self,
+        origin_file: os.PathLike,
+        restore_path: os.PathLike,
+        precomputed_hash: Optional[str] = None,
     ) -> models.StoredFile:
         # TODO handle IO exceptions and cleanup
 
@@ -53,7 +49,11 @@ class Filestore:
 
         restore_path_normalized = utils.normalize_path(restore_path)
 
-        hash = self.compute_hash(origin_file)
+        if precomputed_hash is not None:
+            hash = precomputed_hash
+        else:
+            hash = utils.compute_hash(origin_file)
+
         is_compressed = self.is_compression_eligible(origin_file)
         stored_location = hash_to_stored_location(hash, is_compressed)
         if self.exists(stored_location):
