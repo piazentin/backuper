@@ -174,9 +174,6 @@ class BackupIntegrationTest(unittest.TestCase):
         )
 
         data_filenames = aux.list_all_files_recursive(os.path.join(destination, "data"))
-        print("datafilenames=================================================")
-        print(data_filenames)
-        print(self.update_backup["hashes"])
         self.assertEqual(len(data_filenames), len(self.update_backup["hashes"]))
         for filename in data_filenames:
             self.assertIn(filename, self.update_backup["hashes"])
