@@ -34,3 +34,9 @@ restore --from /backup/source --to /backup/destination --version backup-version
 ```
 python3 -m unittest
 ```
+
+## Format code
+
+```
+python3 -m black .
+```
