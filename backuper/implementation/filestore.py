@@ -2,7 +2,6 @@ import hashlib
 import os
 import pathlib
 import shutil
-from uuid import uuid4
 from zipfile import ZipFile, ZipInfo
 from backuper.implementation import models, utils
 from backuper.implementation.config import FilestoreConfig
@@ -10,19 +9,12 @@ from backuper.implementation.csv_db import CsvDb
 
 
 class Filestore:
-    def __init__(self, config: FilestoreConfig, db: CsvDb) -> None:
+    def __init__(self, config: FilestoreConfig) -> None:
         self._config = config
         self._root_path = utils.relative_to_absolute_path(
             self._config.backup_dir, self._config.backup_data_dir
         )
         os.makedirs(self._root_path, exist_ok=True)
-        version = db.get_most_recent_version()
-        if version is None:
-            self.hash_to_stored_file = dict()
-        else:
-            self.hash_to_stored_file = {
-                sf.sha1hash: sf for sf in db.get_files_for_version(version)
-            }
 
     def is_compression_eligible(self, origin_file: os.PathLike) -> bool:
         ext = pathlib.Path(origin_file).suffix
@@ -37,6 +29,13 @@ class Filestore:
         absolute_location = os.path.join(self._root_path, stored_location)
         return os.path.exists(absolute_location)
 
+    def compute_hash(self, origin_file: os.PathLike) -> str:
+        with open(origin_file, "rb") as f:
+            data = f.read(self._config.buffer_size)
+            sha1 = hashlib.sha1()
+            sha1.update(data)
+        return sha1.hexdigest()
+
     def put(
         self, origin_file: os.PathLike, restore_path: os.PathLike
     ) -> models.StoredFile:
@@ -45,61 +44,52 @@ class Filestore:
         def relative_dir_from_hash(filehash: str) -> str:
             return os.path.join(filehash[0], filehash[1], filehash[2], filehash[3])
 
+        def hash_to_stored_location(filehash: str, is_compressed: bool) -> os.PathLike:
+            if is_compressed:
+                final_name = f"{filehash}.zip"
+            else:
+                final_name = filehash
+            relative_dir = relative_dir_from_hash(filehash)
+            return os.path.join(relative_dir, final_name)
+
         restore_path_normalized = utils.normalize_path(restore_path)
 
-        hash = "<no hash>"
-        if hash in self.hash_to_stored_file.keys():
-            existing_stored_file = self.hash_to_stored_file[hash]
+        hash = self.compute_hash(origin_file)
+        is_compressed = self.is_compression_eligible(origin_file)
+        stored_location = hash_to_stored_location(hash, is_compressed)
+        if self.exists(stored_location):
             return models.StoredFile(
                 restore_path_normalized,
-                existing_stored_file.sha1hash,
-                existing_stored_file.stored_location,
-                existing_stored_file.is_compressed,
+                hash,
+                stored_location,
+                is_compressed,
             )
 
         with open(origin_file, mode="rb") as f:
-            sha1 = hashlib.sha1()
-            temp_name = str(uuid4())
-            absolute_temp_name = utils.relative_to_absolute_path(
-                self._root_path, temp_name
-            )
 
-            is_compressed = self.is_compression_eligible(origin_file)
+            absolute_temp_name = utils.relative_to_absolute_path(self._root_path, hash)
+
             if is_compressed:
                 zip_archive = ZipFile(absolute_temp_name, "x")
-                archive = None
-            else:
-                zip_archive = None
-                archive = open(absolute_temp_name, "xb")
+                parts_counter = 0
+                while True:
+                    parts_counter = parts_counter + 1
+                    data = f.read(self._config.buffer_size)
+                    if not data:
+                        break
 
-            parts_counter = 0
-            while True:
-                parts_counter = parts_counter + 1
-                data = f.read(self._config.buffer_size)
-                if not data:
-                    break
-                sha1.update(data)
-
-                if is_compressed:
                     zipinfo = ZipInfo(f"part{str(parts_counter).rjust(4, '0')}")
                     zip_archive.writestr(zipinfo, data)
-                else:
-                    archive.write(data)
+                zip_archive.close()
+            else:
+                shutil.copyfile(origin_file, absolute_temp_name)
 
-            hash = sha1.hexdigest()
+
             relative_dir = relative_dir_from_hash(hash)
             absolute_dir = utils.relative_to_absolute_path(
                 self._root_path, relative_dir
             )
 
-            if is_compressed:
-                zip_archive.close()
-                final_name = f"{hash}.zip"
-            else:
-                archive.close()
-                final_name = hash
-
-            stored_location = os.path.join(relative_dir, final_name)
             absolute_final_name = utils.relative_to_absolute_path(
                 self._root_path, stored_location
             )

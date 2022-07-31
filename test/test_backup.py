@@ -60,6 +60,11 @@ class BackupIntegrationTest(unittest.TestCase):
         ),
     }
 
+    def setUp(self) -> None:
+        test_dirs = os.path.join(self.new_backup["source"], "subdir", "empty dir")
+        os.makedirs(test_dirs, exist_ok=True)
+        return super().setUp()
+
     def tearDown(self) -> None:
         aux.rm_temp_dirs()
 

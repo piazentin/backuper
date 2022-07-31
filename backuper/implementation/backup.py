@@ -80,8 +80,7 @@ def new(command: commands.NewCommand) -> None:
     filestore = Filestore(
         config.FilestoreConfig(
             backup_dir=command.location, zip_enabled=config.ZIP_ENABLED
-        ),
-        db,
+        )
     )
     version = models.Version(command.version)
 
@@ -94,8 +93,7 @@ def update(command: commands.UpdateCommand) -> None:
     filestore = Filestore(
         config.FilestoreConfig(
             backup_dir=command.location, zip_enabled=config.ZIP_ENABLED
-        ),
-        db,
+        )
     )
     version = models.Version(command.version)
 
@@ -114,7 +112,7 @@ def update(command: commands.UpdateCommand) -> None:
 
 def check(command: commands.CheckCommand) -> List[str]:
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
-    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location), db)
+    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location))
 
     if not os.path.exists(command.location):
         raise ValueError(f"destination path {command.location} does not exists")
@@ -145,7 +143,7 @@ def check(command: commands.CheckCommand) -> List[str]:
 
 def restore(command: commands.RestoreCommand) -> None:
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
-    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location), db)
+    filestore = Filestore(config.FilestoreConfig(backup_dir=command.location))
     version = models.Version(command.version_name)
 
     if not os.path.exists(command.location):
