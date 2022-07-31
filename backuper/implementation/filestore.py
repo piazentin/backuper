@@ -2,10 +2,9 @@ import hashlib
 import os
 import pathlib
 import shutil
-from zipfile import ZipFile, ZipInfo
+from zipfile import ZipFile
 from backuper.implementation import models, utils
 from backuper.implementation.config import FilestoreConfig
-from backuper.implementation.csv_db import CsvDb
 
 
 class Filestore:
@@ -65,47 +64,32 @@ class Filestore:
                 is_compressed,
             )
 
-        with open(origin_file, mode="rb") as f:
+        absolute_temp_name = utils.relative_to_absolute_path(self._root_path, hash)
+        if is_compressed:
+            with ZipFile(absolute_temp_name, "x") as zip_archive:
+                zip_archive.write(origin_file, "part001")
+        else:
+            shutil.copyfile(origin_file, absolute_temp_name)
 
-            absolute_temp_name = utils.relative_to_absolute_path(self._root_path, hash)
+        relative_dir = relative_dir_from_hash(hash)
+        absolute_dir = utils.relative_to_absolute_path(self._root_path, relative_dir)
 
-            if is_compressed:
-                zip_archive = ZipFile(absolute_temp_name, "x")
-                parts_counter = 0
-                while True:
-                    parts_counter = parts_counter + 1
-                    data = f.read(self._config.buffer_size)
-                    if not data:
-                        break
+        absolute_final_name = utils.relative_to_absolute_path(
+            self._root_path, stored_location
+        )
 
-                    zipinfo = ZipInfo(f"part{str(parts_counter).rjust(4, '0')}")
-                    zip_archive.writestr(zipinfo, data)
-                zip_archive.close()
-            else:
-                shutil.copyfile(origin_file, absolute_temp_name)
+        os.makedirs(absolute_dir, exist_ok=True)
+        if not os.path.exists(absolute_final_name):
+            os.rename(absolute_temp_name, absolute_final_name)
+        else:
+            os.remove(absolute_temp_name)
 
-
-            relative_dir = relative_dir_from_hash(hash)
-            absolute_dir = utils.relative_to_absolute_path(
-                self._root_path, relative_dir
-            )
-
-            absolute_final_name = utils.relative_to_absolute_path(
-                self._root_path, stored_location
-            )
-
-            os.makedirs(absolute_dir, exist_ok=True)
-            if not os.path.exists(absolute_final_name):
-                os.rename(absolute_temp_name, absolute_final_name)
-            else:
-                os.remove(absolute_temp_name)
-
-            return models.StoredFile(
-                restore_path_normalized,
-                hash,
-                stored_location,
-                is_compressed,
-            )
+        return models.StoredFile(
+            restore_path_normalized,
+            hash,
+            stored_location,
+            is_compressed,
+        )
 
     def restore(
         self, stored_file: models.StoredFile, restore_to_path: os.PathLike
