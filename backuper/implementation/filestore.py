@@ -2,9 +2,23 @@ import os
 import pathlib
 import shutil
 from typing import Optional
+import backuper.implementation.analyze as analyze
 from zipfile import ZipFile
 from backuper.implementation import models, utils
 from backuper.implementation.config import FilestoreConfig
+
+
+def relative_dir_from_hash(filehash: str) -> str:
+    return os.path.join(filehash[0], filehash[1], filehash[2], filehash[3])
+
+
+def hash_to_stored_location(filehash: str, is_compressed: bool) -> os.PathLike:
+    if is_compressed:
+        final_name = f"{filehash}.zip"
+    else:
+        final_name = filehash
+    relative_dir = relative_dir_from_hash(filehash)
+    return os.path.join(relative_dir, final_name)
 
 
 class Filestore:
@@ -15,9 +29,14 @@ class Filestore:
         )
         os.makedirs(self._root_path, exist_ok=True)
 
-    def is_compression_eligible(self, origin_file: os.PathLike) -> bool:
+    def is_compression_eligible(
+        self, origin_file: os.PathLike, size: Optional[int] = None
+    ) -> bool:
         ext = pathlib.Path(origin_file).suffix
-        size = os.path.getsize(origin_file)
+
+        if size is None:
+            size = os.path.getsize(origin_file)
+
         return (
             self._config.zip_enabled
             and ext not in self._config.zip_skip_extensions
@@ -28,6 +47,19 @@ class Filestore:
         absolute_location = os.path.join(self._root_path, stored_location)
         return os.path.exists(absolute_location)
 
+    def analyze_file_to_stored_file(
+        self, analyze_file: analyze.File
+    ) -> models.StoredFile:
+        is_compressed = self.is_compression_eligible(
+            analyze_file.absolute_path, size=analyze_file.size
+        )
+        return models.StoredFile(
+            utils.normalize_path(analyze_file.relative_path),
+            analyze_file.hash,
+            hash_to_stored_location(analyze_file.hash, is_compressed),
+            is_compressed,
+        )
+
     def put(
         self,
         origin_file: os.PathLike,
@@ -35,18 +67,6 @@ class Filestore:
         precomputed_hash: Optional[str] = None,
     ) -> models.StoredFile:
         # TODO handle IO exceptions and cleanup
-
-        def relative_dir_from_hash(filehash: str) -> str:
-            return os.path.join(filehash[0], filehash[1], filehash[2], filehash[3])
-
-        def hash_to_stored_location(filehash: str, is_compressed: bool) -> os.PathLike:
-            if is_compressed:
-                final_name = f"{filehash}.zip"
-            else:
-                final_name = filehash
-            relative_dir = relative_dir_from_hash(filehash)
-            return os.path.join(relative_dir, final_name)
-
         restore_path_normalized = utils.normalize_path(restore_path)
 
         if precomputed_hash is not None:

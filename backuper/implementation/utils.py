@@ -2,6 +2,7 @@ import base64
 import hashlib
 import os
 
+from typing import Set
 from backuper.implementation import config
 
 DEFAULT_ENCODING = "UTF-8"
@@ -33,3 +34,10 @@ def compute_hash(file: os.PathLike, buffer_size=config.HASHING_BUFFER_SIZE) -> s
         sha1 = hashlib.sha1()
         sha1.update(data)
     return sha1.hexdigest()
+
+
+def list_all_files_recursive(path: os.PathLike) -> Set[str]:
+    files = set()
+    for _, _, filenames in os.walk(path, topdown=True):
+        files.update(os.path.splitext(os.path.basename(file))[0] for file in filenames)
+    return files
