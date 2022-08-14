@@ -1,6 +1,4 @@
-from datetime import datetime
 import os
-from pathlib import Path
 from backuper.implementation.analyze import Analyze
 import backuper.implementation.utils as utils
 from typing import List
@@ -19,19 +17,32 @@ def _process_backup(
     filestore: Filestore,
 ) -> None:
     print("Running analysis... This may take a while.")
-    analyze = Analyze(source)
+    backuped = utils.list_all_files_recursive(filestore._root_path)
+    analyze = Analyze(backuped, source)
+
     title_str = f"+++++ BACKUP ANALYSIS RESULT FOR VERSION {version.name} +++++"
     print(title_str)
     print(f"Number of directories: {len(analyze.dirs)}")
     print(f"Number of files: {len(analyze.files)}")
     print(f"Total size of files: {sum(f.size for f in analyze.files)}")
+    print(f"Files to backup: {sum(1 for f in analyze.files if not f.backuped)}")
     print("+" * len(title_str))
 
     for dir in analyze.dirs:
         db.insert_dir(version, models.DirEntry(dir.relative_path))
 
+    counter = 0
+    one_percent = int(max(1, len(analyze.files) / 100))
     for file in analyze.files:
-        stored_file = filestore.put(file.absolute_path, file.relative_path, file.hash)
+        if counter % one_percent == 0:
+            print(f"Processed {format((counter / len(analyze.files)), '.0%')} of files...")
+        counter = counter + 1
+
+        if file.backuped:
+            stored_file = filestore.analyze_file_to_stored_file(file)
+        else:
+            stored_file = filestore.put(file.absolute_path, file.relative_path, file.hash)
+
         db.insert_file(version, stored_file)
 
 
