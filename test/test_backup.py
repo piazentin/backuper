@@ -6,7 +6,7 @@ import filecmp
 from backuper.implementation import models, utils
 from backuper.implementation.config import CsvDbConfig
 import backuper.implementation.config as config
-from backuper.implementation.csv_db import CsvDb
+from backuper.implementation.components.csv_db import CsvDb
 
 import test.aux as aux
 import test.aux.fixtures as fixtures

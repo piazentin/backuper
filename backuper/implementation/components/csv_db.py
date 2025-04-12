@@ -99,4 +99,4 @@ class CsvDb:
     def insert_file(self, version: models.Version, file: models.StoredFile) -> None:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "a") as writer:
-            writer.write(model_to_csvrow(file))
+            writer.write(model_to_csvrow(file)) 
