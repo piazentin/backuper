@@ -25,6 +25,8 @@ class StoredFile:
     sha1hash: str
     stored_location: StoredLocation
     is_compressed: bool
+    size: int = 0
+    mtime: float = 0.0
 
 
 FileSystemObject = Union[DirEntry, StoredFile]

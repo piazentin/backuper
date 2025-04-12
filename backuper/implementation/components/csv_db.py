@@ -4,23 +4,34 @@ import os
 from typing import List, Optional, Tuple
 from backuper.implementation.config import CsvDbConfig
 import backuper.implementation.models as models
+from backuper.implementation.components.interfaces import BackupDatabase, FileEntry, BackupedFileEntry
+from pathlib import Path
+from typing import AsyncIterator
 
 
 def csvrow_to_model(row) -> models.FileSystemObject:
     if row[0] == "d":
         return models.DirEntry(row[1])
     elif row[0] == "f":
-        _, restore_path, sha1hash, stored_location, is_compressed = row
-        return models.StoredFile(
-            restore_path, sha1hash, stored_location, is_compressed == "True"
-        )
+        if len(row) >= 7:
+            _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = row
+            return models.StoredFile(
+                restore_path, sha1hash, stored_location, is_compressed == "True",
+                int(size) if size else 0, float(mtime) if mtime else 0.0
+            )
+        else:
+            # Handle old format without size and mtime
+            _, restore_path, sha1hash, stored_location, is_compressed = row
+            return models.StoredFile(
+                restore_path, sha1hash, stored_location, is_compressed == "True"
+            )
 
 
 def model_to_csvrow(model: models.FileSystemObject) -> str:
     if isinstance(model, models.DirEntry):
         return f'"d","{model.normalized_path()}",""\n'
     elif isinstance(model, models.StoredFile):
-        return f'"f","{model.restore_path}","{model.sha1hash}","{model.stored_location}","{model.is_compressed}"\n'
+        return f'"f","{model.restore_path}","{model.sha1hash}","{model.stored_location}","{model.is_compressed}","{model.size}","{model.mtime}"\n'
     else:
         raise ValueError("Do not know how to parse object")
 
@@ -100,3 +111,73 @@ class CsvDb:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "a") as writer:
             writer.write(model_to_csvrow(file)) 
+
+
+class CsvBackupDatabase(BackupDatabase):
+    def __init__(self, csv_db: CsvDb):
+        self._csv_db = csv_db
+
+    async def list_versions(self) -> List[str]:
+        return self._csv_db.list_versions()
+
+    async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
+        version_obj = self._csv_db.get_version_by_name(version)
+        stored_files = self._csv_db.get_files_for_version(version_obj)
+        
+        for stored_file in stored_files:
+            path = Path(stored_file.restore_path)
+            
+            size = stored_file.size
+            mtime = stored_file.mtime
+            
+            # If size or mtime is not set (0), try to get it from the filesystem
+            if size == 0 or mtime == 0.0:
+                try:
+                    file_path = Path(stored_file.stored_location)
+                    if file_path.exists():
+                        stats = file_path.stat()
+                        size = stats.st_size
+                        mtime = stats.st_mtime
+                except (OSError, ValueError):
+                    # If we can't get the stats, use the values from the model
+                    pass
+            
+            yield FileEntry(
+                path=path,
+                relative_path=path,
+                size=size,
+                mtime=mtime,
+                is_directory=False,
+                hash=stored_file.sha1hash
+            )
+
+        stored_dirs = self._csv_db.get_dirs_for_version(version_obj)
+        for dir_entry in stored_dirs:
+            path = Path(dir_entry.name)
+            yield FileEntry(
+                path=path,
+                relative_path=path,
+                size=0,
+                mtime=0.0,
+                is_directory=True
+            )
+
+    async def create_version(self, version: str) -> None:
+        self._csv_db.create_version(version)
+
+    async def add_file(self, version: str, entry: BackupedFileEntry) -> None:
+        version_obj = self._csv_db.get_version_by_name(version)
+        
+        if entry.source_file.is_directory:
+            dir_entry = models.DirEntry(str(entry.source_file.relative_path))
+            self._csv_db.insert_dir(version_obj, dir_entry)
+        else:
+            stored_file = models.StoredFile(
+                restore_path=str(entry.source_file.relative_path),
+                sha1hash=entry.source_file.hash or "",
+                stored_location=entry.stored_location,
+                is_compressed=entry.is_compressed,
+                size=entry.source_file.size,
+                mtime=entry.source_file.mtime
+            )
+            self._csv_db.insert_file(version_obj, stored_file)
