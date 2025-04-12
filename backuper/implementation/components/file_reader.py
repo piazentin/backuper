@@ -22,8 +22,7 @@ class LocalFileReader(FileReader):
                     relative_path=relative_path,
                     size=0,  # Directories have size 0
                     mtime=mtime,
-                    is_directory=True,
-                    hash=None  # Directories don't need a hash
+                    is_directory=True
                 )
             
             # Yield entries for files
@@ -31,7 +30,6 @@ class LocalFileReader(FileReader):
                 file_path = root_path / file
                 relative_path = file_path.relative_to(path)
                 size = os.path.getsize(file_path)
-                file_hash = compute_hash(file_path)
                 mtime = os.path.getmtime(file_path)
                 
                 yield FileEntry(
@@ -39,6 +37,5 @@ class LocalFileReader(FileReader):
                     relative_path=relative_path,
                     size=size,
                     mtime=mtime,
-                    is_directory=False,
-                    hash=file_hash
+                    is_directory=False
                 )
