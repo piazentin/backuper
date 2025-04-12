@@ -76,3 +76,13 @@ class BackupDatabase(ABC):
     async def add_file(self, version: str, entry: BackupedFileEntry) -> None:
         """Add a file entry to a specific backup version"""
         pass
+
+    @abstractmethod
+    async def get_files_by_hash(self, hash: str) -> List[FileEntry]:
+        """Get file entries by their hash value"""
+        pass
+
+    @abstractmethod
+    async def get_files_by_metadata(self, relative_path: Path, mtime: float, size: int) -> List[FileEntry]:
+        """Get file entries by their metadata (relative path, mtime, and size)"""
+        pass

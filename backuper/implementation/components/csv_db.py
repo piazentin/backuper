@@ -7,6 +7,8 @@ import backuper.implementation.models as models
 from backuper.implementation.components.interfaces import BackupDatabase, FileEntry, BackupedFileEntry
 from pathlib import Path
 from typing import AsyncIterator
+import uuid
+import hashlib
 
 
 def csvrow_to_model(row) -> models.FileSystemObject:
@@ -181,3 +183,73 @@ class CsvBackupDatabase(BackupDatabase):
                 mtime=entry.source_file.mtime
             )
             self._csv_db.insert_file(version_obj, stored_file)
+            
+    async def get_files_by_hash(self, hash: str) -> List[BackupedFileEntry]:
+        """Get file entries by their hash value"""
+        result = []
+        # Get all versions
+        versions = self._csv_db.get_all_versions()
+        
+        # Search through all versions for files with the matching hash
+        for version in versions:
+            stored_files = self._csv_db.get_files_for_version(version)
+            for stored_file in stored_files:
+                if stored_file.sha1hash == hash:
+                    path = Path(stored_file.restore_path)
+                    source_file = FileEntry(
+                        path=path,
+                        relative_path=path,
+                        size=stored_file.size,
+                        mtime=stored_file.mtime,
+                        is_directory=False
+                    )
+
+                    backup_id = self._generate_uuid_from_hash(stored_file.sha1hash)
+                    result.append(BackupedFileEntry(
+                        source_file=source_file,
+                        backup_id=backup_id,
+                        stored_location=stored_file.stored_location,
+                        is_compressed=stored_file.is_compressed
+                    ))
+        
+        return result
+        
+    async def get_files_by_metadata(self, relative_path: Path, mtime: float, size: int) -> List[BackupedFileEntry]:
+        """Get file entries by their metadata (relative path, mtime, and size)"""
+        result = []
+        # Get all versions
+        versions = self._csv_db.get_all_versions()
+        
+        # Search through all versions for files with matching metadata
+        for version in versions:
+            stored_files = self._csv_db.get_files_for_version(version)
+            for stored_file in stored_files:
+                if (stored_file.restore_path == str(relative_path) and 
+                    abs(stored_file.mtime - mtime) < 0.001 and  # Use small epsilon for float comparison
+                    stored_file.size == size):
+                    path = Path(stored_file.restore_path)
+                    source_file = FileEntry(
+                        path=path,
+                        relative_path=path,
+                        size=stored_file.size,
+                        mtime=stored_file.mtime,
+                        is_directory=False
+                    )
+
+                    backup_id = self._generate_uuid_from_hash(stored_file.sha1hash)
+                    result.append(BackupedFileEntry(
+                        source_file=source_file,
+                        backup_id=backup_id,
+                        stored_location=stored_file.stored_location,
+                        is_compressed=stored_file.is_compressed
+                    ))
+        
+        return result
+
+    def _generate_uuid_from_hash(self, hash: str) -> str:
+        """Generate a deterministic UUID based on a hash value"""
+        # Create a namespace UUID (using UUID5 with DNS namespace)
+        namespace = uuid.NAMESPACE_DNS
+        
+        # Use the hash as the name to generate a deterministic UUID5
+        return str(uuid.uuid5(namespace, hash))
