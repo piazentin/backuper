@@ -1,4 +1,4 @@
-from backuper.implementation import models
+from backuper.legacy.implementation import models
 
 stored_text_file1 = models.StoredFile(
     "text_file1.txt",

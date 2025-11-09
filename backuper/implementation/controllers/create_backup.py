@@ -1,8 +1,16 @@
 from pathlib import Path
-from backuper.implementation.components.interfaces import FileReader, BackupAnalyzer, BackupDatabase, AnalyzedFileEntry
+from backuper.implementation.components.interfaces import (
+    FileReader,
+    BackupAnalyzer,
+    BackupDatabase,
+    AnalyzedFileEntry,
+)
+
 
 class CreateBackupController:
-    def __init__(self, file_reader: FileReader, analyzer: BackupAnalyzer, db: BackupDatabase):
+    def __init__(
+        self, file_reader: FileReader, analyzer: BackupAnalyzer, db: BackupDatabase
+    ):
         self._file_reader = file_reader
         self._analyzer = analyzer
         self._db = db
@@ -11,7 +19,7 @@ class CreateBackupController:
         """Analyze a path and print analyzed file entries"""
         # Get file entries from reader
         file_entries = self._file_reader.read_directory(path)
-        
+
         # Analyze the entries
         analyzed_entries = self._analyzer.analyze_stream(file_entries, self._db)
 

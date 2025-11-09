@@ -1,5 +1,5 @@
 import backuper.implementation.crypto as crypto
-import backuper.implementation.utils as utils
+import backuper.legacy.implementation.utils as utils
 import os
 import random
 import test.aux as aux

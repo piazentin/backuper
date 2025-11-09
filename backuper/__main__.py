@@ -1,4 +1,4 @@
-import backuper.cli as cli
+import backuper.legacy.cli as cli
 
 
 if __name__ == "__main__":

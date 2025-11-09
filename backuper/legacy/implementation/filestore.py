@@ -2,10 +2,10 @@ import os
 import pathlib
 import shutil
 from typing import Optional
-import backuper.implementation.analyze as analyze
+import backuper.legacy.implementation.analyze as analyze
 from zipfile import ZipFile
-from backuper.implementation import models, utils
-from backuper.implementation.config import FilestoreConfig
+from backuper.legacy.implementation import models, utils
+from backuper.legacy.implementation.config import FilestoreConfig
 
 
 def relative_dir_from_hash(filehash: str) -> str:

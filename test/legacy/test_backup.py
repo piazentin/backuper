@@ -3,16 +3,16 @@ from pathlib import Path
 from typing import Set
 import unittest
 import filecmp
-from backuper.implementation import models, utils
-from backuper.implementation.config import CsvDbConfig
-import backuper.implementation.config as config
-from backuper.implementation.components.csv_db import CsvDb
+from backuper.legacy.implementation import models, utils
+from backuper.legacy.implementation.config import CsvDbConfig
+import backuper.legacy.implementation.config as config
+from backuper.legacy.implementation.csv_db import CsvDb
 
 import test.aux as aux
 import test.aux.fixtures as fixtures
 
-import backuper.implementation.backup as bkp
-from backuper.implementation.commands import (
+import backuper.legacy.implementation.backup as bkp
+from backuper.legacy.implementation.commands import (
     CheckCommand,
     NewCommand,
     RestoreCommand,

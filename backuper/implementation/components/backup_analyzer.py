@@ -1,17 +1,24 @@
 from pathlib import Path
 from typing import AsyncIterator
 
-from backuper.implementation.components.interfaces import BackupAnalyzer, BackupDatabase, FileEntry, AnalyzedFileEntry
-from backuper.implementation.utils import compute_hash
+from backuper.implementation.components.interfaces import (
+    BackupAnalyzer,
+    BackupDatabase,
+    FileEntry,
+    AnalyzedFileEntry,
+)
+from backuper.legacy.implementation.utils import compute_hash
 
 
 class BackupAnalyzerImpl(BackupAnalyzer):
     def __init__(self):
         pass
 
-    async def analyze_stream(self, file_stream: AsyncIterator[FileEntry], db: BackupDatabase) -> AsyncIterator[AnalyzedFileEntry]:
+    async def analyze_stream(
+        self, file_stream: AsyncIterator[FileEntry], db: BackupDatabase
+    ) -> AsyncIterator[AnalyzedFileEntry]:
         """Analyze a stream of files and determine which need to be backed up"""
-        
+
         async for file_entry in file_stream:
             already_backed_up = False
             backup_id = None
@@ -23,15 +30,13 @@ class BackupAnalyzerImpl(BackupAnalyzer):
                     source_file=file_entry,
                     already_backed_up=False,
                     backup_id=None,
-                    hash=None
+                    hash=None,
                 )
                 continue
 
             # First check if there's a match based on path, size and mtime
             stored_files = await db.get_files_by_metadata(
-                file_entry.relative_path,
-                file_entry.mtime,
-                file_entry.size
+                file_entry.relative_path, file_entry.mtime, file_entry.size
             )
             if stored_files:
                 stored_file = stored_files[0]  # Use the first match
@@ -52,5 +57,5 @@ class BackupAnalyzerImpl(BackupAnalyzer):
                 source_file=file_entry,
                 already_backed_up=already_backed_up,
                 backup_id=backup_id,
-                hash=file_hash
+                hash=file_hash,
             )

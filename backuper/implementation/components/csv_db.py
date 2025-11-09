@@ -1,14 +1,18 @@
 import csv
 from operator import attrgetter
 import os
-from typing import List, Optional, Tuple
-from backuper.implementation.config import CsvDbConfig
-import backuper.implementation.models as models
-from backuper.implementation.components.interfaces import BackupDatabase, FileEntry, BackupedFileEntry
 from pathlib import Path
+from typing import List, Optional, Tuple
 from typing import AsyncIterator
 import uuid
-import hashlib
+
+from backuper.implementation.components.interfaces import (
+    BackupDatabase,
+    BackupedFileEntry,
+    FileEntry,
+)
+from backuper.implementation.config import CsvDbConfig
+import backuper.legacy.implementation.models as models
 
 
 def csvrow_to_model(row) -> models.FileSystemObject:
@@ -18,8 +22,12 @@ def csvrow_to_model(row) -> models.FileSystemObject:
         if len(row) >= 7:
             _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = row
             return models.StoredFile(
-                restore_path, sha1hash, stored_location, is_compressed == "True",
-                int(size) if size else 0, float(mtime) if mtime else 0.0
+                restore_path,
+                sha1hash,
+                stored_location,
+                is_compressed == "True",
+                int(size) if size else 0,
+                float(mtime) if mtime else 0.0,
             )
         else:
             # Handle old format without size and mtime
@@ -112,7 +120,7 @@ class CsvDb:
     def insert_file(self, version: models.Version, file: models.StoredFile) -> None:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "a") as writer:
-            writer.write(model_to_csvrow(file)) 
+            writer.write(model_to_csvrow(file))
 
 
 class CsvBackupDatabase(BackupDatabase):
@@ -125,13 +133,13 @@ class CsvBackupDatabase(BackupDatabase):
     async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
         version_obj = self._csv_db.get_version_by_name(version)
         stored_files = self._csv_db.get_files_for_version(version_obj)
-        
+
         for stored_file in stored_files:
             path = Path(stored_file.restore_path)
-            
+
             size = stored_file.size
             mtime = stored_file.mtime
-            
+
             # If size or mtime is not set (0), try to get it from the filesystem
             if size == 0 or mtime == 0.0:
                 try:
@@ -143,25 +151,21 @@ class CsvBackupDatabase(BackupDatabase):
                 except (OSError, ValueError):
                     # If we can't get the stats, use the values from the model
                     pass
-            
+
             yield FileEntry(
                 path=path,
                 relative_path=path,
                 size=size,
                 mtime=mtime,
                 is_directory=False,
-                hash=stored_file.sha1hash
+                hash=stored_file.sha1hash,
             )
 
         stored_dirs = self._csv_db.get_dirs_for_version(version_obj)
         for dir_entry in stored_dirs:
             path = Path(dir_entry.name)
             yield FileEntry(
-                path=path,
-                relative_path=path,
-                size=0,
-                mtime=0.0,
-                is_directory=True
+                path=path, relative_path=path, size=0, mtime=0.0, is_directory=True
             )
 
     async def create_version(self, version: str) -> None:
@@ -169,7 +173,7 @@ class CsvBackupDatabase(BackupDatabase):
 
     async def add_file(self, version: str, entry: BackupedFileEntry) -> None:
         version_obj = self._csv_db.get_version_by_name(version)
-        
+
         if entry.source_file.is_directory:
             dir_entry = models.DirEntry(str(entry.source_file.relative_path))
             self._csv_db.insert_dir(version_obj, dir_entry)
@@ -180,16 +184,16 @@ class CsvBackupDatabase(BackupDatabase):
                 stored_location=entry.stored_location,
                 is_compressed=entry.is_compressed,
                 size=entry.source_file.size,
-                mtime=entry.source_file.mtime
+                mtime=entry.source_file.mtime,
             )
             self._csv_db.insert_file(version_obj, stored_file)
-            
+
     async def get_files_by_hash(self, hash: str) -> List[BackupedFileEntry]:
         """Get file entries by their hash value"""
         result = []
         # Get all versions
         versions = self._csv_db.get_all_versions()
-        
+
         # Search through all versions for files with the matching hash
         for version in versions:
             stored_files = self._csv_db.get_files_for_version(version)
@@ -201,55 +205,64 @@ class CsvBackupDatabase(BackupDatabase):
                         relative_path=path,
                         size=stored_file.size,
                         mtime=stored_file.mtime,
-                        is_directory=False
+                        is_directory=False,
                     )
 
                     backup_id = self._generate_uuid_from_hash(stored_file.sha1hash)
-                    result.append(BackupedFileEntry(
-                        source_file=source_file,
-                        backup_id=backup_id,
-                        stored_location=stored_file.stored_location,
-                        is_compressed=stored_file.is_compressed
-                    ))
-        
+                    result.append(
+                        BackupedFileEntry(
+                            source_file=source_file,
+                            backup_id=backup_id,
+                            stored_location=stored_file.stored_location,
+                            is_compressed=stored_file.is_compressed,
+                        )
+                    )
+
         return result
-        
-    async def get_files_by_metadata(self, relative_path: Path, mtime: float, size: int) -> List[BackupedFileEntry]:
+
+    async def get_files_by_metadata(
+        self, relative_path: Path, mtime: float, size: int
+    ) -> List[BackupedFileEntry]:
         """Get file entries by their metadata (relative path, mtime, and size)"""
         result = []
         # Get all versions
         versions = self._csv_db.get_all_versions()
-        
+
         # Search through all versions for files with matching metadata
         for version in versions:
             stored_files = self._csv_db.get_files_for_version(version)
             for stored_file in stored_files:
-                if (stored_file.restore_path == str(relative_path) and 
-                    abs(stored_file.mtime - mtime) < 0.001 and  # Use small epsilon for float comparison
-                    stored_file.size == size):
+                if (
+                    stored_file.restore_path == str(relative_path)
+                    and abs(stored_file.mtime - mtime)
+                    < 0.001  # Use small epsilon for float comparison
+                    and stored_file.size == size
+                ):
                     path = Path(stored_file.restore_path)
                     source_file = FileEntry(
                         path=path,
                         relative_path=path,
                         size=stored_file.size,
                         mtime=stored_file.mtime,
-                        is_directory=False
+                        is_directory=False,
                     )
 
                     backup_id = self._generate_uuid_from_hash(stored_file.sha1hash)
-                    result.append(BackupedFileEntry(
-                        source_file=source_file,
-                        backup_id=backup_id,
-                        stored_location=stored_file.stored_location,
-                        is_compressed=stored_file.is_compressed
-                    ))
-        
+                    result.append(
+                        BackupedFileEntry(
+                            source_file=source_file,
+                            backup_id=backup_id,
+                            stored_location=stored_file.stored_location,
+                            is_compressed=stored_file.is_compressed,
+                        )
+                    )
+
         return result
 
     def _generate_uuid_from_hash(self, hash: str) -> str:
         """Generate a deterministic UUID based on a hash value"""
         # Create a namespace UUID (using UUID5 with DNS namespace)
         namespace = uuid.NAMESPACE_DNS
-        
+
         # Use the hash as the name to generate a deterministic UUID5
         return str(uuid.uuid5(namespace, hash))

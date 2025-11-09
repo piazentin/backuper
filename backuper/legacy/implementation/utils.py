@@ -3,7 +3,7 @@ import hashlib
 import os
 
 from typing import Set
-from backuper.implementation import config
+from backuper.legacy.implementation import config
 
 DEFAULT_ENCODING = "UTF-8"
 

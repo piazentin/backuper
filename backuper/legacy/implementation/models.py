@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Union
 
-from backuper.implementation import utils
+from backuper.legacy.implementation import utils
 
 StoredLocation = str
 
