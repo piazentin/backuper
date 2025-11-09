@@ -34,7 +34,7 @@ def list_all_files_recursive(base_path: str) -> List[str]:
     files = []
     dirlist = [base_path]
     while len(dirlist) > 0:
-        for (dirpath, dirnames, filenames) in os.walk(dirlist.pop()):
+        for dirpath, dirnames, filenames in os.walk(dirlist.pop()):
             dirlist.extend(dirnames)
             files.extend(dir_filenames(dirpath, filenames))
     return [f[len(base_path) :] for f in files]

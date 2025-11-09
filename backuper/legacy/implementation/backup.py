@@ -1,13 +1,13 @@
 import os
-from backuper.implementation.analyze import Analyze
-import backuper.implementation.utils as utils
+from backuper.legacy.implementation.analyze import Analyze
+import backuper.legacy.implementation.utils as utils
 from typing import List
 
-import backuper.implementation.commands as commands
-import backuper.implementation.config as config
-from backuper.implementation.csv_db import CsvDb
-from backuper.implementation.filestore import Filestore
-import backuper.implementation.models as models
+import backuper.legacy.implementation.commands as commands
+import backuper.legacy.implementation.config as config
+from backuper.legacy.implementation.csv_db import CsvDb
+from backuper.legacy.implementation.filestore import Filestore
+import backuper.legacy.implementation.models as models
 
 
 def _process_backup(
@@ -35,13 +35,17 @@ def _process_backup(
     one_percent = int(max(1, len(analyze.files) / 100))
     for file in analyze.files:
         if counter % one_percent == 0:
-            print(f"Processed {format((counter / len(analyze.files)), '.0%')} of files...")
+            print(
+                f"Processed {format((counter / len(analyze.files)), '.0%')} of files..."
+            )
         counter = counter + 1
 
         if file.backuped:
             stored_file = filestore.analyze_file_to_stored_file(file)
         else:
-            stored_file = filestore.put(file.absolute_path, file.relative_path, file.hash)
+            stored_file = filestore.put(
+                file.absolute_path, file.relative_path, file.hash
+            )
 
         db.insert_file(version, stored_file)
 

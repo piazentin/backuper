@@ -1,8 +1,8 @@
 import sys
 
-import backuper.cli.argparser as parser
-import backuper.implementation.backup as bkp
-from backuper.implementation.commands import (
+import backuper.legacy.cli.argparser as parser
+import backuper.legacy.implementation.backup as bkp
+from backuper.legacy.implementation.commands import (
     CheckCommand,
     NewCommand,
     RestoreCommand,

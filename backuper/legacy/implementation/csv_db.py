@@ -1,26 +1,38 @@
 import csv
 from operator import attrgetter
 import os
-from typing import List, Optional, Tuple
-from backuper.implementation.config import CsvDbConfig
-import backuper.implementation.models as models
+from typing import List, Optional
+from backuper.legacy.implementation.config import CsvDbConfig
+import backuper.legacy.implementation.models as models
 
 
 def csvrow_to_model(row) -> models.FileSystemObject:
     if row[0] == "d":
         return models.DirEntry(row[1])
     elif row[0] == "f":
-        _, restore_path, sha1hash, stored_location, is_compressed = row
-        return models.StoredFile(
-            restore_path, sha1hash, stored_location, is_compressed == "True"
-        )
+        if len(row) >= 7:
+            _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = row
+            return models.StoredFile(
+                restore_path,
+                sha1hash,
+                stored_location,
+                is_compressed == "True",
+                int(size) if size else 0,
+                float(mtime) if mtime else 0.0,
+            )
+        else:
+            # Handle old format without size and mtime
+            _, restore_path, sha1hash, stored_location, is_compressed = row
+            return models.StoredFile(
+                restore_path, sha1hash, stored_location, is_compressed == "True"
+            )
 
 
 def model_to_csvrow(model: models.FileSystemObject) -> str:
     if isinstance(model, models.DirEntry):
         return f'"d","{model.normalized_path()}",""\n'
     elif isinstance(model, models.StoredFile):
-        return f'"f","{model.restore_path}","{model.sha1hash}","{model.stored_location}","{model.is_compressed}"\n'
+        return f'"f","{model.restore_path}","{model.sha1hash}","{model.stored_location}","{model.is_compressed}","{model.size}","{model.mtime}"\n'
     else:
         raise ValueError("Do not know how to parse object")
 

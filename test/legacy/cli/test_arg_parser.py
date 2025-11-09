@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import patch
 
-import backuper.cli.argparser as parser
-import backuper.implementation.commands as c
+import backuper.legacy.cli.argparser as parser
+import backuper.legacy.implementation.commands as c
 
 
 class ArgParserTest(unittest.TestCase):
@@ -20,7 +20,7 @@ class ArgParserTest(unittest.TestCase):
             ),
         )
 
-    @patch("backuper.cli.argparser._default_name")
+    @patch("backuper.legacy.cli.argparser._default_name")
     def test_new_backup_default_name(self, _mocked_default_name):
         _mocked_default_name.return_value = "2021-01-31T120102"
 
@@ -63,7 +63,7 @@ class ArgParserTest(unittest.TestCase):
             ),
         )
 
-    @patch("backuper.cli.argparser._default_name")
+    @patch("backuper.legacy.cli.argparser._default_name")
     def test_update_backup_default_name(self, _mocked_default_name):
         _mocked_default_name.return_value = "2021-01-31T120102"
 
