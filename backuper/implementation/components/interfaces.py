@@ -12,6 +12,7 @@ class FileEntry:
     size: int
     mtime: float
     is_directory: bool = False
+    hash: Optional[str] = None
 
 
 @dataclass
@@ -19,7 +20,7 @@ class AnalyzedFileEntry:
     """Contains analysis results for a file"""
 
     source_file: FileEntry  # The original file entry
-    hash: str  # Required hash information
+    hash: Optional[str] = None
     already_backed_up: bool = False
     backup_id: Optional[UUID] = None  # Will contain UUID if already backed up
 
@@ -32,7 +33,7 @@ class BackupedFileEntry:
     backup_id: UUID  # Required unique backup ID
     stored_location: str  # Location where the file is stored
     is_compressed: bool  # Whether the file is compressed
-    hash: str  # Required hash information
+    hash: str
 
 
 class FileReader(ABC):
@@ -93,13 +94,13 @@ class BackupDatabase(ABC):
         pass
 
     @abstractmethod
-    async def get_files_by_hash(self, hash: str) -> List[FileEntry]:
+    async def get_files_by_hash(self, hash: str) -> List[BackupedFileEntry]:
         """Get file entries by their hash value"""
         pass
 
     @abstractmethod
     async def get_files_by_metadata(
         self, relative_path: Path, mtime: float, size: int
-    ) -> List[FileEntry]:
+    ) -> List[BackupedFileEntry]:
         """Get file entries by their metadata (relative path, mtime, and size)"""
         pass
