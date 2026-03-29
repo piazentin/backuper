@@ -58,10 +58,16 @@ class CsvDb:
 
     def get_all_versions(self) -> List[models.Version]:
         return [
-            models.Version(f.strip(self._config.csv_file_extension))
+            models.Version(f.removesuffix(self._config.csv_file_extension))
             for f in os.listdir(self.db_dir)
             if f.endswith(self._config.csv_file_extension)
         ]
+
+    def create_version(self, name: str) -> models.Version:
+        version_file = self._csv_path_from_name(name)
+        with open(version_file, "a", encoding="utf-8"):
+            pass
+        return models.Version(name)
 
     def maybe_get_version_by_name(self, name: str) -> Optional[models.Version]:
         if os.path.exists(self._csv_path_from_name(name)):
@@ -170,9 +176,7 @@ class CsvBackupDatabase(BackupDatabase):
             )
 
     async def create_version(self, version: str) -> None:
-        version_file = self._csv_db._csv_path_from_name(version)
-        with open(version_file, "a", encoding="utf-8"):
-            pass
+        self._csv_db.create_version(version)
 
     async def add_file(self, version: str, entry: BackupedFileEntry) -> None:
         version_obj = self._csv_db.get_version_by_name(version)
