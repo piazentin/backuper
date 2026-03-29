@@ -2,7 +2,12 @@
 NEW-command parity tests: implementation `CreateBackupController` vs legacy expectations.
 
 Assertions mirror `test/legacy/test_backup.py` for `test_new_backup` and
-`test_new_backup_with_zip` (data layout and CSV DB contents).
+`test_new_backup_with_zip` (data layout and DB rows).
+
+CSV written by the implementation must be readable by **legacy** `CsvDb`
+(legacy is the on-disk contract). Separate tests run **legacy** `new` and assert
+the implementation `CsvDb` can read that CSV (forward compatibility for mixed
+toolchains).
 """
 
 from __future__ import annotations
@@ -16,13 +21,17 @@ from backuper.implementation.components.csv_db import (
     CsvBackupDatabase,
     CsvDb,
     DirEntry,
-    StoredFile,
     Version,
 )
 from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
 from backuper.implementation.controllers.create_backup import CreateBackupController
+import backuper.legacy.implementation.backup as legacy_backup
+import backuper.legacy.implementation.config as legacy_config
+from backuper.legacy.implementation.commands import NewCommand
+from backuper.legacy.implementation.config import CsvDbConfig as LegacyCsvDbConfig
+from backuper.legacy.implementation.csv_db import CsvDb as LegacyCsvDb
 from backuper.legacy.implementation import models as legacy_models
 
 import test.aux as aux
@@ -45,36 +54,61 @@ def _prepare_new_source_tree() -> Path:
     return _NEW_SOURCE
 
 
-def _assert_stored_file_matches_legacy(
-    actual: StoredFile, expected: legacy_models.StoredFile
-) -> bool:
-    return (
-        actual.sha1hash == expected.sha1hash
-        and actual.restore_path == expected.restore_path
-        and actual.is_compressed == expected.is_compressed
-        and actual.stored_location == expected.stored_location
+def _assert_stored_file_in_expected_set(
+    stored_file: legacy_models.StoredFile,
+    expected_files: set,
+) -> None:
+    """Same field equality as `BackupIntegrationTest.assertStoredFileIn`."""
+    for expected in expected_files:
+        if (
+            expected.sha1hash == stored_file.sha1hash
+            and expected.restore_path == stored_file.restore_path
+            and expected.is_compressed == stored_file.is_compressed
+            and expected.stored_location == stored_file.stored_location
+        ):
+            return
+    raise AssertionError(
+        f"StoredFile[{stored_file.restore_path!r}] not in expected set"
     )
 
 
-def _assert_db_matches_legacy_fixture(
-    csv_db: CsvDb,
-    version_name: str,
-    expected: dict,
+def _assert_legacy_reader_matches_fixture(
+    backup_dir: str, version_name: str, expected: dict
 ) -> None:
+    """Implementation-produced CSV must parse as legacy `CsvDb` and match fixtures."""
+    legacy_db = LegacyCsvDb(LegacyCsvDbConfig(backup_dir=backup_dir))
+    version = legacy_models.Version(version_name)
+    dirs = legacy_db.get_dirs_for_version(version)
+    assert set(dirs) == expected["dirs"]
+
+    files = legacy_db.get_files_for_version(version)
+    assert len(files) == len(expected["stored_files"])
+    for stored_file in files:
+        _assert_stored_file_in_expected_set(stored_file, expected["stored_files"])
+
+
+def _assert_implementation_reader_matches_fixture(
+    backup_dir: str, version_name: str, expected: dict
+) -> None:
+    """Legacy-produced CSV must parse as implementation `CsvDb` and match fixtures."""
+    impl_db = CsvDb(CsvDbConfig(backup_dir=backup_dir))
     version = Version(version_name)
-    dirs = csv_db.get_dirs_for_version(version)
+    dirs = impl_db.get_dirs_for_version(version)
     expected_dirs = {DirEntry(d.name) for d in expected["dirs"]}
     assert {DirEntry(d.name) for d in dirs} == expected_dirs
 
-    files = csv_db.get_files_for_version(version)
+    files = impl_db.get_files_for_version(version)
     assert len(files) == len(expected["stored_files"])
     for stored in files:
         if not any(
-            _assert_stored_file_matches_legacy(stored, exp)
+            stored.sha1hash == exp.sha1hash
+            and stored.restore_path == exp.restore_path
+            and stored.is_compressed == exp.is_compressed
+            and stored.stored_location == exp.stored_location
             for exp in expected["stored_files"]
         ):
             raise AssertionError(
-                f"No legacy-equivalent StoredFile for {stored.restore_path!r}: {stored!r}"
+                f"No fixture match for implementation StoredFile {stored!r}"
             )
 
 
@@ -113,10 +147,8 @@ async def test_new_backup_parity_zip_disabled(
     for name in data_filenames:
         assert name in _NEW_HASH_PATHS
 
-    _assert_db_matches_legacy_fixture(
-        CsvDb(CsvDbConfig(str(destination))),
-        "testing",
-        fixtures.new_backup_db,
+    _assert_legacy_reader_matches_fixture(
+        str(destination), "testing", fixtures.new_backup_db
     )
 
 
@@ -148,8 +180,44 @@ async def test_new_backup_parity_zip_enabled(
     for name in data_filenames:
         assert name.strip(".zip") in _NEW_HASH_PATHS
 
-    _assert_db_matches_legacy_fixture(
-        CsvDb(CsvDbConfig(str(destination))),
-        "testing",
-        fixtures.new_backup_with_zip_db,
+    _assert_legacy_reader_matches_fixture(
+        str(destination), "testing", fixtures.new_backup_with_zip_db
+    )
+
+
+def test_legacy_written_csv_readable_by_implementation_zip_disabled(
+    tmp_path: Path,
+    new_source_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(legacy_config, "ZIP_ENABLED", False)
+    destination = str(tmp_path / "legacy_new_zip_off")
+    legacy_backup.new(
+        NewCommand(
+            "testing",
+            str(new_source_path),
+            destination,
+        )
+    )
+    _assert_implementation_reader_matches_fixture(
+        destination, "testing", fixtures.new_backup_db
+    )
+
+
+def test_legacy_written_csv_readable_by_implementation_zip_enabled(
+    tmp_path: Path,
+    new_source_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(legacy_config, "ZIP_ENABLED", True)
+    destination = str(tmp_path / "legacy_new_zip_on")
+    legacy_backup.new(
+        NewCommand(
+            "testing",
+            str(new_source_path),
+            destination,
+        )
+    )
+    _assert_implementation_reader_matches_fixture(
+        destination, "testing", fixtures.new_backup_with_zip_db
     )
