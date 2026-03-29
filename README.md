@@ -32,7 +32,9 @@ restore --from /backup/source --to /backup/destination --version backup-version
 ## Run tests
 
 ```
-python3 -m unittest
+make test
+make test-coverage
+make test-all
 ```
 
 ## Format code

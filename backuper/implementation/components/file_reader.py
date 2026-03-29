@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import AsyncIterator
 
 from backuper.implementation.components.interfaces import FileEntry, FileReader
-from backuper.legacy.implementation.utils import compute_hash
 
 
 class LocalFileReader(FileReader):

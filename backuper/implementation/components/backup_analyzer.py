@@ -7,7 +7,7 @@ from backuper.implementation.components.interfaces import (
     FileEntry,
     AnalyzedFileEntry,
 )
-from backuper.legacy.implementation.utils import compute_hash
+from backuper.implementation.components.utils import compute_hash
 
 
 class BackupAnalyzerImpl(BackupAnalyzer):
