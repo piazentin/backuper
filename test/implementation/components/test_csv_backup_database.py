@@ -106,3 +106,55 @@ async def test_csv_backup_database_add_and_list_directory_entries(tmp_path: Path
     assert len(items) == 1
     assert items[0].is_directory is True
     assert items[0].relative_path == Path("subdir")
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_writes_and_appends_csv_rows(tmp_path: Path) -> None:
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    version = "20260329020000"
+
+    await db.create_version(version)
+    csv_file = tmp_path / "db" / f"{version}.csv"
+    assert csv_file.exists()
+    assert csv_file.read_text(encoding="utf-8") == ""
+
+    first = BackupedFileEntry(
+        source_file=FileEntry(
+            path=Path("/src/a.txt"),
+            relative_path=Path("a.txt"),
+            size=10,
+            mtime=111.0,
+            is_directory=False,
+        ),
+        backup_id=UUID("44444444-4444-4444-4444-444444444444"),
+        stored_location="data/a",
+        is_compressed=False,
+        hash="ha",
+    )
+    second = BackupedFileEntry(
+        source_file=FileEntry(
+            path=Path("/src/b.txt"),
+            relative_path=Path("b.txt"),
+            size=20,
+            mtime=222.0,
+            is_directory=False,
+        ),
+        backup_id=UUID("55555555-5555-5555-5555-555555555555"),
+        stored_location="data/b",
+        is_compressed=False,
+        hash="hb",
+    )
+
+    await db.add_file(version, first)
+    content_after_first = csv_file.read_text(encoding="utf-8")
+    lines_after_first = [line for line in content_after_first.splitlines() if line]
+    assert len(lines_after_first) == 1
+    assert '"f","a.txt","ha","data/a","False","10","111.0"' in content_after_first
+
+    await db.add_file(version, second)
+    content_after_second = csv_file.read_text(encoding="utf-8")
+    lines_after_second = [line for line in content_after_second.splitlines() if line]
+    assert len(lines_after_second) == 2
+    assert '"f","a.txt","ha","data/a","False","10","111.0"' in content_after_second
+    assert '"f","b.txt","hb","data/b","False","20","222.0"' in content_after_second
