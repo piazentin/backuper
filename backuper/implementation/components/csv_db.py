@@ -2,9 +2,10 @@ import csv
 from operator import attrgetter
 import os
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from typing import AsyncIterator
 import uuid
+from uuid import UUID
 
 from backuper.implementation.components.interfaces import (
     BackupDatabase,
@@ -128,7 +129,7 @@ class CsvBackupDatabase(BackupDatabase):
         self._csv_db = csv_db
 
     async def list_versions(self) -> List[str]:
-        return self._csv_db.list_versions()
+        return [version.name for version in self._csv_db.get_all_versions()]
 
     async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
         version_obj = self._csv_db.get_version_by_name(version)
@@ -169,7 +170,9 @@ class CsvBackupDatabase(BackupDatabase):
             )
 
     async def create_version(self, version: str) -> None:
-        self._csv_db.create_version(version)
+        version_file = self._csv_db._csv_path_from_name(version)
+        with open(version_file, "a", encoding="utf-8"):
+            pass
 
     async def add_file(self, version: str, entry: BackupedFileEntry) -> None:
         version_obj = self._csv_db.get_version_by_name(version)
@@ -180,7 +183,7 @@ class CsvBackupDatabase(BackupDatabase):
         else:
             stored_file = models.StoredFile(
                 restore_path=str(entry.source_file.relative_path),
-                sha1hash=entry.source_file.hash or "",
+                sha1hash=entry.hash or "",
                 stored_location=entry.stored_location,
                 is_compressed=entry.is_compressed,
                 size=entry.source_file.size,
@@ -215,6 +218,7 @@ class CsvBackupDatabase(BackupDatabase):
                             backup_id=backup_id,
                             stored_location=stored_file.stored_location,
                             is_compressed=stored_file.is_compressed,
+                            hash=stored_file.sha1hash,
                         )
                     )
 
@@ -254,15 +258,12 @@ class CsvBackupDatabase(BackupDatabase):
                             backup_id=backup_id,
                             stored_location=stored_file.stored_location,
                             is_compressed=stored_file.is_compressed,
+                            hash=stored_file.sha1hash,
                         )
                     )
 
         return result
 
-    def _generate_uuid_from_hash(self, hash: str) -> str:
+    def _generate_uuid_from_hash(self, hash: str) -> UUID:
         """Generate a deterministic UUID based on a hash value"""
-        # Create a namespace UUID (using UUID5 with DNS namespace)
-        namespace = uuid.NAMESPACE_DNS
-
-        # Use the hash as the name to generate a deterministic UUID5
-        return str(uuid.uuid5(namespace, hash))
+        return uuid.uuid5(uuid.NAMESPACE_DNS, hash)
