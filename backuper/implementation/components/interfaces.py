@@ -104,3 +104,9 @@ class BackupDatabase(ABC):
     ) -> List[BackupedFileEntry]:
         """Get file entries by their metadata (relative path, mtime, and size)"""
         pass
+
+
+class AnalysisReporter(ABC):
+    @abstractmethod
+    def report(self, entry: AnalyzedFileEntry) -> None:
+        pass

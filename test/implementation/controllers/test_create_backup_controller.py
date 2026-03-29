@@ -1,4 +1,6 @@
 from pathlib import Path
+from typing import AsyncIterator
+from uuid import UUID
 
 import pytest
 
@@ -6,6 +8,14 @@ from backuper.implementation.components.backup_analyzer import BackupAnalyzerImp
 from backuper.implementation.components.csv_db import CsvBackupDatabase, CsvDb
 from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
+from backuper.implementation.components.interfaces import (
+    AnalyzedFileEntry,
+    AnalysisReporter,
+    BackupDatabase,
+    BackupAnalyzer,
+    FileEntry,
+    FileReader,
+)
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
 from backuper.implementation.controllers.create_backup import CreateBackupController
 
@@ -56,3 +66,81 @@ async def test_create_backup_writes_data_store_and_metadata(tmp_path: Path) -> N
     stored_location = by_hash[0].stored_location
     stored_file = backup_root / "data" / stored_location
     assert stored_file.exists()
+
+
+class _ReaderStub(FileReader):
+    async def read_directory(self, path: Path) -> AsyncIterator[FileEntry]:
+        yield FileEntry(
+            path=path / "file.txt",
+            relative_path=Path("file.txt"),
+            size=10,
+            mtime=100.0,
+            is_directory=False,
+        )
+
+
+class _AnalyzerStub(BackupAnalyzer):
+    async def analyze_stream(
+        self, entries: AsyncIterator[FileEntry], backup_database: BackupDatabase
+    ) -> AsyncIterator[AnalyzedFileEntry]:
+        async for entry in entries:
+            yield AnalyzedFileEntry(
+                source_file=entry,
+                hash="hash123",
+                already_backed_up=True,
+                backup_id=UUID("12345678-1234-5678-1234-567812345678"),
+            )
+
+
+class _DbStub(BackupDatabase):
+    async def list_versions(self):
+        return []
+
+    async def list_files(self, version: str):
+        if False:
+            yield
+
+    async def create_version(self, version: str) -> None:
+        pass
+
+    async def add_file(self, version: str, entry):
+        pass
+
+    async def get_files_by_hash(self, hash: str):
+        return []
+
+    async def get_files_by_metadata(self, relative_path: Path, mtime: float, size: int):
+        return []
+
+
+class _CollectingReporter(AnalysisReporter):
+    def __init__(self) -> None:
+        self.entries = []
+
+    def report(self, entry: AnalyzedFileEntry) -> None:
+        self.entries.append(entry)
+
+
+@pytest.mark.asyncio
+async def test_analyze_path_reports_structured_entries(tmp_path: Path) -> None:
+    reporter = _CollectingReporter()
+    controller = CreateBackupController(
+        file_reader=_ReaderStub(),
+        analyzer=_AnalyzerStub(),
+        db=_DbStub(),
+        filestore=LocalFileStore(
+            FilestoreConfig(
+                backup_dir=str(tmp_path / "backup"),
+                zip_enabled=False,
+            )
+        ),
+        reporter=reporter,
+    )
+
+    await controller.analyze_path(tmp_path)
+
+    assert len(reporter.entries) == 1
+    reported = reporter.entries[0]
+    assert reported.source_file.relative_path == Path("file.txt")
+    assert reported.already_backed_up is True
+    assert reported.backup_id == UUID("12345678-1234-5678-1234-567812345678")

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 from uuid import uuid4
 from backuper.implementation.components.interfaces import (
     FileReader,
@@ -6,8 +7,10 @@ from backuper.implementation.components.interfaces import (
     BackupDatabase,
     AnalyzedFileEntry,
     BackupedFileEntry,
+    AnalysisReporter,
 )
 from backuper.implementation.components.filestore import LocalFileStore
+from backuper.implementation.components.reporter import StdoutAnalysisReporter
 
 
 class CreateBackupController:
@@ -17,11 +20,13 @@ class CreateBackupController:
         analyzer: BackupAnalyzer,
         db: BackupDatabase,
         filestore: LocalFileStore,
+        reporter: Optional[AnalysisReporter] = None,
     ):
         self._file_reader = file_reader
         self._analyzer = analyzer
         self._db = db
         self._filestore = filestore
+        self._reporter = reporter or StdoutAnalysisReporter()
 
     async def analyze_path(self, path: Path) -> None:
         """Analyze a path and print analyzed file entries"""
@@ -31,11 +36,8 @@ class CreateBackupController:
         # Analyze the entries
         analyzed_entries = self._analyzer.analyze_stream(file_entries, self._db)
 
-        # Print each analyzed entry
         async for entry in analyzed_entries:
-            status = "Already backed up" if entry.already_backed_up else "New file"
-            backup_id = f" (Backup ID: {entry.backup_id})" if entry.backup_id else ""
-            print(f"{status}: {entry.source_file.relative_path}{backup_id}")
+            self._reporter.report(entry)
 
     async def create_backup(self, source: Path, version: str) -> None:
         versions = await self._db.list_versions()
