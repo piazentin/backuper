@@ -11,11 +11,17 @@ from backuper.legacy.implementation.commands import NewCommand
 
 
 def run_new(command: NewCommand) -> None:
+    source = Path(command.source)
     destination = Path(command.location)
+    if not source.exists():
+        raise ValueError(f"source path {command.source} does not exists")
+    if destination.exists():
+        raise ValueError(f"destination path {command.location} already exists")
+
     controller = CreateBackupController(
         file_reader=LocalFileReader(),
         analyzer=BackupAnalyzerImpl(),
         db=CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(destination)))),
         filestore=LocalFileStore(FilestoreConfig(backup_dir=str(destination))),
     )
-    asyncio.run(controller.create_backup(Path(command.source), command.version))
+    asyncio.run(controller.create_backup(source, command.version))

@@ -28,9 +28,16 @@ def run_with_args():
 
         try:
             implementation_cli.run_new(command)
-        except Exception:
+        except Exception as original_error:
             # Keep a safe rollback at runtime until NEW migration is fully stable.
-            bkp.new(command)
+            print(
+                f"WARNING: implementation NEW command failed ({original_error}); falling back to legacy NEW.",
+                file=sys.stderr,
+            )
+            try:
+                bkp.new(command)
+            except Exception as fallback_error:
+                raise fallback_error from original_error
     elif isinstance(command, UpdateCommand):
         bkp.update(command)
     elif isinstance(command, CheckCommand):
