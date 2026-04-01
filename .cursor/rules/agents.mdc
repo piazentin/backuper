@@ -1,0 +1,8 @@
+---
+description: Canonical project context — read AGENTS.md at repo root
+alwaysApply: true
+---
+
+# Project context
+
+Read and follow **`AGENTS.md`** at the repository root for the CLI entrypoint, migration goal and current routing, `BACKUPER_NEW_USE_LEGACY` and fallback behavior, Makefile test targets, formatting, on-disk/CSV parity pointers, and implementation layering. Do not duplicate that document here.
