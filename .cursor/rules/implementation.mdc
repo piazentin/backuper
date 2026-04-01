@@ -1,0 +1,9 @@
+---
+description: Reminder when editing backuper/implementation
+globs: backuper/implementation/**
+alwaysApply: false
+---
+
+# Implementation layer
+
+This tree is the target home for command logic and new tests (`test/implementation/`). See **`AGENTS.md`**.
