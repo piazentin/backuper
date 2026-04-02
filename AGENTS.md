@@ -19,7 +19,16 @@ This file is the canonical agent and contributor map for this repository; prefer
 - **`update`**: Runs [`backuper.implementation.cli.run_update`](backuper/implementation/cli.py) unless legacy is forced or used as fallback (see below).
 - **`BACKUPER_UPDATE_USE_LEGACY`**: When this environment variable is set to a truthy value (`1`, `true`, `yes`, `on`, case-insensitive), `update` uses only the legacy path ([`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py)).
 - **Fallback**: If `run_update` raises, the CLI prints a warning to stderr and retries with legacy `update`.
-- **`check`**, **`restore`**: Still dispatched to legacy in [`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py) until those commands are migrated.
+- **`check`**: Runs [`backuper.implementation.cli.run_check`](backuper/implementation/cli.py) unless legacy is forced or used as fallback (see below).
+- **`BACKUPER_CHECK_USE_LEGACY`**: When this environment variable is set to a truthy value (`1`, `true`, `yes`, `on`, case-insensitive), `check` uses only the legacy path ([`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py)).
+- **Fallback**: If `run_check` raises, the CLI prints a warning to stderr and retries with legacy `check`.
+- **`restore`**: Still dispatched to legacy in [`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py) until migrated.
+
+## Command naming rubric
+
+- Keep CLI commands verb-first and intent-focused (`new`, `update`, `restore`, `check`).
+- `check` is the lightweight integrity/existence pass (current behavior).
+- If deeper and more expensive validation is added later, introduce a separate `verify` command rather than changing `check` semantics.
 
 ## Tests
 
