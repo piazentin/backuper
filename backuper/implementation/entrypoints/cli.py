@@ -80,10 +80,12 @@ def run_check(command: CheckCommand) -> list[str]:
     if not destination.exists():
         raise ValueError(f"destination path {command.location} does not exists")
 
-    errors = run_check_flow(
-        command,
-        db=_csv_db(destination),
-        filestore=_local_filestore(destination),
+    errors = asyncio.run(
+        run_check_flow(
+            command,
+            db=CsvBackupDatabase(_csv_db(destination)),
+            filestore=_local_filestore(destination),
+        )
     )
     _present_check_stdout(errors)
 

@@ -138,6 +138,9 @@ class _DbStub(BackupDatabase):
     async def list_versions(self):
         return []
 
+    async def get_version_by_name(self, name: str) -> str:
+        return name
+
     async def list_files(self, version: str):
         if False:
             yield

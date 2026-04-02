@@ -14,6 +14,8 @@ class FileEntry:
     mtime: float
     is_directory: bool = False
     hash: Optional[str] = None
+    is_compressed: bool = False
+    stored_location: Optional[str] = None
 
 
 @dataclass
@@ -32,7 +34,7 @@ class BackupedFileEntry:
 
     source_file: FileEntry  # The original file entry
     backup_id: UUID  # Required unique backup ID
-    stored_location: str  # Location where the file is stored
+    stored_location: str
     is_compressed: bool  # Whether the file is compressed
     hash: str
 
@@ -80,6 +82,11 @@ class BackupDatabase(ABC):
         pass
 
     @abstractmethod
+    async def get_version_by_name(self, name: str) -> str:
+        """Return the canonical version name. Raises RuntimeError when missing."""
+        pass
+
+    @abstractmethod
     async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
         """List all files in a specific backup version"""
         pass
@@ -124,6 +131,21 @@ class PutResult:
 class FileStore(ABC):
     @abstractmethod
     def exists(self, stored_location: str) -> bool:
+        """Return True if the blob exists at this path under the backup data directory."""
+        pass
+
+    @abstractmethod
+    def blob_relative_path(self, file_hash: str, is_compressed: bool) -> str:
+        """Path segments under the backup data directory for this content hash."""
+        pass
+
+    @abstractmethod
+    def blob_exists(self, file_hash: str, is_compressed: bool) -> bool:
+        pass
+
+    @abstractmethod
+    def read_blob(self, file_hash: str, is_compressed: bool) -> bytes:
+        """Raw bytes for an uncompressed blob, or extracted payload for a zip blob."""
         pass
 
     @abstractmethod
@@ -133,33 +155,4 @@ class FileStore(ABC):
         restore_path: Path,
         precomputed_hash: Optional[str] = None,
     ) -> PutResult:
-        pass
-
-
-@dataclass(frozen=True)
-class BackupCheckVersion:
-    name: str
-
-
-@dataclass(frozen=True)
-class BackupCheckFile:
-    restore_path: str
-    sha1hash: str
-    stored_location: str
-
-
-class BackupCheckDatabase(ABC):
-    @abstractmethod
-    def get_all_versions(self) -> List[BackupCheckVersion]:
-        pass
-
-    @abstractmethod
-    def get_version_by_name(self, name: str) -> BackupCheckVersion:
-        """Raises RuntimeError when the named version is missing."""
-        pass
-
-    @abstractmethod
-    def get_files_for_version(
-        self, version: BackupCheckVersion
-    ) -> List[BackupCheckFile]:
         pass

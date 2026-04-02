@@ -21,6 +21,9 @@ class MockBackupDatabase(BackupDatabase):
     async def list_versions(self) -> List[str]:
         return ["test_version"]
 
+    async def get_version_by_name(self, name: str) -> str:
+        return name
+
     async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
         # Not used in tests
         pass

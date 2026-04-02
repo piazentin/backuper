@@ -8,9 +8,6 @@ import uuid
 from uuid import UUID
 
 from backuper.implementation.components.interfaces import (
-    BackupCheckDatabase,
-    BackupCheckFile,
-    BackupCheckVersion,
     BackupDatabase,
     BackupedFileEntry,
     FileEntry,
@@ -161,39 +158,15 @@ class CsvDb:
             writer.write(model_to_csvrow(file))
 
 
-class CsvBackupCheckDatabase(BackupCheckDatabase):
-    def __init__(self, csv_db: CsvDb) -> None:
-        self._csv_db = csv_db
-
-    def get_all_versions(self) -> list[BackupCheckVersion]:
-        return [
-            BackupCheckVersion(name=v.name) for v in self._csv_db.get_all_versions()
-        ]
-
-    def get_version_by_name(self, name: str) -> BackupCheckVersion:
-        v = self._csv_db.get_version_by_name(name)
-        return BackupCheckVersion(name=v.name)
-
-    def get_files_for_version(
-        self, version: BackupCheckVersion
-    ) -> list[BackupCheckFile]:
-        v_obj = Version(version.name)
-        return [
-            BackupCheckFile(
-                restore_path=f.restore_path,
-                sha1hash=f.sha1hash,
-                stored_location=f.stored_location,
-            )
-            for f in self._csv_db.get_files_for_version(v_obj)
-        ]
-
-
 class CsvBackupDatabase(BackupDatabase):
     def __init__(self, csv_db: CsvDb):
         self._csv_db = csv_db
 
     async def list_versions(self) -> List[str]:
         return [version.name for version in self._csv_db.get_all_versions()]
+
+    async def get_version_by_name(self, name: str) -> str:
+        return self._csv_db.get_version_by_name(name).name
 
     async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
         version_obj = self._csv_db.get_version_by_name(version)
@@ -206,9 +179,13 @@ class CsvBackupDatabase(BackupDatabase):
             mtime = stored_file.mtime
 
             # If size or mtime is not set (0), try to get it from the filesystem
-            if size == 0 or mtime == 0.0:
+            if (
+                size == 0 or mtime == 0.0
+            ):  # TODO this is a temp workaround, the legacy databases should be properly migrated to the new format
                 try:
-                    file_path = Path(stored_file.stored_location)
+                    file_path = Path(
+                        stored_file.stored_location
+                    )  # TODO unwanted coupling with filestore, e.g. the storage may be remote
                     if file_path.exists():
                         stats = file_path.stat()
                         size = stats.st_size
@@ -224,6 +201,7 @@ class CsvBackupDatabase(BackupDatabase):
                 mtime=mtime,
                 is_directory=False,
                 hash=stored_file.sha1hash,
+                stored_location=stored_file.stored_location,
             )
 
         stored_dirs = self._csv_db.get_dirs_for_version(version_obj)

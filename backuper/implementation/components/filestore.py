@@ -42,6 +42,20 @@ class LocalFileStore(FileStore):
     def exists(self, stored_location: StoredLocation) -> bool:
         return (self._root_path / stored_location).exists()
 
+    def blob_relative_path(self, file_hash: str, is_compressed: bool) -> str:
+        return str(hash_to_stored_location(file_hash, is_compressed))
+
+    def blob_exists(self, file_hash: str, is_compressed: bool) -> bool:
+        return self.exists(self.blob_relative_path(file_hash, is_compressed))
+
+    def read_blob(self, file_hash: str, is_compressed: bool) -> bytes:
+        rel = self.blob_relative_path(file_hash, is_compressed)
+        path = self._root_path / rel
+        if is_compressed:
+            with ZipFile(path, "r") as zf:
+                return zf.read("part001")
+        return path.read_bytes()
+
     def put(
         self,
         origin_file: os.PathLike[str],
