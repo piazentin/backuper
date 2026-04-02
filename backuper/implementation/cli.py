@@ -1,6 +1,7 @@
 import asyncio
 from pathlib import Path
 
+from backuper.implementation import config as implementation_config
 from backuper.implementation.components.backup_analyzer import BackupAnalyzerImpl
 from backuper.implementation.components.csv_db import CsvBackupDatabase, CsvDb
 from backuper.implementation.components.file_reader import LocalFileReader
@@ -16,7 +17,12 @@ def _backup_controller(backup_root: Path) -> BackupController:
         file_reader=LocalFileReader(),
         analyzer=BackupAnalyzerImpl(),
         db=CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=d))),
-        filestore=LocalFileStore(FilestoreConfig(backup_dir=d)),
+        filestore=LocalFileStore(
+            FilestoreConfig(
+                backup_dir=d,
+                zip_enabled=implementation_config.ZIP_ENABLED,
+            )
+        ),
     )
 
 
