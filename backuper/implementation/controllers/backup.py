@@ -20,7 +20,6 @@ async def _analyze_path(
     file_reader: FileReader,
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
-    filestore: LocalFileStore,
     reporter: Optional[AnalysisReporter] = None,
 ) -> None:
     """Analyze a path and print analyzed file entries."""

@@ -4,12 +4,31 @@ from unittest.mock import patch
 import pytest
 
 import backuper.legacy.implementation.commands as c
+from backuper.implementation.commands import (
+    CheckCommand as ImplCheckCommand,
+    NewCommand as ImplNewCommand,
+    UpdateCommand as ImplUpdateCommand,
+)
 from backuper.legacy.cli import (
     CHECK_ROLLBACK_ENV_VAR,
     ROLLBACK_ENV_VAR,
     UPDATE_ROLLBACK_ENV_VAR,
     run_with_args,
 )
+
+
+def _expected_impl_new(cmd: c.NewCommand) -> ImplNewCommand:
+    return ImplNewCommand(version=cmd.version, source=cmd.source, location=cmd.location)
+
+
+def _expected_impl_update(cmd: c.UpdateCommand) -> ImplUpdateCommand:
+    return ImplUpdateCommand(
+        version=cmd.version, source=cmd.source, location=cmd.location
+    )
+
+
+def _expected_impl_check(cmd: c.CheckCommand) -> ImplCheckCommand:
+    return ImplCheckCommand(location=cmd.location, version=cmd.version)
 
 
 @patch.dict("os.environ", {ROLLBACK_ENV_VAR: ""})
@@ -24,7 +43,7 @@ def test_new_routes_to_implementation_by_default(
 
     run_with_args()
 
-    implementation_new_mock.assert_called_once_with(command)
+    implementation_new_mock.assert_called_once_with(_expected_impl_new(command))
     legacy_new_mock.assert_not_called()
 
 
@@ -56,7 +75,7 @@ def test_new_falls_back_to_legacy_when_implementation_fails(
 
     run_with_args()
 
-    implementation_new_mock.assert_called_once_with(command)
+    implementation_new_mock.assert_called_once_with(_expected_impl_new(command))
     legacy_new_mock.assert_called_once_with(command)
     assert (
         "WARNING: implementation NEW command failed (boom); falling back to legacy NEW."
@@ -97,7 +116,7 @@ def test_update_routes_to_implementation_by_default(
 
     run_with_args()
 
-    implementation_update_mock.assert_called_once_with(command)
+    implementation_update_mock.assert_called_once_with(_expected_impl_update(command))
     legacy_update_mock.assert_not_called()
 
 
@@ -161,7 +180,7 @@ def test_update_falls_back_to_legacy_when_implementation_fails(
 
     run_with_args()
 
-    implementation_update_mock.assert_called_once_with(command)
+    implementation_update_mock.assert_called_once_with(_expected_impl_update(command))
     legacy_update_mock.assert_called_once_with(command)
     assert (
         "WARNING: implementation UPDATE command failed (boom); falling back to legacy UPDATE."
@@ -231,7 +250,7 @@ def test_check_routes_to_implementation_by_default(
 
     run_with_args()
 
-    implementation_check_mock.assert_called_once_with(command)
+    implementation_check_mock.assert_called_once_with(_expected_impl_check(command))
     legacy_check_mock.assert_not_called()
 
 
@@ -295,7 +314,7 @@ def test_check_falls_back_to_legacy_when_implementation_fails(
 
     run_with_args()
 
-    implementation_check_mock.assert_called_once_with(command)
+    implementation_check_mock.assert_called_once_with(_expected_impl_check(command))
     legacy_check_mock.assert_called_once_with(command)
     assert (
         "WARNING: implementation CHECK command failed (boom); falling back to legacy CHECK."

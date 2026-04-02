@@ -171,12 +171,6 @@ async def test_analyze_path_reports_structured_entries(tmp_path: Path) -> None:
         file_reader=_ReaderStub(),
         analyzer=_AnalyzerStub(),
         db=_DbStub(),
-        filestore=LocalFileStore(
-            FilestoreConfig(
-                backup_dir=str(tmp_path / "backup"),
-                zip_enabled=False,
-            )
-        ),
         reporter=reporter,
     )
 
