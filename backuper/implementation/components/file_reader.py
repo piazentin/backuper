@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import AsyncIterator
 
-from backuper.implementation.components.interfaces import FileEntry, FileReader
+from backuper.implementation.interfaces import FileEntry, FileReader
 
 
 class LocalFileReader(FileReader):

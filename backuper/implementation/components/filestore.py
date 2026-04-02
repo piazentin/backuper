@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 from zipfile import ZipFile
 
-from backuper.implementation.components.interfaces import FileStore, PutResult
+from backuper.implementation.interfaces import FileStore, PutResult
 from backuper.implementation.components.utils import compute_hash, normalize_path
 from backuper.implementation.config import FilestoreConfig
 

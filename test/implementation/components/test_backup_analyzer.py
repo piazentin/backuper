@@ -5,7 +5,7 @@ from typing import AsyncIterator
 from uuid import UUID
 
 from backuper.implementation.components.backup_analyzer import BackupAnalyzerImpl
-from backuper.implementation.components.interfaces import FileEntry, BackupedFileEntry
+from backuper.implementation.interfaces import FileEntry, BackupedFileEntry
 from test.aux.mock_backup_database import MockBackupDatabase
 
 

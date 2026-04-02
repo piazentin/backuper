@@ -4,7 +4,7 @@ from uuid import UUID
 import pytest
 
 from backuper.implementation.components.csv_db import CsvBackupDatabase, CsvDb
-from backuper.implementation.components.interfaces import BackupedFileEntry, FileEntry
+from backuper.implementation.interfaces import BackupedFileEntry, FileEntry
 from backuper.implementation.config import CsvDbConfig
 
 

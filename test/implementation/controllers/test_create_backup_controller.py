@@ -8,7 +8,7 @@ from backuper.implementation.components.backup_analyzer import BackupAnalyzerImp
 from backuper.implementation.components.csv_db import CsvBackupDatabase, CsvDb
 from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
-from backuper.implementation.components.interfaces import (
+from backuper.implementation.interfaces import (
     AnalyzedFileEntry,
     AnalysisReporter,
     BackupDatabase,

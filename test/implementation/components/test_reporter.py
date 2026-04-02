@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import UUID
 
-from backuper.implementation.components.interfaces import AnalyzedFileEntry, FileEntry
+from backuper.implementation.interfaces import AnalyzedFileEntry, FileEntry
 from backuper.implementation.components.reporter import StdoutAnalysisReporter
 
 

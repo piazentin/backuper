@@ -2,8 +2,8 @@
 AST-based architecture guardrails for `backuper.implementation`.
 
 Enforces legacy isolation under implementation, controller layering (function-only
-controllers), imports of `components` only via `components.interfaces`, and no
-controller-to-controller coupling.
+controllers), no imports of concrete `components` from controllers (ports live in
+`implementation.interfaces`), and no controller-to-controller coupling.
 """
 
 from __future__ import annotations
@@ -18,20 +18,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 IMPLEMENTATION_ROOT = REPO_ROOT / "backuper" / "implementation"
 CONTROLLERS_ROOT = IMPLEMENTATION_ROOT / "controllers"
 
-# Controllers may import concrete types only from this module (ports / DTOs live here).
-_COMPONENTS_PORT_MODULE = "backuper.implementation.components.interfaces"
 _COMPONENTS_ROOT_PKG = "backuper.implementation.components"
 
 
 def _is_under_components_package(module_path: str) -> bool:
     return module_path == _COMPONENTS_ROOT_PKG or module_path.startswith(
         _COMPONENTS_ROOT_PKG + "."
-    )
-
-
-def _is_allowed_components_module(module_path: str) -> bool:
-    return module_path == _COMPONENTS_PORT_MODULE or module_path.startswith(
-        _COMPONENTS_PORT_MODULE + "."
     )
 
 
@@ -81,12 +73,10 @@ def _collect_controller_components_import_violations(
                 path = alias.name
                 if not _is_under_components_package(path):
                     continue
-                if _is_allowed_components_module(path):
-                    continue
                 bad.append(
                     f"{relpath}:{node.lineno}: import of {path!r} not allowed "
-                    f"(controllers may import only from {_COMPONENTS_PORT_MODULE!r} "
-                    f"under {_COMPONENTS_ROOT_PKG!r})"
+                    f"(controllers must not import {_COMPONENTS_ROOT_PKG!r}; "
+                    f"use backuper.implementation.interfaces for ports)"
                 )
         elif isinstance(node, ast.ImportFrom):
             reported: set[str] = set()
@@ -95,13 +85,11 @@ def _collect_controller_components_import_violations(
                     continue
                 if not _is_under_components_package(resolved):
                     continue
-                if _is_allowed_components_module(resolved):
-                    continue
                 reported.add(resolved)
                 bad.append(
                     f"{relpath}:{node.lineno}: import from {resolved!r} not allowed "
-                    f"(controllers may import only from {_COMPONENTS_PORT_MODULE!r} "
-                    f"under {_COMPONENTS_ROOT_PKG!r})"
+                    f"(controllers must not import {_COMPONENTS_ROOT_PKG!r}; "
+                    f"use backuper.implementation.interfaces for ports)"
                 )
     return bad
 
@@ -169,7 +157,7 @@ def test_no_controller_to_controller_imports() -> None:
     assert not violations, "Controller cross-imports:\n" + "\n".join(violations)
 
 
-def test_controllers_import_only_components_interfaces() -> None:
+def test_controllers_do_not_import_components() -> None:
     violations: list[str] = []
     for path in _iter_py_files(CONTROLLERS_ROOT):
         tree = _parse(path)

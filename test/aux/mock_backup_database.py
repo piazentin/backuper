@@ -1,6 +1,6 @@
 from typing import AsyncIterator, List, Dict, Union, Tuple
 from pathlib import Path
-from backuper.implementation.components.interfaces import (
+from backuper.implementation.interfaces import (
     BackupDatabase,
     FileEntry,
     BackupedFileEntry,

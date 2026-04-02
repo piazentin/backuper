@@ -7,7 +7,7 @@ from typing import AsyncIterator
 import uuid
 from uuid import UUID
 
-from backuper.implementation.components.interfaces import (
+from backuper.implementation.interfaces import (
     BackupDatabase,
     BackupedFileEntry,
     FileEntry,

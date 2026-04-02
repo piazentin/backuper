@@ -1,6 +1,6 @@
 from typing import AsyncIterator, List
 from pathlib import Path
-from backuper.implementation.components.interfaces import FileReader, FileEntry
+from backuper.implementation.interfaces import FileReader, FileEntry
 
 
 class MockFileReader(FileReader):

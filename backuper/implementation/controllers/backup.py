@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
-from backuper.implementation.components.interfaces import (
+from backuper.implementation.interfaces import (
     AnalyzedFileEntry,
     AnalysisReporter,
     BackupAnalyzer,
