@@ -11,10 +11,11 @@ select = [
   "UP",  # pyupgrade
 ]
 # E501: line length (`ruff format` handles code; long strings/asserts may remain)
-# E722: bare `except` in legacy paths
-ignore = ["E501", "E722"]
+ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
+# Legacy paths may still use bare `except`
+"backuper/legacy/**/*.py" = ["E722"]
 # Module-level Union[] aliases (PEP 604 `|` is evaluated at import time on Python <3.10)
 "backuper/implementation/components/csv_db.py" = ["UP007"]
 "backuper/legacy/implementation/models.py" = ["UP007"]

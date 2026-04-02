@@ -176,30 +176,11 @@ class CsvBackupDatabase(BackupDatabase):
         for stored_file in stored_files:
             path = Path(stored_file.restore_path)
 
-            size = stored_file.size
-            mtime = stored_file.mtime
-
-            # If size or mtime is not set (0), try to get it from the filesystem
-            if (
-                size == 0 or mtime == 0.0
-            ):  # TODO this is a temp workaround, the legacy databases should be properly migrated to the new format
-                try:
-                    file_path = Path(
-                        stored_file.stored_location
-                    )  # TODO unwanted coupling with filestore, e.g. the storage may be remote
-                    if file_path.exists():
-                        stats = file_path.stat()
-                        size = stats.st_size
-                        mtime = stats.st_mtime
-                except (OSError, ValueError):
-                    # If we can't get the stats, use the values from the model
-                    pass
-
             yield FileEntry(
                 path=path,
                 relative_path=path,
-                size=size,
-                mtime=mtime,
+                size=stored_file.size,
+                mtime=stored_file.mtime,
                 is_directory=False,
                 hash=stored_file.sha1hash,
                 stored_location=stored_file.stored_location,
