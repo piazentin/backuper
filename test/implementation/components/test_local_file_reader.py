@@ -8,6 +8,9 @@ from backuper.implementation.components.file_reader import LocalFileReader
 async def test_local_file_reader():
     # Arrange
     test_dir = Path("test/resources/bkp_test_sources_new")
+    # Empty directories are not tracked by git in CI checkouts, so ensure
+    # the fixture directory exists before reading.
+    (test_dir / "subdir" / "empty dir").mkdir(parents=True, exist_ok=True)
     reader = LocalFileReader()
 
     expected_files = {

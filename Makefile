@@ -1,10 +1,16 @@
-.PHONY: test test-coverage test-all
+.PHONY: test test-implementation test-coverage format format-check
 
 test:
+	python3 -m pytest test
+
+test-implementation:
 	python3 -m pytest test/implementation
 
 test-coverage:
-	python3 -m pytest test/implementation --cov=backuper/implementation --cov-report=term-missing
+	python3 -m pytest test --cov=. --cov-report=term-missing
 
-test-all:
-	python3 -m pytest test
+format:
+	python3 -m black .
+
+format-check:
+	python3 -m black --check .

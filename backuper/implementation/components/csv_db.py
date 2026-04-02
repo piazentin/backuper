@@ -103,7 +103,9 @@ class CsvDb:
         return None
 
     def get_most_recent_version(self) -> Optional[Version]:
-        versions = sorted(self.get_all_versions(), key=lambda version: version.name, reverse=True)
+        versions = sorted(
+            self.get_all_versions(), key=lambda version: version.name, reverse=True
+        )
         if len(versions) > 0:
             return versions[0]
         else:
@@ -115,9 +117,7 @@ class CsvDb:
         else:
             raise RuntimeError("Version not found")
 
-    def get_fs_objects_for_version(
-        self, version: Version
-    ) -> List[FileSystemObject]:
+    def get_fs_objects_for_version(self, version: Version) -> List[FileSystemObject]:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "r", encoding="utf-8") as file:
             return [

@@ -33,12 +33,12 @@ restore --from /backup/source --to /backup/destination --version backup-version
 
 ```
 make test
+make test-implementation
 make test-coverage
-make test-all
 ```
 
 ## Format code
 
 ```
-python3 -m black .
+make format
 ```

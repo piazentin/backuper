@@ -9,7 +9,9 @@ from backuper.implementation.config import CsvDbConfig
 
 
 @pytest.mark.asyncio
-async def test_csv_backup_database_create_version_and_list_versions(tmp_path: Path) -> None:
+async def test_csv_backup_database_create_version_and_list_versions(
+    tmp_path: Path,
+) -> None:
     csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
     db = CsvBackupDatabase(csv_db)
 
@@ -57,7 +59,9 @@ async def test_csv_backup_database_add_and_lookup_file_entries(tmp_path: Path) -
     await db.add_file("20260329000000", stored_file)
     await db.add_file("20260329000000", second_stored_file)
 
-    by_metadata = await db.get_files_by_metadata(Path("docs/readme.txt"), 1711700000.123, 42)
+    by_metadata = await db.get_files_by_metadata(
+        Path("docs/readme.txt"), 1711700000.123, 42
+    )
     assert len(by_metadata) == 1
     assert by_metadata[0].stored_location == "data/f1"
     assert by_metadata[0].hash == "abc123"
@@ -67,7 +71,9 @@ async def test_csv_backup_database_add_and_lookup_file_entries(tmp_path: Path) -
     assert len(by_hash) == 1
     assert by_hash[0].source_file.relative_path == Path("docs/readme.txt")
 
-    second_by_metadata = await db.get_files_by_metadata(Path("docs/notes.txt"), 1711700001.0, 12)
+    second_by_metadata = await db.get_files_by_metadata(
+        Path("docs/notes.txt"), 1711700001.0, 12
+    )
     assert len(second_by_metadata) == 1
     assert second_by_metadata[0].stored_location == "data/f2"
     assert second_by_metadata[0].hash == "def456"
@@ -79,7 +85,9 @@ async def test_csv_backup_database_add_and_lookup_file_entries(tmp_path: Path) -
 
 
 @pytest.mark.asyncio
-async def test_csv_backup_database_add_and_list_directory_entries(tmp_path: Path) -> None:
+async def test_csv_backup_database_add_and_list_directory_entries(
+    tmp_path: Path,
+) -> None:
     csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
     db = CsvBackupDatabase(csv_db)
     await db.create_version("20260329010000")
