@@ -2,8 +2,8 @@ from pathlib import Path
 
 from backuper.implementation.components.csv_db import CsvDb, Version
 from backuper.implementation.components.filestore import LocalFileStore
+from backuper.implementation.commands import CheckCommand
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
-from backuper.legacy.implementation.commands import CheckCommand
 
 
 def _missing_stored_files(

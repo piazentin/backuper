@@ -9,14 +9,10 @@ from backuper.implementation.components.csv_db import (
 )
 from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
+from backuper.implementation.commands import CheckCommand, NewCommand, UpdateCommand
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
 from backuper.implementation.controllers.backup import BackupController
 from backuper.implementation.controllers.check import run_check_flow
-from backuper.legacy.implementation.commands import (
-    CheckCommand,
-    NewCommand,
-    UpdateCommand,
-)
 
 
 def _backup_controller(backup_root: Path) -> BackupController:
