@@ -2,7 +2,7 @@ import sys
 import os
 
 import backuper.legacy.cli.argparser as parser
-import backuper.implementation.cli as implementation_cli
+import backuper.implementation.entrypoints.cli as implementation_cli
 import backuper.legacy.implementation.backup as bkp
 from backuper.legacy.cli.impl_mapping import (
     to_implementation_check_command,

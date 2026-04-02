@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from backuper.implementation.cli import run_check
+from backuper.implementation.entrypoints.cli import run_check
 import backuper.legacy.implementation.backup as legacy_backup
 from backuper.legacy.implementation.commands import (
     CheckCommand,
