@@ -14,6 +14,7 @@ from backuper.legacy.implementation.commands import (
 
 ROLLBACK_ENV_VAR = "BACKUPER_NEW_USE_LEGACY"
 UPDATE_ROLLBACK_ENV_VAR = "BACKUPER_UPDATE_USE_LEGACY"
+CHECK_ROLLBACK_ENV_VAR = "BACKUPER_CHECK_USE_LEGACY"
 
 _TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on"})
 
@@ -24,6 +25,10 @@ def _should_use_legacy_new() -> bool:
 
 def _should_use_legacy_update() -> bool:
     return os.getenv(UPDATE_ROLLBACK_ENV_VAR, "").strip().lower() in _TRUTHY_ENV_VALUES
+
+
+def _should_use_legacy_check() -> bool:
+    return os.getenv(CHECK_ROLLBACK_ENV_VAR, "").strip().lower() in _TRUTHY_ENV_VALUES
 
 
 def run_with_args():
@@ -63,7 +68,22 @@ def run_with_args():
             except Exception as fallback_error:
                 raise fallback_error from original_error
     elif isinstance(command, CheckCommand):
-        bkp.check(command)
+        if _should_use_legacy_check():
+            bkp.check(command)
+            return
+
+        try:
+            implementation_cli.run_check(command)
+        except Exception as original_error:
+            # Keep a safe rollback at runtime until CHECK migration is fully stable.
+            print(
+                f"WARNING: implementation CHECK command failed ({original_error}); falling back to legacy CHECK.",
+                file=sys.stderr,
+            )
+            try:
+                bkp.check(command)
+            except Exception as fallback_error:
+                raise fallback_error from original_error
     elif isinstance(command, RestoreCommand):
         bkp.restore(command)
     else:
