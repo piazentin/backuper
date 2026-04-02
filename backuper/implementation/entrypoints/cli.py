@@ -28,6 +28,13 @@ def _local_filestore(backup_root: Path) -> LocalFileStore:
     )
 
 
+def _present_check_stdout(errors: list[str]) -> None:
+    for error in errors:
+        print(error)
+    if len(errors) == 0:
+        print("No errors found!")
+
+
 def run_new(command: NewCommand) -> None:
     source = Path(command.source)
     destination = Path(command.location)
@@ -78,9 +85,6 @@ def run_check(command: CheckCommand) -> list[str]:
         db=_csv_db(destination),
         filestore=_local_filestore(destination),
     )
-    for error in errors:
-        print(error)
-    if len(errors) == 0:
-        print("No errors found!")
+    _present_check_stdout(errors)
 
     return errors
