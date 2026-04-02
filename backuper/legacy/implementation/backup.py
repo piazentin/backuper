@@ -88,7 +88,7 @@ def new(command: commands.NewCommand) -> None:
     )
     version = models.Version(command.version)
 
-    print(f"Creating new backup from {command.source} " f"into {command.location}")
+    print(f"Creating new backup from {command.source} into {command.location}")
     _process_backup(version, command.source, db, filestore)
 
 

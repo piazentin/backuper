@@ -11,8 +11,7 @@ def _default_name() -> str:
 def with_source_arg(parser: argparse.ArgumentParser):
     parser.add_argument(
         "source",
-        help="Source directory to backup.\n"
-        "This is where the data to be backuped is.",
+        help="Source directory to backup.\nThis is where the data to be backuped is.",
     )
 
 
