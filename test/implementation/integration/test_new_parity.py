@@ -1,5 +1,5 @@
 """
-NEW-command parity tests: implementation `CreateBackupController` vs legacy expectations.
+NEW-command parity tests: implementation `BackupController` vs legacy expectations.
 
 Assertions mirror `test/legacy/test_backup.py` for `test_new_backup` and
 `test_new_backup_with_zip` (data layout and DB rows).
@@ -26,7 +26,7 @@ from backuper.implementation.components.csv_db import (
 from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
-from backuper.implementation.controllers.create_backup import CreateBackupController
+from backuper.implementation.controllers.backup import BackupController
 import backuper.legacy.implementation.backup as legacy_backup
 import backuper.legacy.implementation.config as legacy_config
 from backuper.legacy.implementation.commands import NewCommand
@@ -127,7 +127,7 @@ async def test_new_backup_parity_zip_disabled(
     destination.mkdir()
 
     db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(destination))))
-    controller = CreateBackupController(
+    controller = BackupController(
         file_reader=LocalFileReader(),
         analyzer=BackupAnalyzerImpl(),
         db=db,
@@ -139,7 +139,7 @@ async def test_new_backup_parity_zip_disabled(
         ),
     )
 
-    await controller.create_backup(source=new_source_path, version="testing")
+    await controller.new_backup(source=new_source_path, version="testing")
 
     data_root = destination / "data"
     data_filenames = aux.list_all_files_recursive(str(data_root))
@@ -160,7 +160,7 @@ async def test_new_backup_parity_zip_enabled(
     destination.mkdir()
 
     db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(destination))))
-    controller = CreateBackupController(
+    controller = BackupController(
         file_reader=LocalFileReader(),
         analyzer=BackupAnalyzerImpl(),
         db=db,
@@ -172,7 +172,7 @@ async def test_new_backup_parity_zip_enabled(
         ),
     )
 
-    await controller.create_backup(source=new_source_path, version="testing")
+    await controller.new_backup(source=new_source_path, version="testing")
 
     data_root = destination / "data"
     data_filenames = aux.list_all_files_recursive(str(data_root))

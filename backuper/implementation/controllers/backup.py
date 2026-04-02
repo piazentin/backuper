@@ -1,19 +1,20 @@
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
+
+from backuper.implementation.components.filestore import LocalFileStore
 from backuper.implementation.components.interfaces import (
-    FileReader,
+    AnalyzedFileEntry,
     BackupAnalyzer,
     BackupDatabase,
-    AnalyzedFileEntry,
     BackupedFileEntry,
     AnalysisReporter,
+    FileReader,
 )
-from backuper.implementation.components.filestore import LocalFileStore
 from backuper.implementation.components.reporter import StdoutAnalysisReporter
 
 
-class CreateBackupController:
+class BackupController:
     def __init__(
         self,
         file_reader: FileReader,
@@ -30,20 +31,28 @@ class CreateBackupController:
 
     async def analyze_path(self, path: Path) -> None:
         """Analyze a path and print analyzed file entries"""
-        # Get file entries from reader
         file_entries = self._file_reader.read_directory(path)
-
-        # Analyze the entries
         analyzed_entries = self._analyzer.analyze_stream(file_entries, self._db)
 
         async for entry in analyzed_entries:
             self._reporter.report(entry)
 
-    async def create_backup(self, source: Path, version: str) -> None:
+    async def new_backup(self, source: Path, version: str) -> None:
         versions = await self._db.list_versions()
         if version not in versions:
             await self._db.create_version(version)
+        await self._run_backup_stream(source, version)
 
+    async def add_version(self, source: Path, version: str) -> None:
+        versions = await self._db.list_versions()
+        if version in versions:
+            raise ValueError(
+                f"There is already a backup versioned with the name {version}"
+            )
+        await self._db.create_version(version)
+        await self._run_backup_stream(source, version)
+
+    async def _run_backup_stream(self, source: Path, version: str) -> None:
         file_entries = self._file_reader.read_directory(source)
         analyzed_entries = self._analyzer.analyze_stream(file_entries, self._db)
 
@@ -75,7 +84,9 @@ class CreateBackupController:
                     hash=matched.hash,
                 )
 
-        stored = self._filestore.put(source_file.path, source_file.relative_path, entry.hash)
+        stored = self._filestore.put(
+            source_file.path, source_file.relative_path, entry.hash
+        )
         return BackupedFileEntry(
             source_file=source_file,
             backup_id=uuid4(),
