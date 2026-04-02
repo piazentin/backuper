@@ -8,7 +8,11 @@ import pytest
 
 from backuper.implementation.cli import run_check
 import backuper.legacy.implementation.backup as legacy_backup
-from backuper.legacy.implementation.commands import CheckCommand, NewCommand, UpdateCommand
+from backuper.legacy.implementation.commands import (
+    CheckCommand,
+    NewCommand,
+    UpdateCommand,
+)
 from backuper.legacy.implementation.csv_db import CsvDb as LegacyCsvDb
 from backuper.legacy.implementation.config import CsvDbConfig as LegacyCsvDbConfig
 
