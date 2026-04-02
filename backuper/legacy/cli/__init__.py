@@ -1,8 +1,8 @@
-import sys
 import os
+import sys
 
-import backuper.legacy.cli.argparser as parser
 import backuper.implementation.entrypoints.cli as implementation_cli
+import backuper.legacy.cli.argparser as parser
 import backuper.legacy.implementation.backup as bkp
 from backuper.legacy.cli.impl_mapping import (
     to_implementation_check_command,
@@ -15,7 +15,6 @@ from backuper.legacy.implementation.commands import (
     RestoreCommand,
     UpdateCommand,
 )
-
 
 ROLLBACK_ENV_VAR = "BACKUPER_NEW_USE_LEGACY"
 UPDATE_ROLLBACK_ENV_VAR = "BACKUPER_UPDATE_USE_LEGACY"

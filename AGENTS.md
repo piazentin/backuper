@@ -40,9 +40,9 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 - Legacy defines the on-disk contract (layout and CSV/database rows). Integration tests under [`test/implementation/integration/`](test/implementation/integration/) assert parity where formats matter; see e.g. [`test/implementation/integration/test_new_parity.py`](test/implementation/integration/test_new_parity.py) (implementation vs legacy expectations and cross-readability).
 
-## Formatting
+## Formatting and lint
 
-- **Black**: `python3 -m black .` (see [README.md](README.md)).
+- **Ruff** (format + lint) and **import-linter**: `make lint` / `make lint-fix` (see [README.md](README.md)).
 
 ## Pull requests
 

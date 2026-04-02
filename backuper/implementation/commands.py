@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -19,4 +20,4 @@ class UpdateCommand:
 @dataclass
 class CheckCommand:
     location: str
-    version: Optional[str] = None
+    version: str | None = None

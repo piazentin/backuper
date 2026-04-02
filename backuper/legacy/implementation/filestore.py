@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import os
 import pathlib
 import shutil
-from typing import Optional
-import backuper.legacy.implementation.analyze as analyze
 from zipfile import ZipFile
+
+import backuper.legacy.implementation.analyze as analyze
 from backuper.legacy.implementation import models, utils
 from backuper.legacy.implementation.config import FilestoreConfig
 
@@ -30,7 +32,7 @@ class Filestore:
         os.makedirs(self._root_path, exist_ok=True)
 
     def is_compression_eligible(
-        self, origin_file: os.PathLike, size: Optional[int] = None
+        self, origin_file: os.PathLike, size: int | None = None
     ) -> bool:
         ext = pathlib.Path(origin_file).suffix
 
@@ -64,7 +66,7 @@ class Filestore:
         self,
         origin_file: os.PathLike,
         restore_path: os.PathLike,
-        precomputed_hash: Optional[str] = None,
+        precomputed_hash: str | None = None,
     ) -> models.StoredFile:
         # TODO handle IO exceptions and cleanup
         restore_path_normalized = utils.normalize_path(restore_path)
@@ -124,9 +126,10 @@ class Filestore:
         os.makedirs(os.path.dirname(absolute_restored_location), exist_ok=True)
 
         if stored_file.is_compressed:
-            with ZipFile(absolute_stored_location, "r") as zipfile, open(
-                absolute_restored_location, "wb"
-            ) as restored:
+            with (
+                ZipFile(absolute_stored_location, "r") as zipfile,
+                open(absolute_restored_location, "wb") as restored,
+            ):
                 for name in sorted(zipfile.namelist()):
                     restored.write(zipfile.read(name))
         else:

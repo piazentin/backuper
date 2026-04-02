@@ -1,13 +1,12 @@
 import os
-from backuper.legacy.implementation.analyze import Analyze
-import backuper.legacy.implementation.utils as utils
-from typing import List
 
 import backuper.legacy.implementation.commands as commands
 import backuper.legacy.implementation.config as config
+import backuper.legacy.implementation.models as models
+import backuper.legacy.implementation.utils as utils
+from backuper.legacy.implementation.analyze import Analyze
 from backuper.legacy.implementation.csv_db import CsvDb
 from backuper.legacy.implementation.filestore import Filestore
-import backuper.legacy.implementation.models as models
 
 
 def _process_backup(
@@ -52,7 +51,7 @@ def _process_backup(
 
 def _check_missing_stored_files(
     version: models.Version, db: CsvDb, filestore: Filestore
-) -> List[str]:
+) -> list[str]:
     errors = []
     for file in db.get_files_for_version(version):
         if not filestore.exists(file.stored_location):
@@ -115,7 +114,7 @@ def update(command: commands.UpdateCommand) -> None:
     _process_backup(version, command.source, db, filestore)
 
 
-def check(command: commands.CheckCommand) -> List[str]:
+def check(command: commands.CheckCommand) -> list[str]:
     db = CsvDb(config.CsvDbConfig(backup_dir=command.location))
     filestore = Filestore(config.FilestoreConfig(backup_dir=command.location))
 

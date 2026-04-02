@@ -1,11 +1,9 @@
 import os
-import shutil
-from datetime import datetime
 import random
+import shutil
 import string
+from datetime import datetime
 from tempfile import gettempdir
-from typing import List
-
 
 TEMP_SUBDIR = "backuper"
 
@@ -27,7 +25,7 @@ def rm_temp_dirs():
         shutil.rmtree(base_dir)
 
 
-def list_all_files_recursive(base_path: str) -> List[str]:
+def list_all_files_recursive(base_path: str) -> list[str]:
     def dir_filenames(dirpath, filenames):
         return [os.path.join(dirpath, filename) for filename in filenames]
 

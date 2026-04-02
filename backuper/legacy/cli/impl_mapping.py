@@ -7,7 +7,11 @@ must not import legacy command types.
 from backuper.implementation import commands as impl_commands
 from backuper.legacy.implementation.commands import (
     CheckCommand as LegacyCheckCommand,
+)
+from backuper.legacy.implementation.commands import (
     NewCommand as LegacyNewCommand,
+)
+from backuper.legacy.implementation.commands import (
     UpdateCommand as LegacyUpdateCommand,
 )
 

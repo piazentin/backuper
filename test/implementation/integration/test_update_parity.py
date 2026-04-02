@@ -17,8 +17,11 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+import backuper.legacy.implementation.backup as legacy_backup
+import backuper.legacy.implementation.config as legacy_config
 import pytest
-
+import test.aux as aux
+import test.aux.fixtures as fixtures
 from backuper.implementation.components.backup_analyzer import BackupAnalyzerImpl
 from backuper.implementation.components.csv_db import (
     CsvBackupDatabase,
@@ -30,15 +33,10 @@ from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
 from backuper.implementation.controllers.backup import add_version, new_backup
-import backuper.legacy.implementation.backup as legacy_backup
-import backuper.legacy.implementation.config as legacy_config
+from backuper.legacy.implementation import models as legacy_models
 from backuper.legacy.implementation.commands import NewCommand, UpdateCommand
 from backuper.legacy.implementation.config import CsvDbConfig as LegacyCsvDbConfig
 from backuper.legacy.implementation.csv_db import CsvDb as LegacyCsvDb
-from backuper.legacy.implementation import models as legacy_models
-
-import test.aux as aux
-import test.aux.fixtures as fixtures
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _NEW_SOURCE = _REPO_ROOT / "test" / "resources" / "bkp_test_sources_new"

@@ -1,19 +1,21 @@
+from __future__ import annotations
+
 import csv
-from dataclasses import dataclass
 import os
-from pathlib import Path
-from typing import List, Optional, Union
-from typing import AsyncIterator
 import uuid
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Union
 from uuid import UUID
 
+from backuper.implementation.components.utils import normalize_path
+from backuper.implementation.config import CsvDbConfig
 from backuper.implementation.interfaces import (
     BackupDatabase,
     BackupedFileEntry,
     FileEntry,
 )
-from backuper.implementation.components.utils import normalize_path
-from backuper.implementation.config import CsvDbConfig
 
 StoredLocation = str
 
@@ -84,7 +86,7 @@ class CsvDb:
     def _csv_path_from_name(self, name: str) -> os.PathLike:
         return os.path.join(self.db_dir, name + self._config.csv_file_extension)
 
-    def get_all_versions(self) -> List[Version]:
+    def get_all_versions(self) -> list[Version]:
         return [
             Version(f.removesuffix(self._config.csv_file_extension))
             for f in os.listdir(self.db_dir)
@@ -97,12 +99,12 @@ class CsvDb:
             pass
         return Version(name)
 
-    def maybe_get_version_by_name(self, name: str) -> Optional[Version]:
+    def maybe_get_version_by_name(self, name: str) -> Version | None:
         if os.path.exists(self._csv_path_from_name(name)):
             return Version(name)
         return None
 
-    def get_most_recent_version(self) -> Optional[Version]:
+    def get_most_recent_version(self) -> Version | None:
         versions = sorted(
             self.get_all_versions(), key=lambda version: version.name, reverse=True
         )
@@ -117,30 +119,29 @@ class CsvDb:
         else:
             raise RuntimeError("Version not found")
 
-    def get_fs_objects_for_version(self, version: Version) -> List[FileSystemObject]:
+    def get_fs_objects_for_version(self, version: Version) -> list[FileSystemObject]:
         version_file = self._csv_path_from_name(version.name)
-        with open(version_file, "r", encoding="utf-8") as file:
+        with open(version_file, encoding="utf-8") as file:
             return [
                 csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')
             ]
 
-    def get_dirs_for_version(self, version: Version) -> List[DirEntry]:
+    def get_dirs_for_version(self, version: Version) -> list[DirEntry]:
         version_file = self._csv_path_from_name(version.name)
-        with open(version_file, "r", encoding="utf-8") as file:
+        with open(version_file, encoding="utf-8") as file:
             return [
                 csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')
                 if row[0] == "d"
             ]
 
-    def get_files_for_version(self, version: Version) -> List[StoredFile]:
-
+    def get_files_for_version(self, version: Version) -> list[StoredFile]:
         version_file = self._csv_path_from_name(version.name)
         if not os.path.exists(version_file):
             return []
 
-        with open(version_file, "r", encoding="utf-8") as file:
+        with open(version_file, encoding="utf-8") as file:
             return [
                 csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')
@@ -162,7 +163,7 @@ class CsvBackupDatabase(BackupDatabase):
     def __init__(self, csv_db: CsvDb):
         self._csv_db = csv_db
 
-    async def list_versions(self) -> List[str]:
+    async def list_versions(self) -> list[str]:
         return [version.name for version in self._csv_db.get_all_versions()]
 
     async def get_version_by_name(self, name: str) -> str:
@@ -231,7 +232,7 @@ class CsvBackupDatabase(BackupDatabase):
             )
             self._csv_db.insert_file(version_obj, stored_file)
 
-    async def get_files_by_hash(self, hash: str) -> List[BackupedFileEntry]:
+    async def get_files_by_hash(self, hash: str) -> list[BackupedFileEntry]:
         """Get file entries by their hash value"""
         result = []
         # Get all versions
@@ -266,7 +267,7 @@ class CsvBackupDatabase(BackupDatabase):
 
     async def get_files_by_metadata(
         self, relative_path: Path, mtime: float, size: int
-    ) -> List[BackupedFileEntry]:
+    ) -> list[BackupedFileEntry]:
         """Get file entries by their metadata (relative path, mtime, and size)"""
         result = []
         # Get all versions

@@ -1,13 +1,12 @@
-from pathlib import Path
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
+from backuper.implementation.components.utils import compute_hash
 from backuper.implementation.interfaces import (
+    AnalyzedFileEntry,
     BackupAnalyzer,
     BackupDatabase,
     FileEntry,
-    AnalyzedFileEntry,
 )
-from backuper.implementation.components.utils import compute_hash
 
 
 class BackupAnalyzerImpl(BackupAnalyzer):

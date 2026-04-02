@@ -45,7 +45,21 @@ make test-implementation
 make test-coverage
 ```
 
-## Format code
+## Format and lint
+
+Check everything (format, Ruff lint, import boundaries):
+
+```
+make lint
+```
+
+Apply Ruff formatting and auto-fixes:
+
+```
+make lint-fix
+```
+
+Format only (writes files):
 
 ```
 make format

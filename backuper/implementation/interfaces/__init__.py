@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import os
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import AsyncIterator, List, Optional
 from pathlib import Path
 from uuid import UUID
 
@@ -13,9 +15,9 @@ class FileEntry:
     size: int
     mtime: float
     is_directory: bool = False
-    hash: Optional[str] = None
+    hash: str | None = None
     is_compressed: bool = False
-    stored_location: Optional[str] = None
+    stored_location: str | None = None
 
 
 @dataclass
@@ -23,9 +25,9 @@ class AnalyzedFileEntry:
     """Contains analysis results for a file"""
 
     source_file: FileEntry  # The original file entry
-    hash: Optional[str] = None
+    hash: str | None = None
     already_backed_up: bool = False
-    backup_id: Optional[UUID] = None  # Will contain UUID if already backed up
+    backup_id: UUID | None = None  # Will contain UUID if already backed up
 
 
 @dataclass
@@ -48,7 +50,7 @@ class FileReader(ABC):
 class BackupAnalyzer(ABC):
     @abstractmethod
     async def analyze_stream(
-        self, entries: AsyncIterator[FileEntry], backup_database: "BackupDatabase"
+        self, entries: AsyncIterator[FileEntry], backup_database: BackupDatabase
     ) -> AsyncIterator[AnalyzedFileEntry]:
         pass
 
@@ -77,7 +79,7 @@ class BackupWriter(ABC):
 
 class BackupDatabase(ABC):
     @abstractmethod
-    async def list_versions(self) -> List[str]:
+    async def list_versions(self) -> list[str]:
         """List all backup version names"""
         pass
 
@@ -102,14 +104,14 @@ class BackupDatabase(ABC):
         pass
 
     @abstractmethod
-    async def get_files_by_hash(self, hash: str) -> List[BackupedFileEntry]:
+    async def get_files_by_hash(self, hash: str) -> list[BackupedFileEntry]:
         """Get file entries by their hash value"""
         pass
 
     @abstractmethod
     async def get_files_by_metadata(
         self, relative_path: Path, mtime: float, size: int
-    ) -> List[BackupedFileEntry]:
+    ) -> list[BackupedFileEntry]:
         """Get file entries by their metadata (relative path, mtime, and size)"""
         pass
 
@@ -153,6 +155,6 @@ class FileStore(ABC):
         self,
         origin_file: os.PathLike[str],
         restore_path: Path,
-        precomputed_hash: Optional[str] = None,
+        precomputed_hash: str | None = None,
     ) -> PutResult:
         pass

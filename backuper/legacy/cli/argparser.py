@@ -44,7 +44,7 @@ def with_version_arg(parser: argparse.ArgumentParser):
         dest="version",
         default=_default_name(),
         help="Optional named version of the backup.\n"
-        "Defaults to now's datetime formatted as 0000-00-00T000000"
+        "Defaults to now's datetime formatted as 0000-00-00T000000",
     )
 
 
@@ -54,7 +54,7 @@ def with_check_version_arg(parser: argparse.ArgumentParser):
         dest="version",
         default=None,
         help="Optional of the version of the backup to check.\n"
-        "If not informed, will check all versions."
+        "If not informed, will check all versions.",
     )
 
 
@@ -64,7 +64,7 @@ def with_restore_version_arg(parser: argparse.ArgumentParser):
         dest="version",
         default=None,
         required=True,
-        help="Named version of the backup that will be restored."
+        help="Named version of the backup that will be restored.",
     )
 
 

@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 
 from backuper.implementation import config as implementation_config
+from backuper.implementation.commands import CheckCommand, NewCommand, UpdateCommand
 from backuper.implementation.components.backup_analyzer import BackupAnalyzerImpl
 from backuper.implementation.components.csv_db import (
     CsvBackupDatabase,
@@ -9,7 +10,6 @@ from backuper.implementation.components.csv_db import (
 )
 from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
-from backuper.implementation.commands import CheckCommand, NewCommand, UpdateCommand
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
 from backuper.implementation.controllers.backup import add_version, new_backup
 from backuper.implementation.controllers.check import run_check_flow

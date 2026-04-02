@@ -2,10 +2,9 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-
 from backuper.implementation.components.csv_db import CsvBackupDatabase, CsvDb
-from backuper.implementation.interfaces import BackupedFileEntry, FileEntry
 from backuper.implementation.config import CsvDbConfig
+from backuper.implementation.interfaces import BackupedFileEntry, FileEntry
 
 
 @pytest.mark.asyncio

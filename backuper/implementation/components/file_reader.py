@@ -1,6 +1,6 @@
 import os
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import AsyncIterator
 
 from backuper.implementation.interfaces import FileEntry, FileReader
 

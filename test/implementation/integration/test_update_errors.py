@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-from backuper.implementation.entrypoints.cli import run_update
 import backuper.legacy.implementation.backup as legacy_backup
+import pytest
+from backuper.implementation.entrypoints.cli import run_update
 from backuper.legacy.implementation.commands import NewCommand, UpdateCommand
 
 

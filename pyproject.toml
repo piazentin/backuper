@@ -1,0 +1,40 @@
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["backuper"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+]
+# E501: line length (`ruff format` handles code; long strings/asserts may remain)
+# E722: bare `except` in legacy paths
+ignore = ["E501", "E722"]
+
+[tool.ruff.lint.per-file-ignores]
+# Module-level Union[] aliases (PEP 604 `|` is evaluated at import time on Python <3.10)
+"backuper/implementation/components/csv_db.py" = ["UP007"]
+"backuper/legacy/implementation/models.py" = ["UP007"]
+
+[tool.importlinter]
+root_packages = ["backuper"]
+
+[[tool.importlinter.contracts]]
+name = "Implementation must not import legacy"
+type = "forbidden"
+source_modules = ["backuper.implementation"]
+forbidden_modules = ["backuper.legacy"]
+
+[[tool.importlinter.contracts]]
+name = "Controllers must not import components"
+type = "forbidden"
+source_modules = ["backuper.implementation.controllers"]
+forbidden_modules = ["backuper.implementation.components"]
+
+[[tool.importlinter.contracts]]
+name = "Controllers must not import other controller modules"
+type = "independence"
+modules = ["backuper.implementation.controllers.*"]

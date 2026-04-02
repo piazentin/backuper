@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import csv
-from operator import attrgetter
 import os
-from typing import List, Optional
-from backuper.legacy.implementation.config import CsvDbConfig
+from operator import attrgetter
+
 import backuper.legacy.implementation.models as models
+from backuper.legacy.implementation.config import CsvDbConfig
 
 
 def csvrow_to_model(row) -> models.FileSystemObject:
@@ -46,19 +48,19 @@ class CsvDb:
     def _csv_path_from_name(self, name: str) -> os.PathLike:
         return os.path.join(self.db_dir, name + self._config.csv_file_extension)
 
-    def get_all_versions(self) -> List[models.Version]:
+    def get_all_versions(self) -> list[models.Version]:
         return [
             models.Version(f.strip(self._config.csv_file_extension))
             for f in os.listdir(self.db_dir)
             if f.endswith(self._config.csv_file_extension)
         ]
 
-    def maybe_get_version_by_name(self, name: str) -> Optional[models.Version]:
+    def maybe_get_version_by_name(self, name: str) -> models.Version | None:
         if os.path.exists(self._csv_path_from_name(name)):
             return models.Version(name)
         return None
 
-    def get_most_recent_version(self) -> Optional[models.Version]:
+    def get_most_recent_version(self) -> models.Version | None:
         versions = sorted(self.get_all_versions(), key=attrgetter("name"), reverse=True)
         if len(versions) > 0:
             return versions[0]
@@ -73,30 +75,29 @@ class CsvDb:
 
     def get_fs_objects_for_version(
         self, version: models.Version
-    ) -> List[models.FileSystemObject]:
+    ) -> list[models.FileSystemObject]:
         version_file = self._csv_path_from_name(version.name)
-        with open(version_file, "r", encoding="utf-8") as file:
+        with open(version_file, encoding="utf-8") as file:
             return [
                 csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')
             ]
 
-    def get_dirs_for_version(self, version: models.Version) -> List[models.DirEntry]:
+    def get_dirs_for_version(self, version: models.Version) -> list[models.DirEntry]:
         version_file = self._csv_path_from_name(version.name)
-        with open(version_file, "r", encoding="utf-8") as file:
+        with open(version_file, encoding="utf-8") as file:
             return [
                 csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')
                 if row[0] == "d"
             ]
 
-    def get_files_for_version(self, version: models.Version) -> List[models.StoredFile]:
-
+    def get_files_for_version(self, version: models.Version) -> list[models.StoredFile]:
         version_file = self._csv_path_from_name(version.name)
         if not os.path.exists(version_file):
             return []
 
-        with open(version_file, "r", encoding="utf-8") as file:
+        with open(version_file, encoding="utf-8") as file:
             return [
                 csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')

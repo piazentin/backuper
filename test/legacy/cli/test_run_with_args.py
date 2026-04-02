@@ -1,9 +1,8 @@
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 import backuper.legacy.implementation.commands as c
+import pytest
 from backuper.legacy.cli import (
     CHECK_ROLLBACK_ENV_VAR,
     ROLLBACK_ENV_VAR,

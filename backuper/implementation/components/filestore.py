@@ -1,14 +1,14 @@
+from __future__ import annotations
+
 import os
 import pathlib
 import shutil
 from pathlib import Path
-from typing import Optional
 from zipfile import ZipFile
 
-from backuper.implementation.interfaces import FileStore, PutResult
 from backuper.implementation.components.utils import compute_hash, normalize_path
 from backuper.implementation.config import FilestoreConfig
-
+from backuper.implementation.interfaces import FileStore, PutResult
 
 StoredLocation = str
 
@@ -29,7 +29,7 @@ class LocalFileStore(FileStore):
         self._root_path.mkdir(parents=True, exist_ok=True)
 
     def is_compression_eligible(
-        self, origin_file: os.PathLike, size: Optional[int] = None
+        self, origin_file: os.PathLike, size: int | None = None
     ) -> bool:
         ext = pathlib.Path(origin_file).suffix
         file_size = os.path.getsize(origin_file) if size is None else size
@@ -60,7 +60,7 @@ class LocalFileStore(FileStore):
         self,
         origin_file: os.PathLike[str],
         restore_path: Path,
-        precomputed_hash: Optional[str] = None,
+        precomputed_hash: str | None = None,
     ) -> PutResult:
         file_hash = precomputed_hash or compute_hash(origin_file)
         is_compressed = self.is_compression_eligible(origin_file)
