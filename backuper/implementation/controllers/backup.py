@@ -20,7 +20,7 @@ async def _analyze_path(
     db: BackupDatabase,
     reporter: AnalysisReporter,
 ) -> None:
-    """Analyze a path and print analyzed file entries."""
+    """Analyze a path and emit analyzed file entries through ``reporter``."""
     file_entries = file_reader.read_directory(path)
     analyzed_entries = analyzer.analyze_stream(file_entries, db)
 
