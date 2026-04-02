@@ -44,6 +44,12 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 - **Black**: `python3 -m black .` (see [README.md](README.md)).
 
+## Pull requests
+
+- Always read and follow [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) before opening a PR.
+- Keep PR body section headings and order exactly as the template: `Context`, `What`, `How`, `Validation`, `Risks / Rollback`.
+- Use `gh pr create` with a body that mirrors the template and includes concrete verification details.
+
 ## Implementation layering
 
 - **`controllers/`** — command flows and orchestration.
