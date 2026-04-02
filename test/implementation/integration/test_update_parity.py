@@ -1,5 +1,5 @@
 """
-UPDATE-command parity tests: implementation `BackupController` vs legacy expectations.
+UPDATE-command parity tests: implementation backup orchestration vs legacy expectations.
 
 Assertions mirror `test/legacy/test_backup.py` for `test_update_backup` and
 `test_update_backup_with_zip` (data layout and DB rows for the update version).
@@ -29,7 +29,7 @@ from backuper.implementation.components.csv_db import (
 from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
-from backuper.implementation.controllers.backup import BackupController
+from backuper.implementation.controllers.backup import add_version, new_backup
 import backuper.legacy.implementation.backup as legacy_backup
 import backuper.legacy.implementation.config as legacy_config
 from backuper.legacy.implementation.commands import NewCommand, UpdateCommand
@@ -102,7 +102,9 @@ async def _impl_new_backup_seed(
 ) -> None:
     d = str(destination)
     db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=d)))
-    controller = BackupController(
+    await new_backup(
+        new_src,
+        "test_new",
         file_reader=LocalFileReader(),
         analyzer=BackupAnalyzerImpl(),
         db=db,
@@ -110,7 +112,6 @@ async def _impl_new_backup_seed(
             FilestoreConfig(backup_dir=d, zip_enabled=zip_enabled)
         ),
     )
-    await controller.new_backup(source=new_src, version="test_new")
 
 
 def _assert_implementation_reader_matches_fixture(
@@ -153,20 +154,28 @@ async def test_update_backup_parity_zip_disabled(
     destination.mkdir()
 
     db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(destination))))
-    controller = BackupController(
+    filestore = LocalFileStore(
+        FilestoreConfig(
+            backup_dir=str(destination),
+            zip_enabled=False,
+        )
+    )
+    await new_backup(
+        new_src,
+        "test_new",
         file_reader=LocalFileReader(),
         analyzer=BackupAnalyzerImpl(),
         db=db,
-        filestore=LocalFileStore(
-            FilestoreConfig(
-                backup_dir=str(destination),
-                zip_enabled=False,
-            )
-        ),
+        filestore=filestore,
     )
-
-    await controller.new_backup(source=new_src, version="test_new")
-    await controller.add_version(source=upd_src, version="test_update")
+    await add_version(
+        upd_src,
+        "test_update",
+        file_reader=LocalFileReader(),
+        analyzer=BackupAnalyzerImpl(),
+        db=db,
+        filestore=filestore,
+    )
 
     data_root = destination / "data"
     data_filenames = aux.list_all_files_recursive(str(data_root))
@@ -188,20 +197,28 @@ async def test_update_backup_parity_zip_enabled(
     destination.mkdir()
 
     db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(destination))))
-    controller = BackupController(
+    filestore = LocalFileStore(
+        FilestoreConfig(
+            backup_dir=str(destination),
+            zip_enabled=True,
+        )
+    )
+    await new_backup(
+        new_src,
+        "test_new",
         file_reader=LocalFileReader(),
         analyzer=BackupAnalyzerImpl(),
         db=db,
-        filestore=LocalFileStore(
-            FilestoreConfig(
-                backup_dir=str(destination),
-                zip_enabled=True,
-            )
-        ),
+        filestore=filestore,
     )
-
-    await controller.new_backup(source=new_src, version="test_new")
-    await controller.add_version(source=upd_src, version="test_update")
+    await add_version(
+        upd_src,
+        "test_update",
+        file_reader=LocalFileReader(),
+        analyzer=BackupAnalyzerImpl(),
+        db=db,
+        filestore=filestore,
+    )
 
     data_root = destination / "data"
     data_filenames = aux.list_all_files_recursive(str(data_root))
@@ -283,7 +300,9 @@ async def test_impl_update_after_legacy_seed_zip_disabled(
     )
 
     db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(destination))))
-    controller = BackupController(
+    await add_version(
+        upd_src,
+        "test_update",
         file_reader=LocalFileReader(),
         analyzer=BackupAnalyzerImpl(),
         db=db,
@@ -291,7 +310,6 @@ async def test_impl_update_after_legacy_seed_zip_disabled(
             FilestoreConfig(backup_dir=str(destination), zip_enabled=False)
         ),
     )
-    await controller.add_version(source=upd_src, version="test_update")
 
     data_root = destination / "data"
     data_filenames = aux.list_all_files_recursive(str(data_root))
@@ -318,7 +336,9 @@ async def test_impl_update_after_legacy_seed_zip_enabled(
     )
 
     db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(destination))))
-    controller = BackupController(
+    await add_version(
+        upd_src,
+        "test_update",
         file_reader=LocalFileReader(),
         analyzer=BackupAnalyzerImpl(),
         db=db,
@@ -326,7 +346,6 @@ async def test_impl_update_after_legacy_seed_zip_enabled(
             FilestoreConfig(backup_dir=str(destination), zip_enabled=True)
         ),
     )
-    await controller.add_version(source=upd_src, version="test_update")
 
     data_root = destination / "data"
     data_filenames = aux.list_all_files_recursive(str(data_root))

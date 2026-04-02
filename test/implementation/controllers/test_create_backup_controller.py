@@ -17,7 +17,11 @@ from backuper.implementation.components.interfaces import (
     FileReader,
 )
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
-from backuper.implementation.controllers.backup import BackupController
+from backuper.implementation.controllers.backup import (
+    _analyze_path,
+    add_version,
+    new_backup,
+)
 
 
 @pytest.mark.asyncio
@@ -34,19 +38,21 @@ async def test_create_backup_writes_data_store_and_metadata(tmp_path: Path) -> N
     version = "20260329093000"
 
     db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(backup_root))))
-    controller = BackupController(
+    filestore = LocalFileStore(
+        FilestoreConfig(
+            backup_dir=str(backup_root),
+            zip_enabled=False,
+        )
+    )
+
+    await new_backup(
+        source,
+        version,
         file_reader=LocalFileReader(),
         analyzer=BackupAnalyzerImpl(),
         db=db,
-        filestore=LocalFileStore(
-            FilestoreConfig(
-                backup_dir=str(backup_root),
-                zip_enabled=False,
-            )
-        ),
+        filestore=filestore,
     )
-
-    await controller.new_backup(source=source, version=version)
 
     backed_up_entries = []
     async for item in db.list_files(version):
@@ -78,21 +84,30 @@ async def test_add_version_raises_when_version_already_exists(tmp_path: Path) ->
     version = "v1"
 
     db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(backup_root))))
-    controller = BackupController(
+    filestore = LocalFileStore(
+        FilestoreConfig(
+            backup_dir=str(backup_root),
+            zip_enabled=False,
+        )
+    )
+
+    await new_backup(
+        source,
+        version,
         file_reader=LocalFileReader(),
         analyzer=BackupAnalyzerImpl(),
         db=db,
-        filestore=LocalFileStore(
-            FilestoreConfig(
-                backup_dir=str(backup_root),
-                zip_enabled=False,
-            )
-        ),
+        filestore=filestore,
     )
-
-    await controller.new_backup(source=source, version=version)
     with pytest.raises(ValueError, match="already a backup versioned"):
-        await controller.add_version(source=source, version=version)
+        await add_version(
+            source,
+            version,
+            file_reader=LocalFileReader(),
+            analyzer=BackupAnalyzerImpl(),
+            db=db,
+            filestore=filestore,
+        )
 
 
 class _ReaderStub(FileReader):
@@ -151,20 +166,13 @@ class _CollectingReporter(AnalysisReporter):
 @pytest.mark.asyncio
 async def test_analyze_path_reports_structured_entries(tmp_path: Path) -> None:
     reporter = _CollectingReporter()
-    controller = BackupController(
+    await _analyze_path(
+        tmp_path,
         file_reader=_ReaderStub(),
         analyzer=_AnalyzerStub(),
         db=_DbStub(),
-        filestore=LocalFileStore(
-            FilestoreConfig(
-                backup_dir=str(tmp_path / "backup"),
-                zip_enabled=False,
-            )
-        ),
         reporter=reporter,
     )
-
-    await controller.analyze_path(tmp_path)
 
     assert len(reporter.entries) == 1
     reported = reporter.entries[0]

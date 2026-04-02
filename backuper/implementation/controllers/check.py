@@ -1,9 +1,6 @@
-from pathlib import Path
-
 from backuper.implementation.components.csv_db import CsvDb, Version
 from backuper.implementation.components.filestore import LocalFileStore
-from backuper.implementation.config import CsvDbConfig, FilestoreConfig
-from backuper.legacy.implementation.commands import CheckCommand
+from backuper.implementation.commands import CheckCommand
 
 
 def _missing_stored_files(
@@ -19,14 +16,12 @@ def _missing_stored_files(
     return errors
 
 
-def run_check_flow(command: CheckCommand) -> list[str]:
-    destination = Path(command.location)
-    if not destination.exists():
-        raise ValueError(f"destination path {command.location} does not exists")
-
-    db = CsvDb(CsvDbConfig(backup_dir=str(destination)))
-    filestore = LocalFileStore(FilestoreConfig(backup_dir=str(destination)))
-
+def run_check_flow(
+    command: CheckCommand,
+    *,
+    db: CsvDb,
+    filestore: LocalFileStore,
+) -> list[str]:
     if command.version is None:
         versions = db.get_all_versions()
     else:
