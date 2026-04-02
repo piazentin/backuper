@@ -22,6 +22,10 @@ Check backup integrity:
 python3 -m backuper check ~/backup/destination/dir
 ```
 
+`check` is a fast integrity/existence pass over backup metadata and stored blobs.
+If a future deeper validation mode is added (for example full content/hash verification),
+it should be exposed as a separate `verify` command rather than changing `check` semantics.
+
 Restore a backup to a location:
 
 ```

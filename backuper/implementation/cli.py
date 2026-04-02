@@ -3,12 +3,20 @@ from pathlib import Path
 
 from backuper.implementation import config as implementation_config
 from backuper.implementation.components.backup_analyzer import BackupAnalyzerImpl
-from backuper.implementation.components.csv_db import CsvBackupDatabase, CsvDb
+from backuper.implementation.components.csv_db import (
+    CsvBackupDatabase,
+    CsvDb,
+)
 from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
 from backuper.implementation.controllers.backup import BackupController
-from backuper.legacy.implementation.commands import NewCommand, UpdateCommand
+from backuper.implementation.controllers.check import run_check_flow
+from backuper.legacy.implementation.commands import (
+    CheckCommand,
+    NewCommand,
+    UpdateCommand,
+)
 
 
 def _backup_controller(backup_root: Path) -> BackupController:
@@ -48,3 +56,13 @@ def run_update(command: UpdateCommand) -> None:
 
     controller = _backup_controller(destination)
     asyncio.run(controller.add_version(source, command.version))
+
+
+def run_check(command: CheckCommand) -> list[str]:
+    errors = run_check_flow(command)
+    for error in errors:
+        print(error)
+    if len(errors) == 0:
+        print("No errors found!")
+
+    return errors
