@@ -16,7 +16,10 @@ This file is the canonical agent and contributor map for this repository; prefer
 - **`new`**: Runs [`backuper.implementation.cli.run_new`](backuper/implementation/cli.py) unless legacy is forced or used as fallback (see below).
 - **`BACKUPER_NEW_USE_LEGACY`**: When this environment variable is set to a truthy value (`1`, `true`, `yes`, `on`, case-insensitive), `new` uses only the legacy path ([`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py)).
 - **Fallback**: If `run_new` raises, the CLI prints a warning to stderr and retries with legacy `new` (runtime safety net until the implementation is stable).
-- **`update`**, **`check`**, **`restore`**: Still dispatched to legacy in [`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py) until those commands are migrated.
+- **`update`**: Runs [`backuper.implementation.cli.run_update`](backuper/implementation/cli.py) unless legacy is forced or used as fallback (see below).
+- **`BACKUPER_UPDATE_USE_LEGACY`**: When this environment variable is set to a truthy value (`1`, `true`, `yes`, `on`, case-insensitive), `update` uses only the legacy path ([`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py)).
+- **Fallback**: If `run_update` raises, the CLI prints a warning to stderr and retries with legacy `update`.
+- **`check`**, **`restore`**: Still dispatched to legacy in [`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py) until those commands are migrated.
 
 ## Tests
 
