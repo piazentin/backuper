@@ -1,11 +1,11 @@
 import os
 import pathlib
 import shutil
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 from zipfile import ZipFile
 
+from backuper.implementation.components.interfaces import FileStore, PutResult
 from backuper.implementation.components.utils import compute_hash, normalize_path
 from backuper.implementation.config import FilestoreConfig
 
@@ -22,15 +22,7 @@ def hash_to_stored_location(filehash: str, is_compressed: bool) -> os.PathLike:
     return os.path.join(relative_dir_from_hash(filehash), final_name)
 
 
-@dataclass(frozen=True)
-class StoredContent:
-    restore_path: str
-    hash: str
-    stored_location: StoredLocation
-    is_compressed: bool
-
-
-class LocalFileStore:
+class LocalFileStore(FileStore):
     def __init__(self, config: FilestoreConfig) -> None:
         self._config = config
         self._root_path = Path(self._config.backup_dir) / self._config.backup_data_dir
@@ -52,17 +44,17 @@ class LocalFileStore:
 
     def put(
         self,
-        origin_file: os.PathLike,
+        origin_file: os.PathLike[str],
         restore_path: Path,
         precomputed_hash: Optional[str] = None,
-    ) -> StoredContent:
+    ) -> PutResult:
         file_hash = precomputed_hash or compute_hash(origin_file)
         is_compressed = self.is_compression_eligible(origin_file)
         stored_location = str(hash_to_stored_location(file_hash, is_compressed))
         restore_path_normalized = normalize_path(str(restore_path))
 
         if self.exists(stored_location):
-            return StoredContent(
+            return PutResult(
                 restore_path=restore_path_normalized,
                 hash=file_hash,
                 stored_location=stored_location,
@@ -79,7 +71,7 @@ class LocalFileStore:
         content_address_path = self._root_path / stored_location
         self._publish_staged_blob_if_absent(staged_blob_path, content_address_path)
 
-        return StoredContent(
+        return PutResult(
             restore_path=restore_path_normalized,
             hash=file_hash,
             stored_location=stored_location,

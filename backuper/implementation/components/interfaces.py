@@ -1,6 +1,7 @@
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import AsyncIterator, Optional, List
+from typing import AsyncIterator, List, Optional
 from pathlib import Path
 from uuid import UUID
 
@@ -109,4 +110,56 @@ class BackupDatabase(ABC):
 class AnalysisReporter(ABC):
     @abstractmethod
     def report(self, entry: AnalyzedFileEntry) -> None:
+        pass
+
+
+@dataclass(frozen=True)
+class PutResult:
+    restore_path: str
+    hash: str
+    stored_location: str
+    is_compressed: bool
+
+
+class FileStore(ABC):
+    @abstractmethod
+    def exists(self, stored_location: str) -> bool:
+        pass
+
+    @abstractmethod
+    def put(
+        self,
+        origin_file: os.PathLike[str],
+        restore_path: Path,
+        precomputed_hash: Optional[str] = None,
+    ) -> PutResult:
+        pass
+
+
+@dataclass(frozen=True)
+class BackupCheckVersion:
+    name: str
+
+
+@dataclass(frozen=True)
+class BackupCheckFile:
+    restore_path: str
+    sha1hash: str
+    stored_location: str
+
+
+class BackupCheckDatabase(ABC):
+    @abstractmethod
+    def get_all_versions(self) -> List[BackupCheckVersion]:
+        pass
+
+    @abstractmethod
+    def get_version_by_name(self, name: str) -> BackupCheckVersion:
+        """Raises RuntimeError when the named version is missing."""
+        pass
+
+    @abstractmethod
+    def get_files_for_version(
+        self, version: BackupCheckVersion
+    ) -> List[BackupCheckFile]:
         pass

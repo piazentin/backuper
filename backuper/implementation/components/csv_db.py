@@ -8,6 +8,9 @@ import uuid
 from uuid import UUID
 
 from backuper.implementation.components.interfaces import (
+    BackupCheckDatabase,
+    BackupCheckFile,
+    BackupCheckVersion,
     BackupDatabase,
     BackupedFileEntry,
     FileEntry,
@@ -156,6 +159,33 @@ class CsvDb:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, "a") as writer:
             writer.write(model_to_csvrow(file))
+
+
+class CsvBackupCheckDatabase(BackupCheckDatabase):
+    def __init__(self, csv_db: CsvDb) -> None:
+        self._csv_db = csv_db
+
+    def get_all_versions(self) -> list[BackupCheckVersion]:
+        return [
+            BackupCheckVersion(name=v.name) for v in self._csv_db.get_all_versions()
+        ]
+
+    def get_version_by_name(self, name: str) -> BackupCheckVersion:
+        v = self._csv_db.get_version_by_name(name)
+        return BackupCheckVersion(name=v.name)
+
+    def get_files_for_version(
+        self, version: BackupCheckVersion
+    ) -> list[BackupCheckFile]:
+        v_obj = Version(version.name)
+        return [
+            BackupCheckFile(
+                restore_path=f.restore_path,
+                sha1hash=f.sha1hash,
+                stored_location=f.stored_location,
+            )
+            for f in self._csv_db.get_files_for_version(v_obj)
+        ]
 
 
 class CsvBackupDatabase(BackupDatabase):
