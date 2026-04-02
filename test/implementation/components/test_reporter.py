@@ -1,8 +1,8 @@
 from pathlib import Path
 from uuid import UUID
 
-from backuper.implementation.components.interfaces import AnalyzedFileEntry, FileEntry
 from backuper.implementation.components.reporter import StdoutAnalysisReporter
+from backuper.implementation.interfaces import AnalyzedFileEntry, FileEntry
 
 
 def test_stdout_analysis_reporter_prints_expected_message(capsys) -> None:

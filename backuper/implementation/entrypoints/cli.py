@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 
 from backuper.implementation import config as implementation_config
+from backuper.implementation.commands import CheckCommand, NewCommand, UpdateCommand
 from backuper.implementation.components.backup_analyzer import BackupAnalyzerImpl
 from backuper.implementation.components.csv_db import (
     CsvBackupDatabase,
@@ -9,7 +10,6 @@ from backuper.implementation.components.csv_db import (
 )
 from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
-from backuper.implementation.commands import CheckCommand, NewCommand, UpdateCommand
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
 from backuper.implementation.controllers.backup import add_version, new_backup
 from backuper.implementation.controllers.check import run_check_flow
@@ -26,6 +26,13 @@ def _local_filestore(backup_root: Path) -> LocalFileStore:
             zip_enabled=implementation_config.ZIP_ENABLED,
         )
     )
+
+
+def _present_check_stdout(errors: list[str]) -> None:
+    for error in errors:
+        print(error)
+    if len(errors) == 0:
+        print("No errors found!")
 
 
 def run_new(command: NewCommand) -> None:
@@ -73,14 +80,13 @@ def run_check(command: CheckCommand) -> list[str]:
     if not destination.exists():
         raise ValueError(f"destination path {command.location} does not exists")
 
-    errors = run_check_flow(
-        command,
-        db=_csv_db(destination),
-        filestore=_local_filestore(destination),
+    errors = asyncio.run(
+        run_check_flow(
+            command,
+            db=CsvBackupDatabase(_csv_db(destination)),
+            filestore=_local_filestore(destination),
+        )
     )
-    for error in errors:
-        print(error)
-    if len(errors) == 0:
-        print("No errors found!")
+    _present_check_stdout(errors)
 
     return errors

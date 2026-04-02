@@ -1,26 +1,25 @@
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import AsyncIterator
 from uuid import UUID
 
 import pytest
-
 from backuper.implementation.components.backup_analyzer import BackupAnalyzerImpl
 from backuper.implementation.components.csv_db import CsvBackupDatabase, CsvDb
 from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
-from backuper.implementation.components.interfaces import (
-    AnalyzedFileEntry,
-    AnalysisReporter,
-    BackupDatabase,
-    BackupAnalyzer,
-    FileEntry,
-    FileReader,
-)
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
 from backuper.implementation.controllers.backup import (
     _analyze_path,
     add_version,
     new_backup,
+)
+from backuper.implementation.interfaces import (
+    AnalysisReporter,
+    AnalyzedFileEntry,
+    BackupAnalyzer,
+    BackupDatabase,
+    FileEntry,
+    FileReader,
 )
 
 
@@ -137,6 +136,9 @@ class _AnalyzerStub(BackupAnalyzer):
 class _DbStub(BackupDatabase):
     async def list_versions(self):
         return []
+
+    async def get_version_by_name(self, name: str) -> str:
+        return name
 
     async def list_files(self, version: str):
         if False:

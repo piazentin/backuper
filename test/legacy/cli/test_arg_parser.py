@@ -37,7 +37,7 @@ class ArgParserTest(unittest.TestCase):
 
     def test_update_backup(self):
         args = parser.parse(
-            "update /first/source /second/destination " "--name BackupName".split()
+            "update /first/source /second/destination --name BackupName".split()
         )
         self.assertIsInstance(args, c.UpdateCommand)
         self.assertEqual(
@@ -51,7 +51,7 @@ class ArgParserTest(unittest.TestCase):
 
     def test_update_backup_with_zip(self):
         args = parser.parse(
-            "update /first/source /second/destination " "--name BackupName".split()
+            "update /first/source /second/destination --name BackupName".split()
         )
         self.assertIsInstance(args, c.UpdateCommand)
         self.assertEqual(

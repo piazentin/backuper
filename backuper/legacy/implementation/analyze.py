@@ -1,8 +1,7 @@
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from operator import attrgetter
-import os
-from typing import List, Set
 
 from backuper.legacy.implementation import utils
 
@@ -33,7 +32,7 @@ def _dir(
 
 
 def _file(
-    backuped_hashes: Set[str],
+    backuped_hashes: set[str],
     absolute_dirname: os.PathLike,
     relative_dirname: os.PathLike,
     name: str,
@@ -54,10 +53,10 @@ def _file(
 
 
 class Analyze:
-    dirs: List[Dir] = []
-    files: List[File] = []
+    dirs: list[Dir] = []
+    files: list[File] = []
 
-    def __init__(self, backuped_hashes: Set[str], path_to_analyze: os.PathLike) -> None:
+    def __init__(self, backuped_hashes: set[str], path_to_analyze: os.PathLike) -> None:
         self.dirs = []
         self.files = []
 

@@ -1,32 +1,39 @@
-from backuper.implementation.components.csv_db import CsvDb, Version
-from backuper.implementation.components.filestore import LocalFileStore
 from backuper.implementation.commands import CheckCommand
+from backuper.implementation.interfaces import BackupDatabase, FileStore
 
 
-def _missing_stored_files(
-    version: Version, db: CsvDb, filestore: LocalFileStore
+async def _missing_stored_files(
+    version: str,
+    *,
+    db: BackupDatabase,
+    filestore: FileStore,
 ) -> list[str]:
-    errors = []
-    for file in db.get_files_for_version(version):
-        if not filestore.exists(file.stored_location):
+    errors: list[str] = []
+    async for file_entry in db.list_files(version):
+        if file_entry.is_directory:
+            continue
+        loc = file_entry.stored_location
+        if not loc:
+            continue
+        if not filestore.exists(loc):
             errors.append(
-                f"Missing hash {file.sha1hash} "
-                f"for {file.restore_path} in {version.name}"
+                f"Missing hash {file_entry.hash} "
+                f"for {file_entry.relative_path} in {version}"
             )
     return errors
 
 
-def run_check_flow(
+async def run_check_flow(
     command: CheckCommand,
     *,
-    db: CsvDb,
-    filestore: LocalFileStore,
+    db: BackupDatabase,
+    filestore: FileStore,
 ) -> list[str]:
     if command.version is None:
-        versions = db.get_all_versions()
+        versions = await db.list_versions()
     else:
         try:
-            versions = [db.get_version_by_name(command.version)]
+            versions = [await db.get_version_by_name(command.version)]
         except RuntimeError as err:
             raise ValueError(
                 f"Backup version named {command.version} "
@@ -35,6 +42,6 @@ def run_check_flow(
 
     errors: list[str] = []
     for version in versions:
-        errors += _missing_stored_files(version, db, filestore)
+        errors += await _missing_stored_files(version, db=db, filestore=filestore)
 
     return errors

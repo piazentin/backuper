@@ -1,27 +1,25 @@
-import os
-from pathlib import Path
-from typing import Set
-import unittest
 import filecmp
-from backuper.legacy.implementation import models, utils
-from backuper.legacy.implementation.config import CsvDbConfig
-import backuper.legacy.implementation.config as config
-from backuper.legacy.implementation.csv_db import CsvDb
-
-import test.aux as aux
-import test.aux.fixtures as fixtures
+import os
+import unittest
+from pathlib import Path
 
 import backuper.legacy.implementation.backup as bkp
+import backuper.legacy.implementation.config as config
+from backuper.legacy.implementation import models, utils
 from backuper.legacy.implementation.commands import (
     CheckCommand,
     NewCommand,
     RestoreCommand,
     UpdateCommand,
 )
+from backuper.legacy.implementation.config import CsvDbConfig
+from backuper.legacy.implementation.csv_db import CsvDb
+
+import test.aux as aux
+import test.aux.fixtures as fixtures
 
 
 class BackupIntegrationTest(unittest.TestCase):
-
     new_backup = {
         "source": "./test/resources/bkp_test_sources_new",
         "hashes": {
@@ -70,7 +68,7 @@ class BackupIntegrationTest(unittest.TestCase):
         aux.rm_temp_dirs()
 
     def assertStoredFileIn(
-        self, stored_file: models.StoredFile, files: Set[models.StoredFile]
+        self, stored_file: models.StoredFile, files: set[models.StoredFile]
     ) -> None:
         found = False
         for expected_file in files:

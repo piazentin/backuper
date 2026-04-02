@@ -1,17 +1,15 @@
 from pathlib import Path
-from typing import Optional
 from uuid import uuid4
 
-from backuper.implementation.components.filestore import LocalFileStore
-from backuper.implementation.components.interfaces import (
+from backuper.implementation.interfaces import (
+    AnalysisReporter,
     AnalyzedFileEntry,
     BackupAnalyzer,
     BackupDatabase,
     BackupedFileEntry,
-    AnalysisReporter,
     FileReader,
+    FileStore,
 )
-from backuper.implementation.components.reporter import StdoutAnalysisReporter
 
 
 async def _analyze_path(
@@ -20,15 +18,14 @@ async def _analyze_path(
     file_reader: FileReader,
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
-    reporter: Optional[AnalysisReporter] = None,
+    reporter: AnalysisReporter,
 ) -> None:
-    """Analyze a path and print analyzed file entries."""
-    rep = reporter or StdoutAnalysisReporter()
+    """Analyze a path and emit analyzed file entries through ``reporter``."""
     file_entries = file_reader.read_directory(path)
     analyzed_entries = analyzer.analyze_stream(file_entries, db)
 
     async for entry in analyzed_entries:
-        rep.report(entry)
+        reporter.report(entry)
 
 
 async def new_backup(
@@ -38,7 +35,7 @@ async def new_backup(
     file_reader: FileReader,
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
-    filestore: LocalFileStore,
+    filestore: FileStore,
 ) -> None:
     versions = await db.list_versions()
     if version not in versions:
@@ -60,7 +57,7 @@ async def add_version(
     file_reader: FileReader,
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
-    filestore: LocalFileStore,
+    filestore: FileStore,
 ) -> None:
     versions = await db.list_versions()
     if version in versions:
@@ -83,7 +80,7 @@ async def _run_backup_stream(
     file_reader: FileReader,
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
-    filestore: LocalFileStore,
+    filestore: FileStore,
 ) -> None:
     file_entries = file_reader.read_directory(source)
     analyzed_entries = analyzer.analyze_stream(file_entries, db)
@@ -97,7 +94,7 @@ async def _to_backuped_entry(
     entry: AnalyzedFileEntry,
     *,
     db: BackupDatabase,
-    filestore: LocalFileStore,
+    filestore: FileStore,
 ) -> BackupedFileEntry:
     source_file = entry.source_file
 

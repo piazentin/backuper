@@ -1,14 +1,14 @@
+from __future__ import annotations
+
 import os
 import pathlib
 import shutil
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 from zipfile import ZipFile
 
 from backuper.implementation.components.utils import compute_hash, normalize_path
 from backuper.implementation.config import FilestoreConfig
-
+from backuper.implementation.interfaces import FileStore, PutResult
 
 StoredLocation = str
 
@@ -22,22 +22,14 @@ def hash_to_stored_location(filehash: str, is_compressed: bool) -> os.PathLike:
     return os.path.join(relative_dir_from_hash(filehash), final_name)
 
 
-@dataclass(frozen=True)
-class StoredContent:
-    restore_path: str
-    hash: str
-    stored_location: StoredLocation
-    is_compressed: bool
-
-
-class LocalFileStore:
+class LocalFileStore(FileStore):
     def __init__(self, config: FilestoreConfig) -> None:
         self._config = config
         self._root_path = Path(self._config.backup_dir) / self._config.backup_data_dir
         self._root_path.mkdir(parents=True, exist_ok=True)
 
     def is_compression_eligible(
-        self, origin_file: os.PathLike, size: Optional[int] = None
+        self, origin_file: os.PathLike, size: int | None = None
     ) -> bool:
         ext = pathlib.Path(origin_file).suffix
         file_size = os.path.getsize(origin_file) if size is None else size
@@ -50,19 +42,33 @@ class LocalFileStore:
     def exists(self, stored_location: StoredLocation) -> bool:
         return (self._root_path / stored_location).exists()
 
+    def blob_relative_path(self, file_hash: str, is_compressed: bool) -> str:
+        return str(hash_to_stored_location(file_hash, is_compressed))
+
+    def blob_exists(self, file_hash: str, is_compressed: bool) -> bool:
+        return self.exists(self.blob_relative_path(file_hash, is_compressed))
+
+    def read_blob(self, file_hash: str, is_compressed: bool) -> bytes:
+        rel = self.blob_relative_path(file_hash, is_compressed)
+        path = self._root_path / rel
+        if is_compressed:
+            with ZipFile(path, "r") as zf:
+                return zf.read("part001")
+        return path.read_bytes()
+
     def put(
         self,
-        origin_file: os.PathLike,
+        origin_file: os.PathLike[str],
         restore_path: Path,
-        precomputed_hash: Optional[str] = None,
-    ) -> StoredContent:
+        precomputed_hash: str | None = None,
+    ) -> PutResult:
         file_hash = precomputed_hash or compute_hash(origin_file)
         is_compressed = self.is_compression_eligible(origin_file)
         stored_location = str(hash_to_stored_location(file_hash, is_compressed))
         restore_path_normalized = normalize_path(str(restore_path))
 
         if self.exists(stored_location):
-            return StoredContent(
+            return PutResult(
                 restore_path=restore_path_normalized,
                 hash=file_hash,
                 stored_location=stored_location,
@@ -79,7 +85,7 @@ class LocalFileStore:
         content_address_path = self._root_path / stored_location
         self._publish_staged_blob_if_absent(staged_blob_path, content_address_path)
 
-        return StoredContent(
+        return PutResult(
             restore_path=restore_path_normalized,
             hash=file_hash,
             stored_location=stored_location,

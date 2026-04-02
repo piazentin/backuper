@@ -4,17 +4,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-from backuper.implementation.cli import run_check
 import backuper.legacy.implementation.backup as legacy_backup
+import pytest
+from backuper.implementation.entrypoints.cli import run_check
 from backuper.legacy.implementation.commands import (
     CheckCommand,
     NewCommand,
     UpdateCommand,
 )
-from backuper.legacy.implementation.csv_db import CsvDb as LegacyCsvDb
 from backuper.legacy.implementation.config import CsvDbConfig as LegacyCsvDbConfig
+from backuper.legacy.implementation.csv_db import CsvDb as LegacyCsvDb
 
 
 def _seed_backup(destination: Path, source: Path, *, version: str = "v1") -> None:

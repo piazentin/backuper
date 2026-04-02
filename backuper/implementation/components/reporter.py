@@ -1,4 +1,4 @@
-from backuper.implementation.components.interfaces import (
+from backuper.implementation.interfaces import (
     AnalysisReporter,
     AnalyzedFileEntry,
 )

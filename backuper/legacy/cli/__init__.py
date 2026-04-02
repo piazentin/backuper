@@ -1,10 +1,14 @@
-import sys
 import os
+import sys
 
+import backuper.implementation.entrypoints.cli as implementation_cli
 import backuper.legacy.cli.argparser as parser
-import backuper.implementation.cli as implementation_cli
-import backuper.implementation.commands as impl_commands
 import backuper.legacy.implementation.backup as bkp
+from backuper.legacy.cli.impl_mapping import (
+    to_implementation_check_command,
+    to_implementation_new_command,
+    to_implementation_update_command,
+)
 from backuper.legacy.implementation.commands import (
     CheckCommand,
     NewCommand,
@@ -12,32 +16,11 @@ from backuper.legacy.implementation.commands import (
     UpdateCommand,
 )
 
-
 ROLLBACK_ENV_VAR = "BACKUPER_NEW_USE_LEGACY"
 UPDATE_ROLLBACK_ENV_VAR = "BACKUPER_UPDATE_USE_LEGACY"
 CHECK_ROLLBACK_ENV_VAR = "BACKUPER_CHECK_USE_LEGACY"
 
 _TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on"})
-
-
-def _impl_new_command(cmd: NewCommand) -> impl_commands.NewCommand:
-    return impl_commands.NewCommand(
-        version=cmd.version,
-        source=cmd.source,
-        location=cmd.location,
-    )
-
-
-def _impl_update_command(cmd: UpdateCommand) -> impl_commands.UpdateCommand:
-    return impl_commands.UpdateCommand(
-        version=cmd.version,
-        source=cmd.source,
-        location=cmd.location,
-    )
-
-
-def _impl_check_command(cmd: CheckCommand) -> impl_commands.CheckCommand:
-    return impl_commands.CheckCommand(location=cmd.location, version=cmd.version)
 
 
 def _should_use_legacy_new() -> bool:
@@ -60,7 +43,7 @@ def run_with_args():
             return
 
         try:
-            implementation_cli.run_new(_impl_new_command(command))
+            implementation_cli.run_new(to_implementation_new_command(command))
         except Exception as original_error:
             # Keep a safe rollback at runtime until NEW migration is fully stable.
             print(
@@ -77,7 +60,7 @@ def run_with_args():
             return
 
         try:
-            implementation_cli.run_update(_impl_update_command(command))
+            implementation_cli.run_update(to_implementation_update_command(command))
         except Exception as original_error:
             # Keep a safe rollback at runtime until UPDATE migration is fully stable.
             print(
@@ -94,7 +77,7 @@ def run_with_args():
             return
 
         try:
-            implementation_cli.run_check(_impl_check_command(command))
+            implementation_cli.run_check(to_implementation_check_command(command))
         except Exception as original_error:
             # Keep a safe rollback at runtime until CHECK migration is fully stable.
             print(

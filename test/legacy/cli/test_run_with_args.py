@@ -1,40 +1,25 @@
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 import backuper.legacy.implementation.commands as c
-from backuper.implementation.commands import (
-    CheckCommand as ImplCheckCommand,
-    NewCommand as ImplNewCommand,
-    UpdateCommand as ImplUpdateCommand,
-)
+import pytest
 from backuper.legacy.cli import (
     CHECK_ROLLBACK_ENV_VAR,
     ROLLBACK_ENV_VAR,
     UPDATE_ROLLBACK_ENV_VAR,
     run_with_args,
 )
-
-
-def _expected_impl_new(cmd: c.NewCommand) -> ImplNewCommand:
-    return ImplNewCommand(version=cmd.version, source=cmd.source, location=cmd.location)
-
-
-def _expected_impl_update(cmd: c.UpdateCommand) -> ImplUpdateCommand:
-    return ImplUpdateCommand(
-        version=cmd.version, source=cmd.source, location=cmd.location
-    )
-
-
-def _expected_impl_check(cmd: c.CheckCommand) -> ImplCheckCommand:
-    return ImplCheckCommand(location=cmd.location, version=cmd.version)
+from backuper.legacy.cli.impl_mapping import (
+    to_implementation_check_command,
+    to_implementation_new_command,
+    to_implementation_update_command,
+)
 
 
 @patch.dict("os.environ", {ROLLBACK_ENV_VAR: ""})
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.new")
-@patch("backuper.legacy.cli.implementation_cli.run_new")
+@patch("backuper.implementation.entrypoints.cli.run_new")
 def test_new_routes_to_implementation_by_default(
     implementation_new_mock, legacy_new_mock, parse_mock
 ):
@@ -43,14 +28,16 @@ def test_new_routes_to_implementation_by_default(
 
     run_with_args()
 
-    implementation_new_mock.assert_called_once_with(_expected_impl_new(command))
+    implementation_new_mock.assert_called_once_with(
+        to_implementation_new_command(command)
+    )
     legacy_new_mock.assert_not_called()
 
 
 @patch.dict("os.environ", {ROLLBACK_ENV_VAR: "1"})
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.new")
-@patch("backuper.legacy.cli.implementation_cli.run_new")
+@patch("backuper.implementation.entrypoints.cli.run_new")
 def test_new_routes_to_legacy_when_rollback_enabled(
     implementation_new_mock, legacy_new_mock, parse_mock
 ):
@@ -65,7 +52,7 @@ def test_new_routes_to_legacy_when_rollback_enabled(
 
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.new")
-@patch("backuper.legacy.cli.implementation_cli.run_new")
+@patch("backuper.implementation.entrypoints.cli.run_new")
 def test_new_falls_back_to_legacy_when_implementation_fails(
     implementation_new_mock, legacy_new_mock, parse_mock, capsys
 ):
@@ -75,7 +62,9 @@ def test_new_falls_back_to_legacy_when_implementation_fails(
 
     run_with_args()
 
-    implementation_new_mock.assert_called_once_with(_expected_impl_new(command))
+    implementation_new_mock.assert_called_once_with(
+        to_implementation_new_command(command)
+    )
     legacy_new_mock.assert_called_once_with(command)
     assert (
         "WARNING: implementation NEW command failed (boom); falling back to legacy NEW."
@@ -85,7 +74,7 @@ def test_new_falls_back_to_legacy_when_implementation_fails(
 
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.new")
-@patch("backuper.legacy.cli.implementation_cli.run_new")
+@patch("backuper.implementation.entrypoints.cli.run_new")
 def test_new_re_raises_fallback_error_chained_from_implementation_error(
     implementation_new_mock, legacy_new_mock, parse_mock
 ):
@@ -107,7 +96,7 @@ def test_new_re_raises_fallback_error_chained_from_implementation_error(
 @patch.dict("os.environ", {UPDATE_ROLLBACK_ENV_VAR: ""})
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.update")
-@patch("backuper.legacy.cli.implementation_cli.run_update")
+@patch("backuper.implementation.entrypoints.cli.run_update")
 def test_update_routes_to_implementation_by_default(
     implementation_update_mock, legacy_update_mock, parse_mock
 ):
@@ -116,14 +105,16 @@ def test_update_routes_to_implementation_by_default(
 
     run_with_args()
 
-    implementation_update_mock.assert_called_once_with(_expected_impl_update(command))
+    implementation_update_mock.assert_called_once_with(
+        to_implementation_update_command(command)
+    )
     legacy_update_mock.assert_not_called()
 
 
 @patch.dict("os.environ", {UPDATE_ROLLBACK_ENV_VAR: "1"})
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.update")
-@patch("backuper.legacy.cli.implementation_cli.run_update")
+@patch("backuper.implementation.entrypoints.cli.run_update")
 def test_update_routes_to_legacy_when_rollback_enabled(
     implementation_update_mock, legacy_update_mock, parse_mock
 ):
@@ -139,7 +130,7 @@ def test_update_routes_to_legacy_when_rollback_enabled(
 @patch.dict("os.environ", {UPDATE_ROLLBACK_ENV_VAR: "true"})
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.update")
-@patch("backuper.legacy.cli.implementation_cli.run_update")
+@patch("backuper.implementation.entrypoints.cli.run_update")
 def test_update_routes_to_legacy_when_use_legacy_env_is_true(
     implementation_update_mock, legacy_update_mock, parse_mock
 ):
@@ -155,7 +146,7 @@ def test_update_routes_to_legacy_when_use_legacy_env_is_true(
 @patch.dict("os.environ", {UPDATE_ROLLBACK_ENV_VAR: "YES"})
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.update")
-@patch("backuper.legacy.cli.implementation_cli.run_update")
+@patch("backuper.implementation.entrypoints.cli.run_update")
 def test_update_routes_to_legacy_when_use_legacy_env_is_yes_uppercase(
     implementation_update_mock, legacy_update_mock, parse_mock
 ):
@@ -170,7 +161,7 @@ def test_update_routes_to_legacy_when_use_legacy_env_is_yes_uppercase(
 
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.update")
-@patch("backuper.legacy.cli.implementation_cli.run_update")
+@patch("backuper.implementation.entrypoints.cli.run_update")
 def test_update_falls_back_to_legacy_when_implementation_fails(
     implementation_update_mock, legacy_update_mock, parse_mock, capsys
 ):
@@ -180,7 +171,9 @@ def test_update_falls_back_to_legacy_when_implementation_fails(
 
     run_with_args()
 
-    implementation_update_mock.assert_called_once_with(_expected_impl_update(command))
+    implementation_update_mock.assert_called_once_with(
+        to_implementation_update_command(command)
+    )
     legacy_update_mock.assert_called_once_with(command)
     assert (
         "WARNING: implementation UPDATE command failed (boom); falling back to legacy UPDATE."
@@ -190,7 +183,7 @@ def test_update_falls_back_to_legacy_when_implementation_fails(
 
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.update")
-@patch("backuper.legacy.cli.implementation_cli.run_update")
+@patch("backuper.implementation.entrypoints.cli.run_update")
 def test_update_re_raises_fallback_error_chained_from_implementation_error(
     implementation_update_mock, legacy_update_mock, parse_mock
 ):
@@ -241,7 +234,7 @@ def test_update_precondition_error_falls_back_and_chains_when_legacy_also_fails(
 @patch.dict("os.environ", {CHECK_ROLLBACK_ENV_VAR: ""})
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.check")
-@patch("backuper.legacy.cli.implementation_cli.run_check")
+@patch("backuper.implementation.entrypoints.cli.run_check")
 def test_check_routes_to_implementation_by_default(
     implementation_check_mock, legacy_check_mock, parse_mock
 ):
@@ -250,14 +243,16 @@ def test_check_routes_to_implementation_by_default(
 
     run_with_args()
 
-    implementation_check_mock.assert_called_once_with(_expected_impl_check(command))
+    implementation_check_mock.assert_called_once_with(
+        to_implementation_check_command(command)
+    )
     legacy_check_mock.assert_not_called()
 
 
 @patch.dict("os.environ", {CHECK_ROLLBACK_ENV_VAR: "1"})
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.check")
-@patch("backuper.legacy.cli.implementation_cli.run_check")
+@patch("backuper.implementation.entrypoints.cli.run_check")
 def test_check_routes_to_legacy_when_rollback_enabled(
     implementation_check_mock, legacy_check_mock, parse_mock
 ):
@@ -273,7 +268,7 @@ def test_check_routes_to_legacy_when_rollback_enabled(
 @patch.dict("os.environ", {CHECK_ROLLBACK_ENV_VAR: "true"})
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.check")
-@patch("backuper.legacy.cli.implementation_cli.run_check")
+@patch("backuper.implementation.entrypoints.cli.run_check")
 def test_check_routes_to_legacy_when_use_legacy_env_is_true(
     implementation_check_mock, legacy_check_mock, parse_mock
 ):
@@ -289,7 +284,7 @@ def test_check_routes_to_legacy_when_use_legacy_env_is_true(
 @patch.dict("os.environ", {CHECK_ROLLBACK_ENV_VAR: "YES"})
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.check")
-@patch("backuper.legacy.cli.implementation_cli.run_check")
+@patch("backuper.implementation.entrypoints.cli.run_check")
 def test_check_routes_to_legacy_when_use_legacy_env_is_yes_uppercase(
     implementation_check_mock, legacy_check_mock, parse_mock
 ):
@@ -304,7 +299,7 @@ def test_check_routes_to_legacy_when_use_legacy_env_is_yes_uppercase(
 
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.check")
-@patch("backuper.legacy.cli.implementation_cli.run_check")
+@patch("backuper.implementation.entrypoints.cli.run_check")
 def test_check_falls_back_to_legacy_when_implementation_fails(
     implementation_check_mock, legacy_check_mock, parse_mock, capsys
 ):
@@ -314,7 +309,9 @@ def test_check_falls_back_to_legacy_when_implementation_fails(
 
     run_with_args()
 
-    implementation_check_mock.assert_called_once_with(_expected_impl_check(command))
+    implementation_check_mock.assert_called_once_with(
+        to_implementation_check_command(command)
+    )
     legacy_check_mock.assert_called_once_with(command)
     assert (
         "WARNING: implementation CHECK command failed (boom); falling back to legacy CHECK."
@@ -324,7 +321,7 @@ def test_check_falls_back_to_legacy_when_implementation_fails(
 
 @patch("backuper.legacy.cli.parser.parse")
 @patch("backuper.legacy.cli.bkp.check")
-@patch("backuper.legacy.cli.implementation_cli.run_check")
+@patch("backuper.implementation.entrypoints.cli.run_check")
 def test_check_re_raises_fallback_error_chained_from_implementation_error(
     implementation_check_mock, legacy_check_mock, parse_mock
 ):
