@@ -11,22 +11,20 @@ from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
 from backuper.implementation.commands import CheckCommand, NewCommand, UpdateCommand
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
-from backuper.implementation.controllers.backup import BackupController
+from backuper.implementation.controllers.backup import add_version, new_backup
 from backuper.implementation.controllers.check import run_check_flow
 
 
-def _backup_controller(backup_root: Path) -> BackupController:
-    d = str(backup_root)
-    return BackupController(
-        file_reader=LocalFileReader(),
-        analyzer=BackupAnalyzerImpl(),
-        db=CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=d))),
-        filestore=LocalFileStore(
-            FilestoreConfig(
-                backup_dir=d,
-                zip_enabled=implementation_config.ZIP_ENABLED,
-            )
-        ),
+def _csv_db(backup_root: Path) -> CsvDb:
+    return CsvDb(CsvDbConfig(backup_dir=str(backup_root)))
+
+
+def _local_filestore(backup_root: Path) -> LocalFileStore:
+    return LocalFileStore(
+        FilestoreConfig(
+            backup_dir=str(backup_root),
+            zip_enabled=implementation_config.ZIP_ENABLED,
+        )
     )
 
 
@@ -38,8 +36,16 @@ def run_new(command: NewCommand) -> None:
     if destination.exists():
         raise ValueError(f"destination path {command.location} already exists")
 
-    controller = _backup_controller(destination)
-    asyncio.run(controller.new_backup(source, command.version))
+    asyncio.run(
+        new_backup(
+            source,
+            command.version,
+            file_reader=LocalFileReader(),
+            analyzer=BackupAnalyzerImpl(),
+            db=CsvBackupDatabase(_csv_db(destination)),
+            filestore=_local_filestore(destination),
+        )
+    )
 
 
 def run_update(command: UpdateCommand) -> None:
@@ -50,12 +56,28 @@ def run_update(command: UpdateCommand) -> None:
     if not destination.exists():
         raise ValueError(f"destination path {command.location} does not exists")
 
-    controller = _backup_controller(destination)
-    asyncio.run(controller.add_version(source, command.version))
+    asyncio.run(
+        add_version(
+            source,
+            command.version,
+            file_reader=LocalFileReader(),
+            analyzer=BackupAnalyzerImpl(),
+            db=CsvBackupDatabase(_csv_db(destination)),
+            filestore=_local_filestore(destination),
+        )
+    )
 
 
 def run_check(command: CheckCommand) -> list[str]:
-    errors = run_check_flow(command)
+    destination = Path(command.location)
+    if not destination.exists():
+        raise ValueError(f"destination path {command.location} does not exists")
+
+    errors = run_check_flow(
+        command,
+        db=_csv_db(destination),
+        filestore=_local_filestore(destination),
+    )
     for error in errors:
         print(error)
     if len(errors) == 0:

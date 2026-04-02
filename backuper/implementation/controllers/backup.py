@@ -14,83 +14,120 @@ from backuper.implementation.components.interfaces import (
 from backuper.implementation.components.reporter import StdoutAnalysisReporter
 
 
-class BackupController:
-    def __init__(
-        self,
-        file_reader: FileReader,
-        analyzer: BackupAnalyzer,
-        db: BackupDatabase,
-        filestore: LocalFileStore,
-        reporter: Optional[AnalysisReporter] = None,
-    ):
-        self._file_reader = file_reader
-        self._analyzer = analyzer
-        self._db = db
-        self._filestore = filestore
-        self._reporter = reporter or StdoutAnalysisReporter()
+async def _analyze_path(
+    path: Path,
+    *,
+    file_reader: FileReader,
+    analyzer: BackupAnalyzer,
+    db: BackupDatabase,
+    filestore: LocalFileStore,
+    reporter: Optional[AnalysisReporter] = None,
+) -> None:
+    """Analyze a path and print analyzed file entries."""
+    rep = reporter or StdoutAnalysisReporter()
+    file_entries = file_reader.read_directory(path)
+    analyzed_entries = analyzer.analyze_stream(file_entries, db)
 
-    async def analyze_path(self, path: Path) -> None:
-        """Analyze a path and print analyzed file entries"""
-        file_entries = self._file_reader.read_directory(path)
-        analyzed_entries = self._analyzer.analyze_stream(file_entries, self._db)
+    async for entry in analyzed_entries:
+        rep.report(entry)
 
-        async for entry in analyzed_entries:
-            self._reporter.report(entry)
 
-    async def new_backup(self, source: Path, version: str) -> None:
-        versions = await self._db.list_versions()
-        if version not in versions:
-            await self._db.create_version(version)
-        await self._run_backup_stream(source, version)
+async def new_backup(
+    source: Path,
+    version: str,
+    *,
+    file_reader: FileReader,
+    analyzer: BackupAnalyzer,
+    db: BackupDatabase,
+    filestore: LocalFileStore,
+) -> None:
+    versions = await db.list_versions()
+    if version not in versions:
+        await db.create_version(version)
+    await _run_backup_stream(
+        source,
+        version,
+        file_reader=file_reader,
+        analyzer=analyzer,
+        db=db,
+        filestore=filestore,
+    )
 
-    async def add_version(self, source: Path, version: str) -> None:
-        versions = await self._db.list_versions()
-        if version in versions:
-            raise ValueError(
-                f"There is already a backup versioned with the name {version}"
-            )
-        await self._db.create_version(version)
-        await self._run_backup_stream(source, version)
 
-    async def _run_backup_stream(self, source: Path, version: str) -> None:
-        file_entries = self._file_reader.read_directory(source)
-        analyzed_entries = self._analyzer.analyze_stream(file_entries, self._db)
+async def add_version(
+    source: Path,
+    version: str,
+    *,
+    file_reader: FileReader,
+    analyzer: BackupAnalyzer,
+    db: BackupDatabase,
+    filestore: LocalFileStore,
+) -> None:
+    versions = await db.list_versions()
+    if version in versions:
+        raise ValueError(f"There is already a backup versioned with the name {version}")
+    await db.create_version(version)
+    await _run_backup_stream(
+        source,
+        version,
+        file_reader=file_reader,
+        analyzer=analyzer,
+        db=db,
+        filestore=filestore,
+    )
 
-        async for entry in analyzed_entries:
-            backup_entry = await self._to_backuped_entry(entry)
-            await self._db.add_file(version, backup_entry)
 
-    async def _to_backuped_entry(self, entry: AnalyzedFileEntry) -> BackupedFileEntry:
-        source_file = entry.source_file
+async def _run_backup_stream(
+    source: Path,
+    version: str,
+    *,
+    file_reader: FileReader,
+    analyzer: BackupAnalyzer,
+    db: BackupDatabase,
+    filestore: LocalFileStore,
+) -> None:
+    file_entries = file_reader.read_directory(source)
+    analyzed_entries = analyzer.analyze_stream(file_entries, db)
 
-        if source_file.is_directory:
-            return BackupedFileEntry(
-                source_file=source_file,
-                backup_id=uuid4(),
-                stored_location="",
-                is_compressed=False,
-                hash="",
-            )
+    async for entry in analyzed_entries:
+        backup_entry = await _to_backuped_entry(entry, db=db, filestore=filestore)
+        await db.add_file(version, backup_entry)
 
-        if entry.already_backed_up and entry.hash:
-            matches = await self._db.get_files_by_hash(entry.hash)
-            if matches:
-                matched = matches[0]
-                return BackupedFileEntry(
-                    source_file=source_file,
-                    backup_id=matched.backup_id,
-                    stored_location=matched.stored_location,
-                    is_compressed=matched.is_compressed,
-                    hash=matched.hash,
-                )
 
-        stored = self._filestore.put(
-            source_file.path, source_file.relative_path, entry.hash
-        )
+async def _to_backuped_entry(
+    entry: AnalyzedFileEntry,
+    *,
+    db: BackupDatabase,
+    filestore: LocalFileStore,
+) -> BackupedFileEntry:
+    source_file = entry.source_file
+
+    if source_file.is_directory:
         return BackupedFileEntry(
             source_file=source_file,
             backup_id=uuid4(),
-            stored_location=stored.stored_location,
-            is_compressed=stored.is_compressed,
-            hash=stored.hash,
+            stored_location="",
+            is_compressed=False,
+            hash="",
         )
+
+    if entry.already_backed_up and entry.hash:
+        matches = await db.get_files_by_hash(entry.hash)
+        if matches:
+            matched = matches[0]
+            return BackupedFileEntry(
+                source_file=source_file,
+                backup_id=matched.backup_id,
+                stored_location=matched.stored_location,
+                is_compressed=matched.is_compressed,
+                hash=matched.hash,
+            )
+
+    stored = filestore.put(source_file.path, source_file.relative_path, entry.hash)
+    return BackupedFileEntry(
+        source_file=source_file,
+        backup_id=uuid4(),
+        stored_location=stored.stored_location,
+        is_compressed=stored.is_compressed,
+        hash=stored.hash,
+    )
