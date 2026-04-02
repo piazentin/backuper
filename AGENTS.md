@@ -23,9 +23,9 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 ## Tests
 
-- **`make test`** — `python3 -m pytest test/implementation` (narrow suite; default for implementation work).
-- **`make test-coverage`** — same tests with coverage over `backuper/implementation`.
-- **`make test-all`** — `python3 -m pytest test/` (full tree, including legacy tests).
+- **`make test`** — `python3 -m pytest test/` (full tree, including legacy tests).
+- **`make test-implementation`** — `python3 -m pytest test/implementation` (narrow suite; default for implementation work).
+- **`make test-coverage`** — full test tree with coverage across the project (`--cov=.`).
 
 ## On-disk and CSV parity
 
