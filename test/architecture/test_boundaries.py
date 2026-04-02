@@ -1,8 +1,8 @@
 """
 AST-based architecture guardrails for `backuper.implementation`.
 
-Rules mirror AGENTS.md / Option A plan: legacy isolation, controller layering,
-controllers import ports from `components.interfaces` only, and no
+Enforces legacy isolation under implementation, controller layering (function-only
+controllers), imports of `components` only via `components.interfaces`, and no
 controller-to-controller coupling.
 """
 
