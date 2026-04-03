@@ -1,0 +1,167 @@
+from pathlib import Path
+from uuid import UUID
+
+import pytest
+from backuper.components.csv_db import CsvBackupDatabase, CsvDb
+from backuper.config import CsvDbConfig
+from backuper.interfaces import BackupedFileEntry, FileEntry
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_create_version_and_list_versions(
+    tmp_path: Path,
+) -> None:
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+
+    await db.create_version("2026.03.29")
+    await db.create_version("v.scsv")
+
+    assert sorted(await db.list_versions()) == ["2026.03.29", "v.scsv"]
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_add_and_lookup_file_entries(tmp_path: Path) -> None:
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    await db.create_version("20260329000000")
+
+    file_entry = FileEntry(
+        path=Path("/src/docs/readme.txt"),
+        relative_path=Path("docs/readme.txt"),
+        size=42,
+        mtime=1711700000.123,
+        is_directory=False,
+    )
+    stored_file = BackupedFileEntry(
+        source_file=file_entry,
+        backup_id=UUID("11111111-1111-1111-1111-111111111111"),
+        stored_location="data/f1",
+        is_compressed=False,
+        hash="abc123",
+    )
+    second_file_entry = FileEntry(
+        path=Path("/src/docs/notes.txt"),
+        relative_path=Path("docs/notes.txt"),
+        size=12,
+        mtime=1711700001.0,
+        is_directory=False,
+    )
+    second_stored_file = BackupedFileEntry(
+        source_file=second_file_entry,
+        backup_id=UUID("33333333-3333-3333-3333-333333333333"),
+        stored_location="data/f2",
+        is_compressed=False,
+        hash="def456",
+    )
+
+    await db.add_file("20260329000000", stored_file)
+    await db.add_file("20260329000000", second_stored_file)
+
+    by_metadata = await db.get_files_by_metadata(
+        Path("docs/readme.txt"), 1711700000.123, 42
+    )
+    assert len(by_metadata) == 1
+    assert by_metadata[0].stored_location == "data/f1"
+    assert by_metadata[0].hash == "abc123"
+    assert by_metadata[0].source_file.relative_path == Path("docs/readme.txt")
+
+    by_hash = await db.get_files_by_hash("abc123")
+    assert len(by_hash) == 1
+    assert by_hash[0].source_file.relative_path == Path("docs/readme.txt")
+
+    second_by_metadata = await db.get_files_by_metadata(
+        Path("docs/notes.txt"), 1711700001.0, 12
+    )
+    assert len(second_by_metadata) == 1
+    assert second_by_metadata[0].stored_location == "data/f2"
+    assert second_by_metadata[0].hash == "def456"
+    assert second_by_metadata[0].source_file.relative_path == Path("docs/notes.txt")
+
+    second_by_hash = await db.get_files_by_hash("def456")
+    assert len(second_by_hash) == 1
+    assert second_by_hash[0].source_file.relative_path == Path("docs/notes.txt")
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_add_and_list_directory_entries(
+    tmp_path: Path,
+) -> None:
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    await db.create_version("20260329010000")
+
+    dir_entry = BackupedFileEntry(
+        source_file=FileEntry(
+            path=Path("/src/subdir"),
+            relative_path=Path("subdir"),
+            size=0,
+            mtime=0.0,
+            is_directory=True,
+        ),
+        backup_id=UUID("22222222-2222-2222-2222-222222222222"),
+        stored_location="",
+        is_compressed=False,
+        hash="",
+    )
+    await db.add_file("20260329010000", dir_entry)
+
+    items = []
+    async for item in db.list_files("20260329010000"):
+        items.append(item)
+
+    assert len(items) == 1
+    assert items[0].is_directory is True
+    assert items[0].relative_path == Path("subdir")
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_writes_and_appends_csv_rows(tmp_path: Path) -> None:
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    version = "20260329020000"
+
+    await db.create_version(version)
+    csv_file = tmp_path / "db" / f"{version}.csv"
+    assert csv_file.exists()
+    assert csv_file.read_text(encoding="utf-8") == ""
+
+    first = BackupedFileEntry(
+        source_file=FileEntry(
+            path=Path("/src/a.txt"),
+            relative_path=Path("a.txt"),
+            size=10,
+            mtime=111.0,
+            is_directory=False,
+        ),
+        backup_id=UUID("44444444-4444-4444-4444-444444444444"),
+        stored_location="data/a",
+        is_compressed=False,
+        hash="ha",
+    )
+    second = BackupedFileEntry(
+        source_file=FileEntry(
+            path=Path("/src/b.txt"),
+            relative_path=Path("b.txt"),
+            size=20,
+            mtime=222.0,
+            is_directory=False,
+        ),
+        backup_id=UUID("55555555-5555-5555-5555-555555555555"),
+        stored_location="data/b",
+        is_compressed=False,
+        hash="hb",
+    )
+
+    await db.add_file(version, first)
+    content_after_first = csv_file.read_text(encoding="utf-8")
+    lines_after_first = [line for line in content_after_first.splitlines() if line]
+    assert len(lines_after_first) == 1
+    assert '"f","a.txt","ha","data/a","False","10","111.0"' in content_after_first
+
+    await db.add_file(version, second)
+    content_after_second = csv_file.read_text(encoding="utf-8")
+    lines_after_second = [line for line in content_after_second.splitlines() if line]
+    assert len(lines_after_second) == 2
+    assert '"f","a.txt","ha","data/a","False","10","111.0"' in content_after_second
+    assert '"f","b.txt","hb","data/b","False","20","222.0"' in content_after_second

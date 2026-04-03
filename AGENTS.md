@@ -4,12 +4,13 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 ## Entry point
 
-- `python -m backuper` → [`backuper/__main__.py`](backuper/__main__.py) → [`backuper.implementation.entrypoints.main.run_with_args`](backuper/implementation/entrypoints/main.py) → [`argparser.parse`](backuper/implementation/entrypoints/argparser.py) → [`run_new` / `run_update` / `run_check` / `run_restore`](backuper/implementation/entrypoints/cli.py).
+- `python -m backuper` → [`src/backuper/__main__.py`](src/backuper/__main__.py) → [`backuper.entrypoints.main.run_with_args`](src/backuper/entrypoints/main.py) → [`argparser.parse`](src/backuper/entrypoints/argparser.py) → [`run_new` / `run_update` / `run_check` / `run_restore`](src/backuper/entrypoints/cli.py).
+- Installed CLI: `[project.scripts]` maps `backuper` to `backuper.entrypoints.main:run_with_args` (e.g. `uv run backuper …` after `uv sync`).
 
 ## Architecture
 
-- **Commands** live under [`backuper/implementation`](backuper/implementation).
-- **Practice**: New features and fixes go in `implementation` with tests under `test/implementation`.
+- **Commands** live under [`src/backuper`](src/backuper) (package root: `entrypoints/`, `controllers/`, `components/`, `interfaces/`, `commands.py`, `config.py`).
+- **Practice**: New features and fixes go in `src/backuper` with tests under `test/unit` and `test/integration` as appropriate.
 
 ## Command naming rubric
 
@@ -19,13 +20,17 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 ## Tests
 
-- **`make test`** — `python3 -m pytest test/` (full tree).
-- **`make test-implementation`** — `python3 -m pytest test/implementation` (narrow suite; default for implementation work).
-- **`make test-coverage`** — full test tree with coverage across the project (`--cov=.`).
+- **Environment:** install [uv](https://docs.astral.sh/uv/), then `uv sync --group dev` (or `make sync`) so `make` targets use the locked env.
+- **`make unit`** — `pytest test/unit` (isolated tests: entrypoints, controllers, components) under `uv run`.
+- **`make integration`** — `pytest test/integration` (on-disk layout, CSV rows, CLI-style flows).
+- **`make test`** — both trees: `pytest test/unit test/integration`.
+- **`make test-coverage`** — same scope as `make test` with coverage (`--cov=.`).
+
+Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run python -m pytest test/unit/...` or `test/integration/...`.
 
 ## On-disk and CSV contract
 
-- The on-disk layout and CSV/database rows are defined by the implementation. Integration tests under [`test/implementation/integration/`](test/implementation/integration/) assert expected layouts and rows; see e.g. [`test/implementation/integration/test_new_integration.py`](test/implementation/integration/test_new_integration.py).
+- The on-disk layout and CSV/database rows are defined by the implementation. Integration tests under [`test/integration/`](test/integration/) assert expected layouts and rows; see e.g. [`test/integration/test_new_integration.py`](test/integration/test_new_integration.py).
 
 ## Formatting and lint
 
@@ -39,9 +44,9 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 ## Implementation layering
 
-- **`entrypoints/`** — Delivery adapters and **composition root** for commands. [`backuper/implementation/entrypoints/cli.py`](backuper/implementation/entrypoints/cli.py) is the CLI adapter: it owns stdout UX, basic path/schema validation, and **dependency injection** (constructing concrete adapters and passing them into controllers). There is **no** `backuper/implementation/cli.py` shim—callers use [`backuper.implementation.entrypoints.cli`](backuper/implementation/entrypoints/cli.py) only. Orchestration in `controllers/` is **swappable delivery**: the same functions should be reusable from another entrypoint later (for example a web API) without duplicating use-case logic.
+- **`entrypoints/`** — Delivery adapters and **composition root** for commands. [`src/backuper/entrypoints/cli.py`](src/backuper/entrypoints/cli.py) is the CLI adapter: it owns stdout UX, basic path/schema validation, and **dependency injection** (constructing concrete adapters and passing them into controllers). There is **no** `src/backuper/cli.py` shim—callers use [`backuper.entrypoints.cli`](src/backuper/entrypoints/cli.py) only. Orchestration in `controllers/` is **swappable delivery**: the same functions should be reusable from another entrypoint later (for example a web API) without duplicating use-case logic.
 - **`controllers/`** — Use-case orchestration **only** as **module-level functions** (no orchestration classes). Dependencies are passed **explicitly** as separate parameters; do **not** introduce shared “deps bundle” dataclasses or NamedTuples for hand-off. Where two or more collaborators could be confused, prefer **keyword-only** injected parameters (pattern: `fn(command, *, db=..., filestore=...)`). Controllers depend on **`interfaces`** for port and DTO types; they must not import concrete **`components`** (those are wired in **`entrypoints/`**).
-- **`interfaces/`** — Port protocols, shared types, and exceptions ([`backuper.implementation.interfaces`](backuper/implementation/interfaces/__init__.py)). This is the home for **ports**; **`components/`** supply the concrete implementations used at the composition root.
+- **`interfaces/`** — Port protocols, shared types, and exceptions ([`backuper.interfaces`](src/backuper/interfaces/__init__.py)). This is the home for **ports**; **`components/`** supply the concrete implementations used at the composition root.
 - **`components/`** — Reusable building blocks (e.g. file I/O, CSV DB, analyzer, filestore) that implement **`interfaces`** and remain implementation details behind the composition root.
-- **`commands.py`** — Implementation command DTOs only ([`backuper/implementation/commands.py`](backuper/implementation/commands.py)).
-- **`config.py`** — Shared configuration types and constants ([`backuper/implementation/config.py`](backuper/implementation/config.py)).
+- **`commands.py`** — Implementation command DTOs only ([`src/backuper/commands.py`](src/backuper/commands.py)).
+- **`config.py`** — Shared configuration types and constants ([`src/backuper/config.py`](src/backuper/config.py)).

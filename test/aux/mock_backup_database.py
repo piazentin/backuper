@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from backuper.implementation.interfaces import (
+from backuper.interfaces import (
     BackupDatabase,
     BackupedFileEntry,
     FileEntry,
