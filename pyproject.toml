@@ -14,20 +14,11 @@ select = [
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-# Legacy paths may still use bare `except`
-"backuper/legacy/**/*.py" = ["E722"]
 # Module-level Union[] aliases (PEP 604 `|` is evaluated at import time on Python <3.10)
 "backuper/implementation/components/csv_db.py" = ["UP007"]
-"backuper/legacy/implementation/models.py" = ["UP007"]
 
 [tool.importlinter]
 root_packages = ["backuper"]
-
-[[tool.importlinter.contracts]]
-name = "Implementation must not import legacy"
-type = "forbidden"
-source_modules = ["backuper.implementation"]
-forbidden_modules = ["backuper.legacy"]
 
 [[tool.importlinter.contracts]]
 name = "Controllers must not import components"

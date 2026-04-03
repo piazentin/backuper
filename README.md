@@ -2,9 +2,9 @@
 
 Very simple backup utility
 
-## Architecture and migration
+## Architecture
 
-New development targets [`backuper/implementation`](backuper/implementation): entrypoints act as the composition root, controllers are function-only orchestration with explicit dependencies, and legacy code is phased out. For boundaries, routing, env flags, and tests, see **[AGENTS.md](AGENTS.md)**.
+The CLI runs [`backuper/implementation`](backuper/implementation): entrypoints are the composition root, controllers are function-only orchestration with explicit dependencies, `interfaces/` holds ports and shared DTO-style types, and persistence-specific shapes (for example CSV row models in `components/csv_db`) live next to the adapters that use them. For layering, tests, and contribution notes, see **[AGENTS.md](AGENTS.md)**.
 
 ## Usage
 

@@ -1,9 +1,0 @@
----
-description: Reminder when editing backuper/legacy
-globs: backuper/legacy/**
-alwaysApply: false
----
-
-# Legacy layer
-
-Transitional; scheduled for removal. Avoid growing it unless needed for migration or parity. See **`AGENTS.md`**.

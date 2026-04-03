@@ -17,11 +17,11 @@ from backuper.implementation.interfaces import (
     FileEntry,
 )
 
-StoredLocation = str
+_StoredLocation = str
 
 
 @dataclass(frozen=True)
-class DirEntry:
+class _DirEntry:
     name: str
 
     def normalized_path(self) -> str:
@@ -29,30 +29,33 @@ class DirEntry:
 
 
 @dataclass
-class Version:
+class _Version:
     name: str
 
 
 @dataclass(frozen=True)
-class StoredFile:
+class _StoredFile:
     restore_path: str
     sha1hash: str
-    stored_location: StoredLocation
+    stored_location: _StoredLocation
     is_compressed: bool
     size: int = 0
     mtime: float = 0.0
 
 
-FileSystemObject = Union[DirEntry, StoredFile]
+_FileSystemObject = Union[_DirEntry, _StoredFile]
 
 
-def csvrow_to_model(row) -> FileSystemObject:
-    if row[0] == "d":
-        return DirEntry(row[1])
-    elif row[0] == "f":
+def _csvrow_to_model(row) -> _FileSystemObject:
+    if not row:
+        raise ValueError("Empty CSV row")
+    kind = row[0]
+    if kind == "d":
+        return _DirEntry(row[1])
+    if kind == "f":
         if len(row) >= 7:
             _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = row
-            return StoredFile(
+            return _StoredFile(
                 restore_path,
                 sha1hash,
                 stored_location,
@@ -60,18 +63,18 @@ def csvrow_to_model(row) -> FileSystemObject:
                 int(size) if size else 0,
                 float(mtime) if mtime else 0.0,
             )
-        else:
-            # Handle old format without size and mtime
-            _, restore_path, sha1hash, stored_location, is_compressed = row
-            return StoredFile(
-                restore_path, sha1hash, stored_location, is_compressed == "True"
-            )
+        # Handle old format without size and mtime
+        _, restore_path, sha1hash, stored_location, is_compressed = row
+        return _StoredFile(
+            restore_path, sha1hash, stored_location, is_compressed == "True"
+        )
+    raise ValueError(f"Unknown CSV row type: {kind!r}")
 
 
-def model_to_csvrow(model: FileSystemObject) -> str:
-    if isinstance(model, DirEntry):
+def _model_to_csvrow(model: _FileSystemObject) -> str:
+    if isinstance(model, _DirEntry):
         return f'"d","{model.normalized_path()}",""\n'
-    elif isinstance(model, StoredFile):
+    elif isinstance(model, _StoredFile):
         return f'"f","{model.restore_path}","{model.sha1hash}","{model.stored_location}","{model.is_compressed}","{model.size}","{model.mtime}"\n'
     else:
         raise ValueError("Do not know how to parse object")
@@ -86,25 +89,25 @@ class CsvDb:
     def _csv_path_from_name(self, name: str) -> os.PathLike:
         return os.path.join(self.db_dir, name + self._config.csv_file_extension)
 
-    def get_all_versions(self) -> list[Version]:
+    def get_all_versions(self) -> list[_Version]:
         return [
-            Version(f.removesuffix(self._config.csv_file_extension))
+            _Version(f.removesuffix(self._config.csv_file_extension))
             for f in os.listdir(self.db_dir)
             if f.endswith(self._config.csv_file_extension)
         ]
 
-    def create_version(self, name: str) -> Version:
+    def create_version(self, name: str) -> _Version:
         version_file = self._csv_path_from_name(name)
         with open(version_file, "a", encoding="utf-8"):
             pass
-        return Version(name)
+        return _Version(name)
 
-    def maybe_get_version_by_name(self, name: str) -> Version | None:
+    def maybe_get_version_by_name(self, name: str) -> _Version | None:
         if os.path.exists(self._csv_path_from_name(name)):
-            return Version(name)
+            return _Version(name)
         return None
 
-    def get_most_recent_version(self) -> Version | None:
+    def get_most_recent_version(self) -> _Version | None:
         versions = sorted(
             self.get_all_versions(), key=lambda version: version.name, reverse=True
         )
@@ -113,50 +116,50 @@ class CsvDb:
         else:
             return None
 
-    def get_version_by_name(self, name: str) -> Version:
+    def get_version_by_name(self, name: str) -> _Version:
         if self.maybe_get_version_by_name(name):
-            return Version(name)
+            return _Version(name)
         else:
             raise RuntimeError("Version not found")
 
-    def get_fs_objects_for_version(self, version: Version) -> list[FileSystemObject]:
+    def get_fs_objects_for_version(self, version: _Version) -> list[_FileSystemObject]:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, encoding="utf-8") as file:
             return [
-                csvrow_to_model(row)
+                _csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')
             ]
 
-    def get_dirs_for_version(self, version: Version) -> list[DirEntry]:
+    def get_dirs_for_version(self, version: _Version) -> list[_DirEntry]:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, encoding="utf-8") as file:
             return [
-                csvrow_to_model(row)
+                _csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')
                 if row[0] == "d"
             ]
 
-    def get_files_for_version(self, version: Version) -> list[StoredFile]:
+    def get_files_for_version(self, version: _Version) -> list[_StoredFile]:
         version_file = self._csv_path_from_name(version.name)
         if not os.path.exists(version_file):
             return []
 
         with open(version_file, encoding="utf-8") as file:
             return [
-                csvrow_to_model(row)
+                _csvrow_to_model(row)
                 for row in csv.reader(file, delimiter=",", quotechar='"')
                 if row[0] == "f"
             ]
 
-    def insert_dir(self, version: Version, dir: DirEntry) -> None:
+    def insert_dir(self, version: _Version, dir: _DirEntry) -> None:
         version_file = self._csv_path_from_name(version.name)
-        with open(version_file, "a") as writer:
-            writer.write(model_to_csvrow(dir))
+        with open(version_file, "a", encoding="utf-8", newline="") as writer:
+            writer.write(_model_to_csvrow(dir))
 
-    def insert_file(self, version: Version, file: StoredFile) -> None:
+    def insert_file(self, version: _Version, file: _StoredFile) -> None:
         version_file = self._csv_path_from_name(version.name)
-        with open(version_file, "a") as writer:
-            writer.write(model_to_csvrow(file))
+        with open(version_file, "a", encoding="utf-8", newline="") as writer:
+            writer.write(_model_to_csvrow(file))
 
 
 class CsvBackupDatabase(BackupDatabase):
@@ -201,10 +204,10 @@ class CsvBackupDatabase(BackupDatabase):
         version_obj = self._csv_db.get_version_by_name(version)
 
         if entry.source_file.is_directory:
-            dir_entry = DirEntry(str(entry.source_file.relative_path))
+            dir_entry = _DirEntry(str(entry.source_file.relative_path))
             self._csv_db.insert_dir(version_obj, dir_entry)
         else:
-            stored_file = StoredFile(
+            stored_file = _StoredFile(
                 restore_path=str(entry.source_file.relative_path),
                 sha1hash=entry.hash or "",
                 stored_location=entry.stored_location,

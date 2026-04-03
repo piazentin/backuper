@@ -1,7 +1,7 @@
 import argparse
 from datetime import datetime
 
-import backuper.legacy.implementation.commands as c
+import backuper.implementation.commands as c
 
 
 def _default_name() -> str:

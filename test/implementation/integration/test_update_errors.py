@@ -1,13 +1,12 @@
-"""UPDATE precondition errors: `run_update` matches legacy `bkp.update` semantics."""
+"""UPDATE precondition errors for `run_update`."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-import backuper.legacy.implementation.backup as legacy_backup
 import pytest
-from backuper.implementation.entrypoints.cli import run_update
-from backuper.legacy.implementation.commands import NewCommand, UpdateCommand
+from backuper.implementation.commands import NewCommand, UpdateCommand
+from backuper.implementation.entrypoints.cli import run_new, run_update
 
 
 def test_run_update_raises_when_source_missing(tmp_path: Path) -> None:
@@ -19,17 +18,9 @@ def test_run_update_raises_when_source_missing(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="source path .* does not exists"):
         run_update(cmd)
 
-    with pytest.raises(ValueError, match="source path .* does not exists"):
-        legacy_backup.update(cmd)
-
 
 def test_run_update_raises_when_destination_missing(tmp_path: Path) -> None:
-    """Implementation requires an existing backup root before opening the DB.
-
-    Legacy `update` builds `CsvDb`/`Filestore` first (which `makedirs` the path), so its
-    `os.path.exists(location)` check runs too late to reject a missing directory; only
-    `run_update` is asserted here.
-    """
+    """`run_update` requires an existing backup root before opening the DB."""
     src = tmp_path / "src"
     src.mkdir()
     missing_dst = tmp_path / "no_backup"
@@ -46,11 +37,8 @@ def test_run_update_raises_when_version_already_in_database(tmp_path: Path) -> N
     backup = tmp_path / "backup"
     version = "same_version"
 
-    legacy_backup.new(NewCommand(version, str(src), str(backup)))
+    run_new(NewCommand(version, str(src), str(backup)))
     cmd = UpdateCommand(version=version, source=str(src), location=str(backup))
 
     with pytest.raises(ValueError, match="already a backup versioned with the name"):
         run_update(cmd)
-
-    with pytest.raises(ValueError, match="already a backup versioned with the name"):
-        legacy_backup.update(cmd)
