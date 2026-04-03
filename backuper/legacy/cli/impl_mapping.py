@@ -12,6 +12,9 @@ from backuper.legacy.implementation.commands import (
     NewCommand as LegacyNewCommand,
 )
 from backuper.legacy.implementation.commands import (
+    RestoreCommand as LegacyRestoreCommand,
+)
+from backuper.legacy.implementation.commands import (
     UpdateCommand as LegacyUpdateCommand,
 )
 
@@ -40,3 +43,13 @@ def to_implementation_check_command(
     cmd: LegacyCheckCommand,
 ) -> impl_commands.CheckCommand:
     return impl_commands.CheckCommand(location=cmd.location, version=cmd.version)
+
+
+def to_implementation_restore_command(
+    cmd: LegacyRestoreCommand,
+) -> impl_commands.RestoreCommand:
+    return impl_commands.RestoreCommand(
+        location=cmd.location,
+        destination=cmd.destination,
+        version_name=cmd.version_name,
+    )

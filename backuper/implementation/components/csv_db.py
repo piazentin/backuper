@@ -184,6 +184,7 @@ class CsvBackupDatabase(BackupDatabase):
                 is_directory=False,
                 hash=stored_file.sha1hash,
                 stored_location=stored_file.stored_location,
+                is_compressed=stored_file.is_compressed,
             )
 
         stored_dirs = self._csv_db.get_dirs_for_version(version_obj)

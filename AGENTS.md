@@ -22,7 +22,9 @@ This file is the canonical agent and contributor map for this repository; prefer
 - **`check`**: Runs [`backuper.implementation.entrypoints.cli.run_check`](backuper/implementation/entrypoints/cli.py) unless legacy is forced or used as fallback (see below).
 - **`BACKUPER_CHECK_USE_LEGACY`**: When this environment variable is set to a truthy value (`1`, `true`, `yes`, `on`, case-insensitive), `check` uses only the legacy path ([`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py)).
 - **Fallback**: If `run_check` raises, the CLI prints a warning to stderr and retries with legacy `check`.
-- **`restore`**: Still dispatched to legacy in [`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py) until migrated.
+- **`restore`**: Runs [`backuper.implementation.entrypoints.cli.run_restore`](backuper/implementation/entrypoints/cli.py) unless legacy is forced or used as fallback (see below).
+- **`BACKUPER_RESTORE_USE_LEGACY`**: When this environment variable is set to a truthy value (`1`, `true`, `yes`, `on`, case-insensitive), `restore` uses only the legacy path ([`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py)).
+- **Fallback**: If `run_restore` raises, the CLI prints a warning to stderr and retries with legacy `restore`.
 
 ## Command naming rubric
 

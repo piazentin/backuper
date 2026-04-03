@@ -1,0 +1,13 @@
+---
+description: Use Makefile targets for validation commands
+alwaysApply: true
+---
+
+# Validation commands
+
+When running project validation, use documented `make` targets instead of calling tools directly.
+
+- Prefer `make test-implementation` for implementation-focused testing.
+- Prefer `make test` for full test-suite validation.
+- Prefer `make lint` / `make lint-fix` for formatting and linting.
+- Do not run `pytest`, `ruff`, or other validation tools directly unless the user explicitly asks for that command.
