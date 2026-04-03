@@ -19,9 +19,11 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 ## Tests
 
-- **`make test`** — `python3 -m pytest test/` (full tree).
-- **`make test-implementation`** — `python3 -m pytest test/implementation` (narrow suite; default for implementation work).
+- **Environment:** install [uv](https://docs.astral.sh/uv/), then `uv sync --group dev` (or `make sync`) so `make` targets use the locked env.
+- **`make test`** — `python3 -m pytest test/` (full tree under `uv run`).
 - **`make test-coverage`** — full test tree with coverage across the project (`--cov=.`).
+
+Phase 2 of the layout plan will split **`make unit`** / **`make integration`**; until then use `make test` or narrow with `uv run python -m pytest test/implementation` when you need that scope.
 
 ## On-disk and CSV contract
 

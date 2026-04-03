@@ -1,7 +1,0 @@
-# Development dependencies: tests, Ruff (format + lint), import-linter (see Makefile).
-# pytest 8.3+ fixes assertion rewriting for Python 3.14 (removed ast.Str, etc.).
-pytest==9.0.2
-pytest-asyncio==1.3.0
-pytest-cov==7.1.0
-ruff==0.15.9
-import-linter==2.11

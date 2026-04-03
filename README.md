@@ -37,11 +37,20 @@ restore --from /backup/source --to /backup/destination --version backup-version
 ```
 
 
+## Development setup
+
+Install [uv](https://docs.astral.sh/uv/), then from the repo root:
+
+```
+uv sync --group dev
+```
+
+That creates/updates `.venv` from `uv.lock` and installs the project plus dev tools (pytest, Ruff, import-linter). Alternatively run `make sync` (same as `uv sync --group dev`).
+
 ## Run tests
 
 ```
 make test
-make test-implementation
 make test-coverage
 ```
 
