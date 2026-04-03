@@ -1,4 +1,4 @@
-import backuper.legacy.cli as cli
+from backuper.implementation.entrypoints.main import run_with_args
 
 if __name__ == "__main__":
-    cli.run_with_args()
+    run_with_args()
