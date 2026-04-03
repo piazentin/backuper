@@ -36,6 +36,9 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
+# import-linter
+.import_linter_cache/
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
