@@ -8,6 +8,8 @@ The CLI runs [`src/backuper`](src/backuper): entrypoints are the composition roo
 
 ## Usage
 
+Examples use `python3 -m backuper`. From a dev checkout after `uv sync --group dev`, `uv run backuper …` is equivalent; with the package installed, the `backuper` console script does the same.
+
 Create a new backup:
 
 ```
@@ -30,10 +32,10 @@ python3 -m backuper check ~/backup/destination/dir
 If a future deeper validation mode is added (for example full content/hash verification),
 it should be exposed as a separate `verify` command rather than changing `check` semantics.
 
-Restore a backup to a location:
+Restore a named version from a backup root into a destination directory (two positionals: backup location, then destination; version via `-v` / `--version` / `-n` / `--name`):
 
 ```
-restore --from /backup/source --to /backup/destination --version backup-version
+python3 -m backuper restore /path/to/backup/root /path/to/restore/into --version backup-version
 ```
 
 
@@ -51,8 +53,12 @@ That creates/updates `.venv` from `uv.lock` and installs the project plus dev to
 
 ```
 make test
+make unit
+make integration
 make test-coverage
 ```
+
+`make test` runs both unit and integration suites; use `make unit` or `make integration` for a single tree.
 
 ## Format and lint
 
