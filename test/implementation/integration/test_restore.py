@@ -39,7 +39,7 @@ def test_run_restore_raises_when_backup_root_missing(tmp_path: Path) -> None:
         version_name="v1",
     )
 
-    with pytest.raises(ValueError, match="Backup source path .* does not exists"):
+    with pytest.raises(ValueError, match="Backup source path .* does not exist"):
         run_restore(cmd)
 
 
@@ -72,7 +72,7 @@ def test_run_restore_raises_when_version_missing(tmp_path: Path) -> None:
     )
 
     with pytest.raises(
-        ValueError, match="Backup version unknown does not exists in source"
+        ValueError, match="Backup version unknown does not exist in source"
     ):
         run_restore(cmd)
 

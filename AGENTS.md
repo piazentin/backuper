@@ -24,7 +24,7 @@ This file is the canonical agent and contributor map for this repository; prefer
 - **Fallback**: If `run_check` raises, the CLI prints a warning to stderr and retries with legacy `check`.
 - **`restore`**: Runs [`backuper.implementation.entrypoints.cli.run_restore`](backuper/implementation/entrypoints/cli.py) unless legacy is forced or used as fallback (see below).
 - **`BACKUPER_RESTORE_USE_LEGACY`**: When this environment variable is set to a truthy value (`1`, `true`, `yes`, `on`, case-insensitive), `restore` uses only the legacy path ([`backuper/legacy/cli/__init__.py`](backuper/legacy/cli/__init__.py)).
-- **Fallback**: If `run_restore` raises, the CLI prints a warning to stderr and retries with legacy `restore`.
+- **Fallback**: If `run_restore` raises, the CLI does **not** automatically retry with legacy `restore` (a failed run may have partially written the destination, and legacy restore may then refuse a non-empty destination). A warning is printed to stderr; the original error is re-raised. To use legacy `restore` explicitly, set `BACKUPER_RESTORE_USE_LEGACY=1`.
 
 ## Command naming rubric
 

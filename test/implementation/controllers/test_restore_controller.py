@@ -22,7 +22,7 @@ async def test_run_restore_flow_raises_when_version_missing(tmp_path: Path) -> N
             raise AssertionError("unreachable")
 
     with pytest.raises(
-        ValueError, match="Backup version missing_version does not exists in source"
+        ValueError, match="Backup version missing_version does not exist in source"
     ):
         await run_restore_flow(
             RestoreCommand(
@@ -140,3 +140,40 @@ async def test_run_restore_flow_invokes_on_restore_file(tmp_path: Path) -> None:
         on_restore_file=lambda p: seen.append(p),
     )
     assert seen == [Path("a.txt")]
+
+
+@pytest.mark.asyncio
+async def test_run_restore_flow_rejects_path_outside_destination(
+    tmp_path: Path,
+) -> None:
+    class FakeDb:
+        async def get_version_by_name(self, name: str) -> str:
+            return "v1"
+
+        async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
+            yield FileEntry(
+                path=Path("x.txt"),
+                relative_path=Path("..") / "outside.txt",
+                size=1,
+                mtime=0.0,
+                is_directory=False,
+                hash="h1",
+                is_compressed=False,
+            )
+
+    class FakeFileStore:
+        def read_blob(self, file_hash: str, is_compressed: bool) -> bytes:
+            return b"x"
+
+    dest = tmp_path / "out"
+    dest.mkdir()
+    with pytest.raises(ValueError, match="outside destination"):
+        await run_restore_flow(
+            RestoreCommand(
+                location=str(tmp_path),
+                destination=str(dest),
+                version_name="v1",
+            ),
+            db=FakeDb(),
+            filestore=FakeFileStore(),
+        )

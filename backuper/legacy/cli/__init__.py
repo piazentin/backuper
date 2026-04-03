@@ -102,14 +102,13 @@ def run_with_args():
         try:
             implementation_cli.run_restore(to_implementation_restore_command(command))
         except Exception as original_error:
-            # Keep a safe rollback at runtime until RESTORE migration is fully stable.
             print(
-                f"WARNING: implementation RESTORE command failed ({original_error}); falling back to legacy RESTORE.",
+                "WARNING: implementation RESTORE command failed "
+                f"({original_error}); the destination directory may have been "
+                f"partially written. Set {RESTORE_ROLLBACK_ENV_VAR}=1 to force "
+                "legacy restore.",
                 file=sys.stderr,
             )
-            try:
-                bkp.restore(command)
-            except Exception as fallback_error:
-                raise fallback_error from original_error
+            raise
     else:
         raise ValueError(f"Unrecognized command {command}")

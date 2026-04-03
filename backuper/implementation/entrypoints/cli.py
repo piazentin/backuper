@@ -103,12 +103,14 @@ def run_restore(command: RestoreCommand) -> None:
     source = Path(command.location)
     destination = Path(command.destination)
     if not source.exists():
-        raise ValueError(f"Backup source path {command.location} does not exists")
-    if destination.exists() and any(os.scandir(destination)):
-        raise ValueError(
-            f'Backup restore destination "{command.destination}" '
-            "already exists and is not empty"
-        )
+        raise ValueError(f"Backup source path {command.location} does not exist")
+    if destination.exists():
+        with os.scandir(destination) as entries:
+            if any(entries):
+                raise ValueError(
+                    f'Backup restore destination "{command.destination}" '
+                    "already exists and is not empty"
+                )
 
     asyncio.run(
         run_restore_flow(

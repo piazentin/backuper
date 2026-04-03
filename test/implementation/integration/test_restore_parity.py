@@ -10,6 +10,7 @@ and `test_restore_with_zip` (plain blobs vs ZIP-backed blobs).
 from __future__ import annotations
 
 import filecmp
+import shutil
 from pathlib import Path
 
 import backuper.legacy.implementation.backup as legacy_backup
@@ -27,19 +28,35 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _RESTORE_SOURCE = _REPO_ROOT / "test" / "resources" / "bkp_test_sources_new"
 
 
-def _prepare_restore_source_tree() -> Path:
+def _prepare_restore_source_tree(tmp_path: Path) -> Path:
     """Match legacy `BackupIntegrationTest.setUp` for paths used by restore tests."""
-    empty_dir = _RESTORE_SOURCE / "subdir" / "empty dir"
+    copied = tmp_path / "restore_source"
+    shutil.copytree(_RESTORE_SOURCE, copied)
+    empty_dir = copied / "subdir" / "empty dir"
     empty_dir.mkdir(parents=True, exist_ok=True)
-    return _RESTORE_SOURCE
+    return copied
 
 
 def _assert_restored_trees_identical(
     impl_dest: Path, legacy_dest: Path, *, label: str
 ) -> None:
-    cmp = filecmp.dircmp(str(impl_dest), str(legacy_dest))
-    assert cmp.left_only == cmp.right_only == [], label
-    assert not cmp.diff_files, label
+    def compare(left: Path, right: Path) -> None:
+        left_names = sorted(p.name for p in left.iterdir())
+        right_names = sorted(p.name for p in right.iterdir())
+        assert left_names == right_names, f"{label}: {left} vs {right}"
+        for name in left_names:
+            lp = left / name
+            rp = right / name
+            if lp.is_symlink() or rp.is_symlink():
+                raise AssertionError(f"{label}: unexpected symlink {lp} vs {rp}")
+            if lp.is_dir() and rp.is_dir():
+                compare(lp, rp)
+            elif lp.is_file() and rp.is_file():
+                assert filecmp.cmp(lp, rp, shallow=False), f"{label}: {lp} vs {rp}"
+            else:
+                raise AssertionError(f"{label}: entry kind mismatch {lp} vs {rp}")
+
+    compare(impl_dest, legacy_dest)
 
 
 def test_restore_parity_plain_matches_legacy(
@@ -52,7 +69,7 @@ def test_restore_parity_plain_matches_legacy(
     monkeypatch.setattr(impl_config, "ZIP_ENABLED", False)
     monkeypatch.setattr(legacy_config, "ZIP_ENABLED", False)
 
-    fixture_source = _prepare_restore_source_tree()
+    fixture_source = _prepare_restore_source_tree(tmp_path)
     impl_backup = tmp_path / "impl_bkp"
     legacy_backup_root = tmp_path / "legacy_bkp"
     legacy_backup.new(
@@ -99,7 +116,7 @@ def test_restore_parity_zip_matches_legacy(
     monkeypatch.setattr(impl_config, "ZIP_ENABLED", True)
     monkeypatch.setattr(legacy_config, "ZIP_ENABLED", True)
 
-    fixture_source = _prepare_restore_source_tree()
+    fixture_source = _prepare_restore_source_tree(tmp_path)
     impl_backup = tmp_path / "impl_bkp"
     legacy_backup_root = tmp_path / "legacy_bkp"
     legacy_backup.new(
