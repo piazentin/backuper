@@ -39,6 +39,9 @@ pip-delete-this-directory.txt
 # import-linter
 .import_linter_cache/
 
+# Clojure linter cache (editor artifact; this repo is Python-only)
+.clj-kondo/
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
