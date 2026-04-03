@@ -7,6 +7,7 @@ Seeding matches `new` from `bkp_test_sources_new` as `test_new`, then
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -16,8 +17,8 @@ from backuper.implementation.components.backup_analyzer import BackupAnalyzerImp
 from backuper.implementation.components.csv_db import (
     CsvBackupDatabase,
     CsvDb,
-    StoredFile,
-    Version,
+    _StoredFile,
+    _Version,
 )
 from backuper.implementation.components.file_reader import LocalFileReader
 from backuper.implementation.components.filestore import LocalFileStore
@@ -37,19 +38,23 @@ _UPDATE_HASH_PATHS = {
 }
 
 
-def _prepare_new_source_tree() -> Path:
-    empty_dir = _NEW_SOURCE / "subdir" / "empty dir"
+def _copy_new_source_tree(tmp_path: Path) -> Path:
+    dest = tmp_path / "bkp_test_sources_new"
+    shutil.copytree(_NEW_SOURCE, dest, dirs_exist_ok=True)
+    empty_dir = dest / "subdir" / "empty dir"
     empty_dir.mkdir(parents=True, exist_ok=True)
-    return _NEW_SOURCE
+    return dest
 
 
-def _prepare_update_source_tree() -> Path:
-    _UPDATE_SOURCE.joinpath("LICENSE").touch(exist_ok=True)
-    return _UPDATE_SOURCE
+def _copy_update_source_tree(tmp_path: Path) -> Path:
+    dest = tmp_path / "bkp_test_sources_update"
+    shutil.copytree(_UPDATE_SOURCE, dest, dirs_exist_ok=True)
+    dest.joinpath("LICENSE").touch(exist_ok=True)
+    return dest
 
 
 def _assert_stored_file_in_expected_set(
-    stored_file: StoredFile,
+    stored_file: _StoredFile,
     expected_files: set,
 ) -> None:
     for expected in expected_files:
@@ -61,7 +66,7 @@ def _assert_stored_file_in_expected_set(
         ):
             return
     raise AssertionError(
-        f"StoredFile[{stored_file.restore_path!r}] not in expected set"
+        f"CSV file row [{stored_file.restore_path!r}] not in expected set"
     )
 
 
@@ -69,7 +74,7 @@ def _assert_csv_reader_matches_fixture(
     backup_dir: str, version_name: str, expected: dict
 ) -> None:
     impl_db = CsvDb(CsvDbConfig(backup_dir=backup_dir))
-    version = Version(version_name)
+    version = _Version(version_name)
     dirs = impl_db.get_dirs_for_version(version)
     assert set(dirs) == expected["dirs"]
 
@@ -80,9 +85,9 @@ def _assert_csv_reader_matches_fixture(
 
 
 @pytest.fixture
-def new_and_update_source_paths() -> tuple[Path, Path]:
+def new_and_update_source_paths(tmp_path: Path) -> tuple[Path, Path]:
     aux.rm_temp_dirs()
-    yield (_prepare_new_source_tree(), _prepare_update_source_tree())
+    yield (_copy_new_source_tree(tmp_path), _copy_update_source_tree(tmp_path))
     aux.rm_temp_dirs()
 
 
@@ -165,7 +170,7 @@ async def test_update_backup_integration_zip_enabled(
     data_filenames = aux.list_all_files_recursive(str(data_root))
     assert len(data_filenames) == len(_UPDATE_HASH_PATHS)
     for name in data_filenames:
-        assert name.strip(".zip") in _UPDATE_HASH_PATHS
+        assert name.removesuffix(".zip") in _UPDATE_HASH_PATHS
 
     _assert_csv_reader_matches_fixture(
         str(destination), "test_update", fixtures.update_backup_with_zip
