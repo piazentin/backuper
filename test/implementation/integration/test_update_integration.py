@@ -86,9 +86,7 @@ def _assert_csv_reader_matches_fixture(
 
 @pytest.fixture
 def new_and_update_source_paths(tmp_path: Path) -> tuple[Path, Path]:
-    aux.rm_temp_dirs()
     yield (_copy_new_source_tree(tmp_path), _copy_update_source_tree(tmp_path))
-    aux.rm_temp_dirs()
 
 
 @pytest.mark.asyncio

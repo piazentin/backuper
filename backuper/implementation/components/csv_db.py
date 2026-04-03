@@ -47,9 +47,12 @@ _FileSystemObject = Union[_DirEntry, _StoredFile]
 
 
 def _csvrow_to_model(row) -> _FileSystemObject:
-    if row[0] == "d":
+    if not row:
+        raise ValueError("Empty CSV row")
+    kind = row[0]
+    if kind == "d":
         return _DirEntry(row[1])
-    elif row[0] == "f":
+    if kind == "f":
         if len(row) >= 7:
             _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = row
             return _StoredFile(
@@ -60,12 +63,12 @@ def _csvrow_to_model(row) -> _FileSystemObject:
                 int(size) if size else 0,
                 float(mtime) if mtime else 0.0,
             )
-        else:
-            # Handle old format without size and mtime
-            _, restore_path, sha1hash, stored_location, is_compressed = row
-            return _StoredFile(
-                restore_path, sha1hash, stored_location, is_compressed == "True"
-            )
+        # Handle old format without size and mtime
+        _, restore_path, sha1hash, stored_location, is_compressed = row
+        return _StoredFile(
+            restore_path, sha1hash, stored_location, is_compressed == "True"
+        )
+    raise ValueError(f"Unknown CSV row type: {kind!r}")
 
 
 def _model_to_csvrow(model: _FileSystemObject) -> str:
@@ -150,12 +153,12 @@ class CsvDb:
 
     def insert_dir(self, version: _Version, dir: _DirEntry) -> None:
         version_file = self._csv_path_from_name(version.name)
-        with open(version_file, "a") as writer:
+        with open(version_file, "a", encoding="utf-8", newline="") as writer:
             writer.write(_model_to_csvrow(dir))
 
     def insert_file(self, version: _Version, file: _StoredFile) -> None:
         version_file = self._csv_path_from_name(version.name)
-        with open(version_file, "a") as writer:
+        with open(version_file, "a", encoding="utf-8", newline="") as writer:
             writer.write(_model_to_csvrow(file))
 
 
