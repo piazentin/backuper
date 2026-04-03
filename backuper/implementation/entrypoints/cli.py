@@ -1,8 +1,14 @@
 import asyncio
+import os
 from pathlib import Path
 
 from backuper.implementation import config as implementation_config
-from backuper.implementation.commands import CheckCommand, NewCommand, UpdateCommand
+from backuper.implementation.commands import (
+    CheckCommand,
+    NewCommand,
+    RestoreCommand,
+    UpdateCommand,
+)
 from backuper.implementation.components.backup_analyzer import BackupAnalyzerImpl
 from backuper.implementation.components.csv_db import (
     CsvBackupDatabase,
@@ -13,6 +19,7 @@ from backuper.implementation.components.filestore import LocalFileStore
 from backuper.implementation.config import CsvDbConfig, FilestoreConfig
 from backuper.implementation.controllers.backup import add_version, new_backup
 from backuper.implementation.controllers.check import run_check_flow
+from backuper.implementation.controllers.restore import run_restore_flow
 
 
 def _csv_db(backup_root: Path) -> CsvDb:
@@ -90,3 +97,28 @@ def run_check(command: CheckCommand) -> list[str]:
     _present_check_stdout(errors)
 
     return errors
+
+
+def run_restore(command: RestoreCommand) -> None:
+    source = Path(command.location)
+    destination = Path(command.destination)
+    if not source.exists():
+        raise ValueError(f"Backup source path {command.location} does not exist")
+    if destination.exists():
+        with os.scandir(destination) as entries:
+            if any(entries):
+                raise ValueError(
+                    f'Backup restore destination "{command.destination}" '
+                    "already exists and is not empty"
+                )
+
+    asyncio.run(
+        run_restore_flow(
+            command,
+            db=CsvBackupDatabase(_csv_db(source)),
+            filestore=_local_filestore(source),
+            on_restore_file=lambda relative_path: print(
+                f"Restoring {relative_path} to {command.destination}"
+            ),
+        )
+    )

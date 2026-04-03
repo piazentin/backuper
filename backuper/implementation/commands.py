@@ -21,3 +21,10 @@ class UpdateCommand:
 class CheckCommand:
     location: str
     version: str | None = None
+
+
+@dataclass
+class RestoreCommand:
+    location: str
+    destination: str
+    version_name: str

@@ -7,6 +7,7 @@ import backuper.legacy.implementation.backup as bkp
 from backuper.legacy.cli.impl_mapping import (
     to_implementation_check_command,
     to_implementation_new_command,
+    to_implementation_restore_command,
     to_implementation_update_command,
 )
 from backuper.legacy.implementation.commands import (
@@ -19,6 +20,7 @@ from backuper.legacy.implementation.commands import (
 ROLLBACK_ENV_VAR = "BACKUPER_NEW_USE_LEGACY"
 UPDATE_ROLLBACK_ENV_VAR = "BACKUPER_UPDATE_USE_LEGACY"
 CHECK_ROLLBACK_ENV_VAR = "BACKUPER_CHECK_USE_LEGACY"
+RESTORE_ROLLBACK_ENV_VAR = "BACKUPER_RESTORE_USE_LEGACY"
 
 _TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on"})
 
@@ -33,6 +35,10 @@ def _should_use_legacy_update() -> bool:
 
 def _should_use_legacy_check() -> bool:
     return os.getenv(CHECK_ROLLBACK_ENV_VAR, "").strip().lower() in _TRUTHY_ENV_VALUES
+
+
+def _should_use_legacy_restore() -> bool:
+    return os.getenv(RESTORE_ROLLBACK_ENV_VAR, "").strip().lower() in _TRUTHY_ENV_VALUES
 
 
 def run_with_args():
@@ -89,6 +95,20 @@ def run_with_args():
             except Exception as fallback_error:
                 raise fallback_error from original_error
     elif isinstance(command, RestoreCommand):
-        bkp.restore(command)
+        if _should_use_legacy_restore():
+            bkp.restore(command)
+            return
+
+        try:
+            implementation_cli.run_restore(to_implementation_restore_command(command))
+        except Exception as original_error:
+            print(
+                "WARNING: implementation RESTORE command failed "
+                f"({original_error}); the destination directory may have been "
+                f"partially written. Set {RESTORE_ROLLBACK_ENV_VAR}=1 to force "
+                "legacy restore.",
+                file=sys.stderr,
+            )
+            raise
     else:
         raise ValueError(f"Unrecognized command {command}")
