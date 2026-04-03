@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from backuper.implementation.commands import RestoreCommand
 from backuper.implementation.interfaces import BackupDatabase, FileStore
