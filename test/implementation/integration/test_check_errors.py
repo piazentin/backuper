@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from backuper.implementation.commands import CheckCommand, NewCommand, UpdateCommand
-from backuper.implementation.components.csv_db import CsvDb
-from backuper.implementation.config import CsvDbConfig
-from backuper.implementation.entrypoints.cli import run_check, run_new, run_update
+from backuper.commands import CheckCommand, NewCommand, UpdateCommand
+from backuper.components.csv_db import CsvDb
+from backuper.config import CsvDbConfig
+from backuper.entrypoints.cli import run_check, run_new, run_update
 
 
 def _seed_backup(destination: Path, source: Path, *, version: str = "v1") -> None:

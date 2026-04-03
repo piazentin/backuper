@@ -13,17 +13,17 @@ from pathlib import Path
 import pytest
 import test.aux as aux
 import test.aux.fixtures as fixtures
-from backuper.implementation.components.backup_analyzer import BackupAnalyzerImpl
-from backuper.implementation.components.csv_db import (
+from backuper.components.backup_analyzer import BackupAnalyzerImpl
+from backuper.components.csv_db import (
     CsvBackupDatabase,
     CsvDb,
     _StoredFile,
     _Version,
 )
-from backuper.implementation.components.file_reader import LocalFileReader
-from backuper.implementation.components.filestore import LocalFileStore
-from backuper.implementation.config import CsvDbConfig, FilestoreConfig
-from backuper.implementation.controllers.backup import new_backup
+from backuper.components.file_reader import LocalFileReader
+from backuper.components.filestore import LocalFileStore
+from backuper.config import CsvDbConfig, FilestoreConfig
+from backuper.controllers.backup import new_backup
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _NEW_SOURCE = _REPO_ROOT / "test" / "resources" / "bkp_test_sources_new"

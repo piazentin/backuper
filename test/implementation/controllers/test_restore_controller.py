@@ -6,9 +6,9 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
-from backuper.implementation.commands import RestoreCommand
-from backuper.implementation.controllers.restore import run_restore_flow
-from backuper.implementation.interfaces import FileEntry
+from backuper.commands import RestoreCommand
+from backuper.controllers.restore import run_restore_flow
+from backuper.interfaces import FileEntry
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,4 @@
-from backuper.implementation.components.csv_db import _DirEntry, _StoredFile
+from backuper.components.csv_db import _DirEntry, _StoredFile
 
 stored_text_file1 = _StoredFile(
     "text_file1.txt",

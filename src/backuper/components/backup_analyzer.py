@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 
-from backuper.implementation.components.utils import compute_hash
-from backuper.implementation.interfaces import (
+from backuper.components.utils import compute_hash
+from backuper.interfaces import (
     AnalyzedFileEntry,
     BackupAnalyzer,
     BackupDatabase,

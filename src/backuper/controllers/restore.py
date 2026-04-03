@@ -1,8 +1,8 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from backuper.implementation.commands import RestoreCommand
-from backuper.implementation.interfaces import BackupDatabase, FileStore
+from backuper.commands import RestoreCommand
+from backuper.interfaces import BackupDatabase, FileStore
 
 
 def _resolved_path_under_destination(destination: Path, relative_path: Path) -> Path:

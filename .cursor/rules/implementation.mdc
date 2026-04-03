@@ -1,6 +1,6 @@
 ---
-description: Reminder when editing backuper/implementation
-globs: backuper/implementation/**
+description: Reminder when editing src/backuper
+globs: src/backuper/**
 alwaysApply: false
 ---
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from backuper.implementation.components.file_reader import LocalFileReader
+from backuper.components.file_reader import LocalFileReader
 
 
 @pytest.mark.asyncio

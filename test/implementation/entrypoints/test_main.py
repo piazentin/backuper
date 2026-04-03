@@ -1,4 +1,4 @@
-"""Tests for `backuper.implementation.entrypoints.main.run_with_args` dispatch."""
+"""Tests for `backuper.entrypoints.main.run_with_args` dispatch."""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ import sys
 from unittest.mock import sentinel
 
 import pytest
-from backuper.implementation.commands import (
+from backuper.commands import (
     CheckCommand,
     NewCommand,
     RestoreCommand,
     UpdateCommand,
 )
-from backuper.implementation.entrypoints import main as main_mod
+from backuper.entrypoints import main as main_mod
 
 
 def test_run_with_args_dispatches_new(

@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import Union
 from uuid import UUID
 
-from backuper.implementation.components.utils import normalize_path
-from backuper.implementation.config import CsvDbConfig
-from backuper.implementation.interfaces import (
+from backuper.components.utils import normalize_path
+from backuper.config import CsvDbConfig
+from backuper.interfaces import (
     BackupDatabase,
     BackupedFileEntry,
     FileEntry,

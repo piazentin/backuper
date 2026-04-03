@@ -6,9 +6,9 @@ import shutil
 from pathlib import Path
 from zipfile import ZipFile
 
-from backuper.implementation.components.utils import compute_hash, normalize_path
-from backuper.implementation.config import FilestoreConfig
-from backuper.implementation.interfaces import FileStore, PutResult
+from backuper.components.utils import compute_hash, normalize_path
+from backuper.config import FilestoreConfig
+from backuper.interfaces import FileStore, PutResult
 
 StoredLocation = str
 

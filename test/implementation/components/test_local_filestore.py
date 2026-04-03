@@ -1,8 +1,8 @@
 from pathlib import Path
 from zipfile import ZipFile
 
-from backuper.implementation.components.filestore import LocalFileStore
-from backuper.implementation.config import FilestoreConfig
+from backuper.components.filestore import LocalFileStore
+from backuper.config import FilestoreConfig
 
 
 def test_local_filestore_put_and_dedup_exists_branch(tmp_path: Path) -> None:

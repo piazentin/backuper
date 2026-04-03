@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from backuper.implementation.commands import NewCommand, UpdateCommand
-from backuper.implementation.entrypoints.cli import run_new, run_update
+from backuper.commands import NewCommand, UpdateCommand
+from backuper.entrypoints.cli import run_new, run_update
 
 
 def test_run_update_raises_when_source_missing(tmp_path: Path) -> None:

@@ -1,13 +1,13 @@
 import sys
 
-from backuper.implementation.commands import (
+from backuper.commands import (
     CheckCommand,
     NewCommand,
     RestoreCommand,
     UpdateCommand,
 )
-from backuper.implementation.entrypoints import argparser as parser
-from backuper.implementation.entrypoints.cli import (
+from backuper.entrypoints import argparser as parser
+from backuper.entrypoints.cli import (
     run_check,
     run_new,
     run_restore,

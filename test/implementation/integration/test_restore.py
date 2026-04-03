@@ -6,12 +6,12 @@ import filecmp
 from pathlib import Path
 
 import pytest
-from backuper.implementation.commands import (
+from backuper.commands import (
     NewCommand,
     RestoreCommand,
     UpdateCommand,
 )
-from backuper.implementation.entrypoints.cli import run_new, run_restore, run_update
+from backuper.entrypoints.cli import run_new, run_restore, run_update
 
 
 def _repo_root() -> Path:
@@ -100,7 +100,7 @@ def test_run_restore_restores_fixture_tree(tmp_path: Path) -> None:
 def test_run_restore_restores_fixture_tree_with_zip(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import backuper.implementation.config as impl_config
+    import backuper.config as impl_config
 
     monkeypatch.setattr(impl_config, "ZIP_ENABLED", True)
     fixture_source = _repo_root() / "test" / "resources" / "bkp_test_sources_new"

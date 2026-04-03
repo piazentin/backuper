@@ -3,17 +3,17 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from backuper.implementation.components.backup_analyzer import BackupAnalyzerImpl
-from backuper.implementation.components.csv_db import CsvBackupDatabase, CsvDb
-from backuper.implementation.components.file_reader import LocalFileReader
-from backuper.implementation.components.filestore import LocalFileStore
-from backuper.implementation.config import CsvDbConfig, FilestoreConfig
-from backuper.implementation.controllers.backup import (
+from backuper.components.backup_analyzer import BackupAnalyzerImpl
+from backuper.components.csv_db import CsvBackupDatabase, CsvDb
+from backuper.components.file_reader import LocalFileReader
+from backuper.components.filestore import LocalFileStore
+from backuper.config import CsvDbConfig, FilestoreConfig
+from backuper.controllers.backup import (
     _analyze_path,
     add_version,
     new_backup,
 )
-from backuper.implementation.interfaces import (
+from backuper.interfaces import (
     AnalysisReporter,
     AnalyzedFileEntry,
     BackupAnalyzer,

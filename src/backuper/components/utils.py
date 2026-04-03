@@ -1,7 +1,7 @@
 import hashlib
 import os
 
-from backuper.implementation import config
+from backuper import config
 
 
 def normalize_path(path: str) -> str:

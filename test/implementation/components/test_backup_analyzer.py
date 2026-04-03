@@ -2,8 +2,8 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from backuper.implementation.components.backup_analyzer import BackupAnalyzerImpl
-from backuper.implementation.interfaces import BackupedFileEntry, FileEntry
+from backuper.components.backup_analyzer import BackupAnalyzerImpl
+from backuper.interfaces import BackupedFileEntry, FileEntry
 from test.aux.mock_backup_database import MockBackupDatabase
 
 

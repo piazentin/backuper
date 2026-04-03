@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 
 [project.scripts]
-backuper = "backuper.implementation.entrypoints.main:run_with_args"
+backuper = "backuper.entrypoints.main:run_with_args"
 
 [dependency-groups]
 dev = [
@@ -22,12 +22,12 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["backuper"]
+packages = ["src/backuper"]
 
 [tool.ruff]
 line-length = 88
 target-version = "py311"
-src = ["backuper"]
+src = ["src/backuper"]
 
 [tool.ruff.lint]
 select = [
@@ -41,7 +41,7 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 # Module-level Union[] aliases (PEP 604 `|` is evaluated at import time on Python <3.10)
-"backuper/implementation/components/csv_db.py" = ["UP007"]
+"src/backuper/components/csv_db.py" = ["UP007"]
 
 [tool.importlinter]
 root_packages = ["backuper"]
@@ -49,10 +49,10 @@ root_packages = ["backuper"]
 [[tool.importlinter.contracts]]
 name = "Controllers must not import components"
 type = "forbidden"
-source_modules = ["backuper.implementation.controllers"]
-forbidden_modules = ["backuper.implementation.components"]
+source_modules = ["backuper.controllers"]
+forbidden_modules = ["backuper.components"]
 
 [[tool.importlinter.contracts]]
 name = "Controllers must not import other controller modules"
 type = "independence"
-modules = ["backuper.implementation.controllers.*"]
+modules = ["backuper.controllers.*"]

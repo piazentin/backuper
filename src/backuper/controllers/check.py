@@ -1,5 +1,5 @@
-from backuper.implementation.commands import CheckCommand
-from backuper.implementation.interfaces import BackupDatabase, FileStore
+from backuper.commands import CheckCommand
+from backuper.interfaces import BackupDatabase, FileStore
 
 
 async def _missing_stored_files(
