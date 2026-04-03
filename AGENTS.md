@@ -5,11 +5,12 @@ This file is the canonical agent and contributor map for this repository; prefer
 ## Entry point
 
 - `python -m backuper` → [`src/backuper/__main__.py`](src/backuper/__main__.py) → [`backuper.entrypoints.main.run_with_args`](src/backuper/entrypoints/main.py) → [`argparser.parse`](src/backuper/entrypoints/argparser.py) → [`run_new` / `run_update` / `run_check` / `run_restore`](src/backuper/entrypoints/cli.py).
+- Installed CLI: `[project.scripts]` maps `backuper` to `backuper.entrypoints.main:run_with_args` (e.g. `uv run backuper …` after `uv sync`).
 
 ## Architecture
 
 - **Commands** live under [`src/backuper`](src/backuper) (package root: `entrypoints/`, `controllers/`, `components/`, `interfaces/`, `commands.py`, `config.py`).
-- **Practice**: New features and fixes go in `src/backuper` with tests under `test/implementation`.
+- **Practice**: New features and fixes go in `src/backuper` with tests under `test/unit` and `test/integration` as appropriate.
 
 ## Command naming rubric
 
@@ -20,14 +21,16 @@ This file is the canonical agent and contributor map for this repository; prefer
 ## Tests
 
 - **Environment:** install [uv](https://docs.astral.sh/uv/), then `uv sync --group dev` (or `make sync`) so `make` targets use the locked env.
-- **`make test`** — `python3 -m pytest test/` (full tree under `uv run`).
-- **`make test-coverage`** — full test tree with coverage across the project (`--cov=.`).
+- **`make unit`** — `pytest test/unit` (isolated tests: entrypoints, controllers, components) under `uv run`.
+- **`make integration`** — `pytest test/integration` (on-disk layout, CSV rows, CLI-style flows).
+- **`make test`** — both trees: `pytest test/unit test/integration`.
+- **`make test-coverage`** — same scope as `make test` with coverage (`--cov=.`).
 
-Phase 2 of the layout plan will split **`make unit`** / **`make integration`**; until then use `make test` or narrow with `uv run python -m pytest test/implementation` when you need that scope.
+Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run python -m pytest test/unit/...` or `test/integration/...`.
 
 ## On-disk and CSV contract
 
-- The on-disk layout and CSV/database rows are defined by the implementation. Integration tests under [`test/implementation/integration/`](test/implementation/integration/) assert expected layouts and rows; see e.g. [`test/implementation/integration/test_new_integration.py`](test/implementation/integration/test_new_integration.py).
+- The on-disk layout and CSV/database rows are defined by the implementation. Integration tests under [`test/integration/`](test/integration/) assert expected layouts and rows; see e.g. [`test/integration/test_new_integration.py`](test/integration/test_new_integration.py).
 
 ## Formatting and lint
 

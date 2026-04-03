@@ -25,7 +25,7 @@ from backuper.components.filestore import LocalFileStore
 from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import add_version, new_backup
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 _NEW_SOURCE = _REPO_ROOT / "test" / "resources" / "bkp_test_sources_new"
 _UPDATE_SOURCE = _REPO_ROOT / "test" / "resources" / "bkp_test_sources_update"
 
