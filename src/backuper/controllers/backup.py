@@ -1,9 +1,11 @@
+from collections.abc import Callable
 from pathlib import Path
 from uuid import uuid4
 
 from backuper.interfaces import (
     AnalysisReporter,
     AnalyzedFileEntry,
+    BackupAnalysisSummary,
     BackupAnalyzer,
     BackupDatabase,
     BackupedFileEntry,
@@ -36,6 +38,8 @@ async def new_backup(
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
     filestore: FileStore,
+    on_analysis_summary: Callable[[BackupAnalysisSummary], None] | None = None,
+    on_file_progress: Callable[[int, int], None] | None = None,
 ) -> None:
     versions = await db.list_versions()
     if version not in versions:
@@ -47,6 +51,8 @@ async def new_backup(
         analyzer=analyzer,
         db=db,
         filestore=filestore,
+        on_analysis_summary=on_analysis_summary,
+        on_file_progress=on_file_progress,
     )
 
 
@@ -58,6 +64,8 @@ async def add_version(
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
     filestore: FileStore,
+    on_analysis_summary: Callable[[BackupAnalysisSummary], None] | None = None,
+    on_file_progress: Callable[[int, int], None] | None = None,
 ) -> None:
     versions = await db.list_versions()
     if version in versions:
@@ -70,7 +78,34 @@ async def add_version(
         analyzer=analyzer,
         db=db,
         filestore=filestore,
+        on_analysis_summary=on_analysis_summary,
+        on_file_progress=on_file_progress,
     )
+
+
+def _backup_analysis_summary(
+    analyzed: list[AnalyzedFileEntry], version: str
+) -> BackupAnalysisSummary:
+    file_entries = [e for e in analyzed if not e.source_file.is_directory]
+    return BackupAnalysisSummary(
+        version_name=version,
+        num_directories=sum(1 for e in analyzed if e.source_file.is_directory),
+        num_files=len(file_entries),
+        total_file_size=sum(e.source_file.size for e in file_entries),
+        files_to_backup=sum(1 for e in file_entries if not e.already_backed_up),
+    )
+
+
+async def _collect_analyzed_entries(
+    source: Path,
+    *,
+    file_reader: FileReader,
+    analyzer: BackupAnalyzer,
+    db: BackupDatabase,
+) -> list[AnalyzedFileEntry]:
+    file_entries = file_reader.read_directory(source)
+    analyzed_entries = analyzer.analyze_stream(file_entries, db)
+    return [entry async for entry in analyzed_entries]
 
 
 async def _run_backup_stream(
@@ -81,11 +116,24 @@ async def _run_backup_stream(
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
     filestore: FileStore,
+    on_analysis_summary: Callable[[BackupAnalysisSummary], None] | None = None,
+    on_file_progress: Callable[[int, int], None] | None = None,
 ) -> None:
-    file_entries = file_reader.read_directory(source)
-    analyzed_entries = analyzer.analyze_stream(file_entries, db)
+    analyzed_list = await _collect_analyzed_entries(
+        source, file_reader=file_reader, analyzer=analyzer, db=db
+    )
+    if on_analysis_summary is not None:
+        on_analysis_summary(_backup_analysis_summary(analyzed_list, version))
 
-    async for entry in analyzed_entries:
+    total_files = sum(1 for e in analyzed_list if not e.source_file.is_directory)
+    one_percent = int(max(1, total_files / 100))
+
+    file_idx = 0
+    for entry in analyzed_list:
+        if not entry.source_file.is_directory:
+            if on_file_progress is not None and file_idx % one_percent == 0:
+                on_file_progress(file_idx, total_files)
+            file_idx += 1
         backup_entry = await _to_backuped_entry(entry, db=db, filestore=filestore)
         await db.add_file(version, backup_entry)
 

@@ -16,6 +16,7 @@ from backuper.controllers.backup import (
 from backuper.interfaces import (
     AnalysisReporter,
     AnalyzedFileEntry,
+    BackupAnalysisSummary,
     BackupAnalyzer,
     BackupDatabase,
     FileEntry,
@@ -181,3 +182,46 @@ async def test_analyze_path_reports_structured_entries(tmp_path: Path) -> None:
     assert reported.source_file.relative_path == Path("file.txt")
     assert reported.already_backed_up is True
     assert reported.backup_id == UUID("12345678-1234-5678-1234-567812345678")
+
+
+@pytest.mark.asyncio
+async def test_new_backup_with_callbacks_reports_summary_and_progress(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "a.txt").write_bytes(b"alpha")
+    (source / "b.txt").write_bytes(b"beta")
+
+    backup_root = tmp_path / "backup"
+    version = "ux1"
+
+    db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(backup_root))))
+    filestore = LocalFileStore(
+        FilestoreConfig(
+            backup_dir=str(backup_root),
+            zip_enabled=False,
+        )
+    )
+
+    summaries: list[BackupAnalysisSummary] = []
+    progress: list[tuple[int, int]] = []
+
+    await new_backup(
+        source,
+        version,
+        file_reader=LocalFileReader(),
+        analyzer=BackupAnalyzerImpl(),
+        db=db,
+        filestore=filestore,
+        on_analysis_summary=summaries.append,
+        on_file_progress=lambda i, t: progress.append((i, t)),
+    )
+
+    assert len(summaries) == 1
+    s = summaries[0]
+    assert s.version_name == version
+    assert s.num_files == 2
+    assert s.files_to_backup == 2
+    assert s.total_file_size == 9
+    assert progress == [(0, 2), (1, 2)]
