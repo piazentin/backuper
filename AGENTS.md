@@ -21,6 +21,7 @@ This file is the canonical agent and contributor map for this repository; prefer
 ## Tests
 
 - **Environment:** install [uv](https://docs.astral.sh/uv/), then `uv sync --group dev` (or `make sync`) so `make` targets use the locked env.
+- **`make backup`** — `uv sync --group dev && uv run backuper …`; pass CLI args as extra goals, e.g. `make backup update /path/to/source /path/to/backup-root` (see [`Makefile`](Makefile)).
 - **`make unit`** — `pytest test/unit` (isolated tests: entrypoints, controllers, components) under `uv run`.
 - **`make integration`** — `pytest test/integration` (on-disk layout, CSV rows, CLI-style flows).
 - **`make test`** — both trees: `pytest test/unit test/integration`.

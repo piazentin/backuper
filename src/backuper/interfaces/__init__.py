@@ -41,6 +41,17 @@ class BackupedFileEntry:
     hash: str
 
 
+@dataclass(frozen=True)
+class BackupAnalysisSummary:
+    """Aggregated counts after analyzing a source tree for a backup run."""
+
+    version_name: str
+    num_directories: int
+    num_files: int
+    total_file_size: int
+    files_to_backup: int
+
+
 class FileReader(ABC):
     @abstractmethod
     async def read_directory(self, path: Path) -> AsyncIterator[FileEntry]:

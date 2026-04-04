@@ -20,6 +20,7 @@ from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import add_version, new_backup
 from backuper.controllers.check import run_check_flow
 from backuper.controllers.restore import run_restore_flow
+from backuper.interfaces import BackupAnalysisSummary
 
 
 def _csv_db(backup_root: Path) -> CsvDb:
@@ -42,6 +43,23 @@ def _present_check_stdout(errors: list[str]) -> None:
         print("No errors found!")
 
 
+def _print_backup_analysis_summary(summary: BackupAnalysisSummary) -> None:
+    print("Running analysis... This may take a while.")
+    title_str = f"+++++ BACKUP ANALYSIS RESULT FOR VERSION {summary.version_name} +++++"
+    print(title_str)
+    print(f"Number of directories: {summary.num_directories}")
+    print(f"Number of files: {summary.num_files}")
+    print(f"Total size of files: {summary.total_file_size}")
+    print(f"Files to backup: {summary.files_to_backup}")
+    print("+" * len(title_str))
+
+
+def _print_backup_file_progress(file_index: int, total_files: int) -> None:
+    if total_files == 0:
+        return
+    print(f"Processed {format((file_index / total_files), '.0%')} of files...")
+
+
 def run_new(command: NewCommand) -> None:
     source = Path(command.source)
     destination = Path(command.location)
@@ -50,6 +68,7 @@ def run_new(command: NewCommand) -> None:
     if destination.exists():
         raise ValueError(f"destination path {command.location} already exists")
 
+    print(f"Creating new backup from {command.source} into {command.location}")
     asyncio.run(
         new_backup(
             source,
@@ -58,6 +77,8 @@ def run_new(command: NewCommand) -> None:
             analyzer=BackupAnalyzerImpl(),
             db=CsvBackupDatabase(_csv_db(destination)),
             filestore=_local_filestore(destination),
+            on_analysis_summary=_print_backup_analysis_summary,
+            on_file_progress=_print_backup_file_progress,
         )
     )
 
@@ -70,6 +91,7 @@ def run_update(command: UpdateCommand) -> None:
     if not destination.exists():
         raise ValueError(f"destination path {command.location} does not exists")
 
+    print(f"Updating backup at {command.location} with new version {command.version}")
     asyncio.run(
         add_version(
             source,
@@ -78,6 +100,8 @@ def run_update(command: UpdateCommand) -> None:
             analyzer=BackupAnalyzerImpl(),
             db=CsvBackupDatabase(_csv_db(destination)),
             filestore=_local_filestore(destination),
+            on_analysis_summary=_print_backup_analysis_summary,
+            on_file_progress=_print_backup_file_progress,
         )
     )
 
