@@ -8,6 +8,29 @@ from backuper.interfaces import BackupedFileEntry, FileEntry
 
 
 @pytest.mark.asyncio
+async def test_csv_backup_database_ignores_appledouble_sidecar_csv(
+    tmp_path: Path,
+) -> None:
+    """macOS may create `._<name>.csv` AppleDouble files; they must not be versions."""
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    db_dir = tmp_path / "db"
+    db_dir.mkdir(parents=True, exist_ok=True)
+    # AppleDouble-ish binary (not valid UTF-8 CSV)
+    (db_dir / "._2023-01-07T182558.csv").write_bytes(
+        b"\x00\x05\x16\x07" + b"\x00" * 100
+    )
+
+    await db.create_version("2023-01-07T182558")
+
+    versions = sorted(await db.list_versions())
+    assert versions == ["2023-01-07T182558"]
+
+    # Must not raise UnicodeDecodeError when scanning versions
+    assert await db.get_files_by_metadata(Path("nope.txt"), 0.0, 0) == []
+
+
+@pytest.mark.asyncio
 async def test_csv_backup_database_create_version_and_list_versions(
     tmp_path: Path,
 ) -> None:

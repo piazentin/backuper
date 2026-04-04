@@ -90,10 +90,12 @@ class CsvDb:
         return os.path.join(self.db_dir, name + self._config.csv_file_extension)
 
     def get_all_versions(self) -> list[_Version]:
+        ext = self._config.csv_file_extension
         return [
-            _Version(f.removesuffix(self._config.csv_file_extension))
+            _Version(f.removesuffix(ext))
             for f in os.listdir(self.db_dir)
-            if f.endswith(self._config.csv_file_extension)
+            # Skip dotfiles (e.g. macOS AppleDouble `._name.csv` sidecars are not UTF-8 CSV).
+            if f.endswith(ext) and not f.startswith(".")
         ]
 
     def create_version(self, name: str) -> _Version:
