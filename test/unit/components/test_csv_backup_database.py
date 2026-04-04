@@ -3,6 +3,7 @@ from uuid import UUID
 
 import pytest
 from backuper.components.csv_db import CsvBackupDatabase, CsvDb
+from backuper.components.filestore import hash_to_stored_location
 from backuper.config import CsvDbConfig
 from backuper.interfaces import BackupedFileEntry, FileEntry
 
@@ -136,6 +137,30 @@ async def test_csv_backup_database_add_and_list_directory_entries(
     assert len(items) == 1
     assert items[0].is_directory is True
     assert items[0].relative_path == Path("subdir")
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_reads_legacy_three_column_file_rows(
+    tmp_path: Path,
+) -> None:
+    """Older backups stored file rows as f, restore_path, sha1 only (no location columns)."""
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    version = "legacy3"
+    await db.create_version(version)
+    csv_file = tmp_path / "db" / f"{version}.csv"
+    file_hash = "f34e4d16a8176767fed2e6bfb2e2cced8d384674"
+    rel = "Imagens/Whatsapp/2014-06/IMG-20140614-WA0006.jpg"
+    csv_file.write_text(
+        f'"f","{rel}","{file_hash}"\n',
+        encoding="utf-8",
+    )
+
+    by_hash = await db.get_files_by_hash(file_hash)
+    assert len(by_hash) == 1
+    assert by_hash[0].source_file.relative_path == Path(rel)
+    assert by_hash[0].stored_location == str(hash_to_stored_location(file_hash, False))
+    assert by_hash[0].is_compressed is False
 
 
 @pytest.mark.asyncio
