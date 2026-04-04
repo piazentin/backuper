@@ -2,9 +2,60 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from backuper.components.csv_db import CsvBackupDatabase, CsvDb
+from backuper.components.csv_db import (
+    CsvBackupDatabase,
+    CsvDb,
+    _csvrow_to_model,
+    _StoredFile,
+)
+from backuper.components.filestore import hash_to_stored_location
 from backuper.config import CsvDbConfig
 from backuper.interfaces import BackupedFileEntry, FileEntry
+
+
+def test_csvrow_to_model_uses_first_seven_columns_when_row_is_longer() -> None:
+    row = [
+        "f",
+        "docs/readme.txt",
+        "abc",
+        "0/1/2/3/abc",
+        "False",
+        "10",
+        "1.0",
+        "extra",
+        "ignored",
+    ]
+    m = _csvrow_to_model(row)
+    assert isinstance(m, _StoredFile)
+    assert m.restore_path == "docs/readme.txt"
+    assert m.sha1hash == "abc"
+    assert m.stored_location == "0/1/2/3/abc"
+    assert m.is_compressed is False
+    assert m.size == 10
+    assert m.mtime == 1.0
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_ignores_appledouble_sidecar_csv(
+    tmp_path: Path,
+) -> None:
+    """macOS may create `._<name>.csv` AppleDouble files; they must not be versions."""
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    db_dir = tmp_path / "db"
+    db_dir.mkdir(parents=True, exist_ok=True)
+    # AppleDouble-ish binary (not valid UTF-8 CSV)
+    (db_dir / "._2023-01-07T182558.csv").write_bytes(
+        b"\x00\x05\x16\x07" + b"\x00" * 100
+    )
+
+    await db.create_version("2023-01-07T182558")
+
+    versions = sorted(await db.list_versions())
+    assert versions == ["2023-01-07T182558"]
+
+    # Must not raise UnicodeDecodeError when scanning versions
+    assert await db.get_files_by_metadata(Path("nope.txt"), 0.0, 0) == []
 
 
 @pytest.mark.asyncio
@@ -113,6 +164,30 @@ async def test_csv_backup_database_add_and_list_directory_entries(
     assert len(items) == 1
     assert items[0].is_directory is True
     assert items[0].relative_path == Path("subdir")
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_reads_legacy_three_column_file_rows(
+    tmp_path: Path,
+) -> None:
+    """Older backups stored file rows as f, restore_path, sha1 only (no location columns)."""
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    version = "legacy3"
+    await db.create_version(version)
+    csv_file = tmp_path / "db" / f"{version}.csv"
+    file_hash = "f34e4d16a8176767fed2e6bfb2e2cced8d384674"
+    rel = "Imagens/Whatsapp/2014-06/IMG-20140614-WA0006.jpg"
+    csv_file.write_text(
+        f'"f","{rel}","{file_hash}"\n',
+        encoding="utf-8",
+    )
+
+    by_hash = await db.get_files_by_hash(file_hash)
+    assert len(by_hash) == 1
+    assert by_hash[0].source_file.relative_path == Path(rel)
+    assert by_hash[0].stored_location == str(hash_to_stored_location(file_hash, False))
+    assert by_hash[0].is_compressed is False
 
 
 @pytest.mark.asyncio

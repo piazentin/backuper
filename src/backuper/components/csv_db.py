@@ -3,12 +3,13 @@ from __future__ import annotations
 import csv
 import os
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
 from uuid import UUID
 
+from backuper.components.filestore import hash_to_stored_location
 from backuper.components.utils import normalize_path
 from backuper.config import CsvDbConfig
 from backuper.interfaces import (
@@ -54,7 +55,9 @@ def _csvrow_to_model(row) -> _FileSystemObject:
         return _DirEntry(row[1])
     if kind == "f":
         if len(row) >= 7:
-            _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = row
+            _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = (
+                row[:7]
+            )
             return _StoredFile(
                 restore_path,
                 sha1hash,
@@ -63,10 +66,20 @@ def _csvrow_to_model(row) -> _FileSystemObject:
                 int(size) if size else 0,
                 float(mtime) if mtime else 0.0,
             )
-        # Handle old format without size and mtime
-        _, restore_path, sha1hash, stored_location, is_compressed = row
-        return _StoredFile(
-            restore_path, sha1hash, stored_location, is_compressed == "True"
+        if len(row) == 5:
+            # Old format without size and mtime
+            _, restore_path, sha1hash, stored_location, is_compressed = row
+            return _StoredFile(
+                restore_path, sha1hash, stored_location, is_compressed == "True"
+            )
+        if len(row) == 3:
+            # Legacy: restore path + hash only (no stored location in CSV)
+            _, restore_path, sha1hash = row
+            stored_location = str(hash_to_stored_location(sha1hash, False))
+            return _StoredFile(restore_path, sha1hash, stored_location, False)
+        raise ValueError(
+            f"Unsupported file CSV row: expected 3, 5, or 7+ columns "
+            f"(only the first 7 fields are used when more are present), got {len(row)}"
         )
     raise ValueError(f"Unknown CSV row type: {kind!r}")
 
@@ -90,10 +103,12 @@ class CsvDb:
         return os.path.join(self.db_dir, name + self._config.csv_file_extension)
 
     def get_all_versions(self) -> list[_Version]:
+        ext = self._config.csv_file_extension
         return [
-            _Version(f.removesuffix(self._config.csv_file_extension))
+            _Version(f.removesuffix(ext))
             for f in os.listdir(self.db_dir)
-            if f.endswith(self._config.csv_file_extension)
+            # Skip dotfiles (e.g. macOS AppleDouble `._name.csv` sidecars are not UTF-8 CSV).
+            if f.endswith(ext) and not f.startswith(".")
         ]
 
     def create_version(self, name: str) -> _Version:
@@ -163,8 +178,57 @@ class CsvDb:
 
 
 class CsvBackupDatabase(BackupDatabase):
-    def __init__(self, csv_db: CsvDb):
+    def __init__(
+        self,
+        csv_db: CsvDb,
+        *,
+        index_status: Callable[[str], None] | None = None,
+    ) -> None:
         self._csv_db = csv_db
+        self._index_status = index_status
+        self._file_indexes_valid: bool = False
+        self._files_by_restore_path: dict[str, list[_StoredFile]] = {}
+        self._files_by_hash: dict[str, list[_StoredFile]] = {}
+        if index_status is not None:
+            self._ensure_file_indexes()
+
+    def _ensure_file_indexes(self) -> None:
+        if self._file_indexes_valid:
+            return
+        status = self._index_status
+        if status is not None:
+            status("Building index")
+        by_path: dict[str, list[_StoredFile]] = {}
+        by_hash: dict[str, list[_StoredFile]] = {}
+        for version in self._csv_db.get_all_versions():
+            for sf in self._csv_db.get_files_for_version(version):
+                by_path.setdefault(sf.restore_path, []).append(sf)
+                by_hash.setdefault(sf.sha1hash, []).append(sf)
+        self._files_by_restore_path = by_path
+        self._files_by_hash = by_hash
+        self._file_indexes_valid = True
+        if status is not None:
+            status("Index built")
+
+    def _stored_file_to_backup_entry(
+        self, stored_file: _StoredFile
+    ) -> BackupedFileEntry:
+        path = Path(stored_file.restore_path)
+        source_file = FileEntry(
+            path=path,
+            relative_path=path,
+            size=stored_file.size,
+            mtime=stored_file.mtime,
+            is_directory=False,
+        )
+        backup_id = self._generate_uuid_from_hash(stored_file.sha1hash)
+        return BackupedFileEntry(
+            source_file=source_file,
+            backup_id=backup_id,
+            stored_location=stored_file.stored_location,
+            is_compressed=stored_file.is_compressed,
+            hash=stored_file.sha1hash,
+        )
 
     async def list_versions(self) -> list[str]:
         return [version.name for version in self._csv_db.get_all_versions()]
@@ -206,87 +270,41 @@ class CsvBackupDatabase(BackupDatabase):
         if entry.source_file.is_directory:
             dir_entry = _DirEntry(str(entry.source_file.relative_path))
             self._csv_db.insert_dir(version_obj, dir_entry)
-        else:
-            stored_file = _StoredFile(
-                restore_path=str(entry.source_file.relative_path),
-                sha1hash=entry.hash or "",
-                stored_location=entry.stored_location,
-                is_compressed=entry.is_compressed,
-                size=entry.source_file.size,
-                mtime=entry.source_file.mtime,
+            return
+
+        stored_file = _StoredFile(
+            restore_path=str(entry.source_file.relative_path),
+            sha1hash=entry.hash or "",
+            stored_location=entry.stored_location,
+            is_compressed=entry.is_compressed,
+            size=entry.source_file.size,
+            mtime=entry.source_file.mtime,
+        )
+        self._csv_db.insert_file(version_obj, stored_file)
+        if self._file_indexes_valid:
+            self._files_by_restore_path.setdefault(stored_file.restore_path, []).append(
+                stored_file
             )
-            self._csv_db.insert_file(version_obj, stored_file)
+            self._files_by_hash.setdefault(stored_file.sha1hash, []).append(stored_file)
 
     async def get_files_by_hash(self, hash: str) -> list[BackupedFileEntry]:
         """Get file entries by their hash value"""
+        self._ensure_file_indexes()
         result = []
-        # Get all versions
-        versions = self._csv_db.get_all_versions()
-
-        # Search through all versions for files with the matching hash
-        for version in versions:
-            stored_files = self._csv_db.get_files_for_version(version)
-            for stored_file in stored_files:
-                if stored_file.sha1hash == hash:
-                    path = Path(stored_file.restore_path)
-                    source_file = FileEntry(
-                        path=path,
-                        relative_path=path,
-                        size=stored_file.size,
-                        mtime=stored_file.mtime,
-                        is_directory=False,
-                    )
-
-                    backup_id = self._generate_uuid_from_hash(stored_file.sha1hash)
-                    result.append(
-                        BackupedFileEntry(
-                            source_file=source_file,
-                            backup_id=backup_id,
-                            stored_location=stored_file.stored_location,
-                            is_compressed=stored_file.is_compressed,
-                            hash=stored_file.sha1hash,
-                        )
-                    )
-
+        for stored_file in self._files_by_hash.get(hash, []):
+            result.append(self._stored_file_to_backup_entry(stored_file))
         return result
 
     async def get_files_by_metadata(
         self, relative_path: Path, mtime: float, size: int
     ) -> list[BackupedFileEntry]:
         """Get file entries by their metadata (relative path, mtime, and size)"""
+        self._ensure_file_indexes()
+        rel = str(relative_path)
         result = []
-        # Get all versions
-        versions = self._csv_db.get_all_versions()
-
-        # Search through all versions for files with matching metadata
-        for version in versions:
-            stored_files = self._csv_db.get_files_for_version(version)
-            for stored_file in stored_files:
-                if (
-                    stored_file.restore_path == str(relative_path)
-                    and abs(stored_file.mtime - mtime)
-                    < 0.001  # Use small epsilon for float comparison
-                    and stored_file.size == size
-                ):
-                    path = Path(stored_file.restore_path)
-                    source_file = FileEntry(
-                        path=path,
-                        relative_path=path,
-                        size=stored_file.size,
-                        mtime=stored_file.mtime,
-                        is_directory=False,
-                    )
-
-                    backup_id = self._generate_uuid_from_hash(stored_file.sha1hash)
-                    result.append(
-                        BackupedFileEntry(
-                            source_file=source_file,
-                            backup_id=backup_id,
-                            stored_location=stored_file.stored_location,
-                            is_compressed=stored_file.is_compressed,
-                            hash=stored_file.sha1hash,
-                        )
-                    )
+        for stored_file in self._files_by_restore_path.get(rel, []):
+            if abs(stored_file.mtime - mtime) < 0.001 and stored_file.size == size:
+                result.append(self._stored_file_to_backup_entry(stored_file))
 
         return result
 

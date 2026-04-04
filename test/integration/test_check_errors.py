@@ -59,6 +59,44 @@ def test_run_check_prints_no_errors_for_valid_backup(
     assert "No errors found!" in captured.out
 
 
+def test_run_check_reports_manifest_mismatch_when_csv_metadata_wrong_but_blob_exists(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Wrong stored_location / is_compressed in CSV while blob exists confuses restore."""
+    backup = tmp_path / "backup"
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "big.txt").write_text("x" * 2048, encoding="utf-8")
+    run_new(NewCommand(version="v1", source=str(source), location=str(backup)))
+
+    db = CsvDb(CsvDbConfig(backup_dir=str(backup)))
+    version = db.get_version_by_name("v1")
+    stored_file = db.get_files_for_version(version)[0]
+    assert stored_file.is_compressed
+    assert stored_file.stored_location.endswith(".zip")
+
+    db_cfg = CsvDbConfig(backup_dir=str(backup))
+    csv_path = backup / db_cfg.backup_db_dir / f"v1{db_cfg.csv_file_extension}"
+    text = csv_path.read_text(encoding="utf-8")
+    bad_loc = stored_file.stored_location.removesuffix(".zip")
+    text = text.replace(
+        f'"{stored_file.stored_location}"',
+        f'"{bad_loc}"',
+        1,
+    )
+    text = text.replace(',"True",', ',"False",', 1)
+    csv_path.write_text(text, encoding="utf-8")
+
+    capsys.readouterr()
+    errors = run_check(CheckCommand(location=str(backup), version="v1"))
+    out = capsys.readouterr().out
+    assert len(errors) == 1
+    assert "Manifest metadata mismatch" in errors[0]
+    assert stored_file.restore_path in errors[0]
+    assert errors[0] in out
+    assert "No errors found!" not in out
+
+
 def test_run_check_reports_missing_blobs(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
