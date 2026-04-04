@@ -207,7 +207,9 @@ class CsvBackupDatabase(BackupDatabase):
         if status is not None:
             status("Index built")
 
-    def _stored_file_to_backup_entry(self, stored_file: _StoredFile) -> BackupedFileEntry:
+    def _stored_file_to_backup_entry(
+        self, stored_file: _StoredFile
+    ) -> BackupedFileEntry:
         path = Path(stored_file.restore_path)
         source_file = FileEntry(
             path=path,
@@ -277,9 +279,9 @@ class CsvBackupDatabase(BackupDatabase):
         )
         self._csv_db.insert_file(version_obj, stored_file)
         if self._file_indexes_valid:
-            self._files_by_restore_path.setdefault(
-                stored_file.restore_path, []
-            ).append(stored_file)
+            self._files_by_restore_path.setdefault(stored_file.restore_path, []).append(
+                stored_file
+            )
             self._files_by_hash.setdefault(stored_file.sha1hash, []).append(stored_file)
 
     async def get_files_by_hash(self, hash: str) -> list[BackupedFileEntry]:
@@ -298,10 +300,7 @@ class CsvBackupDatabase(BackupDatabase):
         rel = str(relative_path)
         result = []
         for stored_file in self._files_by_restore_path.get(rel, []):
-            if (
-                abs(stored_file.mtime - mtime) < 0.001
-                and stored_file.size == size
-            ):
+            if abs(stored_file.mtime - mtime) < 0.001 and stored_file.size == size:
                 result.append(self._stored_file_to_backup_entry(stored_file))
 
         return result

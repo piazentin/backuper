@@ -15,7 +15,13 @@ async def _missing_stored_files(
         loc = file_entry.stored_location
         if not loc:
             continue
-        if not filestore.exists(loc):
+        primary_ok = filestore.exists(loc)
+        hash_ok = False
+        h = file_entry.hash
+        if h:
+            hash_ok = filestore.blob_exists(h, True) or filestore.blob_exists(h, False)
+        blob_ok = primary_ok or hash_ok
+        if not blob_ok:
             errors.append(
                 f"Missing hash {file_entry.hash} "
                 f"for {file_entry.relative_path} in {version}"

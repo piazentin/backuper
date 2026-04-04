@@ -59,6 +59,40 @@ def test_run_check_prints_no_errors_for_valid_backup(
     assert "No errors found!" in captured.out
 
 
+def test_run_check_ok_when_csv_says_uncompressed_but_blob_is_zipped(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """DB may record wrong is_compressed; blobs are still under hash.zip on disk."""
+    backup = tmp_path / "backup"
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "big.txt").write_text("x" * 2048, encoding="utf-8")
+    run_new(NewCommand(version="v1", source=str(source), location=str(backup)))
+
+    db = CsvDb(CsvDbConfig(backup_dir=str(backup)))
+    version = db.get_version_by_name("v1")
+    stored_file = db.get_files_for_version(version)[0]
+    assert stored_file.is_compressed
+    assert stored_file.stored_location.endswith(".zip")
+
+    db_cfg = CsvDbConfig(backup_dir=str(backup))
+    csv_path = backup / db_cfg.backup_db_dir / f"v1{db_cfg.csv_file_extension}"
+    text = csv_path.read_text(encoding="utf-8")
+    bad_loc = stored_file.stored_location.removesuffix(".zip")
+    text = text.replace(
+        f'"{stored_file.stored_location}"',
+        f'"{bad_loc}"',
+        1,
+    )
+    text = text.replace(',"True",', ',"False",', 1)
+    csv_path.write_text(text, encoding="utf-8")
+
+    capsys.readouterr()
+    errors = run_check(CheckCommand(location=str(backup), version="v1"))
+    assert errors == []
+    assert "No errors found!" in capsys.readouterr().out
+
+
 def test_run_check_reports_missing_blobs(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
