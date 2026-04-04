@@ -6,76 +6,47 @@ Very simple backup utility
 
 The CLI runs [`src/backuper`](src/backuper): entrypoints are the composition root, controllers are function-only orchestration with explicit dependencies, `interfaces/` holds ports and shared DTO-style types, and persistence-specific shapes (for example CSV row models in `components/csv_db`) live next to the adapters that use them. For layering, tests, and contribution notes, see **[AGENTS.md](AGENTS.md)**.
 
+## Install and run
+
+Needs **Python 3.11+**.
+
+**Recommended:** install [uv](https://docs.astral.sh/uv/), clone this repository, then from the repo root:
+
+```
+uv sync
+uv run backuper --help
+```
+
+`uv run backuper …` runs the app without activating `.venv`. You can also `source .venv/bin/activate` and run `backuper` or `python -m backuper`.
+
+**Without uv:** from the repo root, `python3 -m venv .venv`, activate the venv, then `pip install -e .` and use that venv’s `backuper` / `python`.
+
+A bare system `python3 -m backuper` fails with `No module named backuper` unless you installed into that interpreter—use `uv run` from the checkout or a venv where the package is installed.
+
 ## Usage
 
-Examples use `python3 -m backuper`. From a dev checkout after `uv sync --group dev`, `uv run backuper …` is equivalent; with the package installed, the `backuper` console script does the same.
-
-Create a new backup:
-
 ```
-python3 -m backuper new ~/backup/source/dir ~/backup/destination/dir
+backuper new ~/backup/source/dir ~/backup/destination/dir
 ```
 
-Update existing backup:
-
 ```
-python3 -m backuper update ~/backup/source/dir ~/backup/destination/dir
+backuper update ~/backup/source/dir ~/backup/destination/dir
 ```
 
-Check backup integrity:
-
 ```
-python3 -m backuper check ~/backup/destination/dir
+backuper check ~/backup/destination/dir
 ```
 
-`check` is a fast integrity/existence pass over backup metadata and stored blobs.
-If a future deeper validation mode is added (for example full content/hash verification),
-it should be exposed as a separate `verify` command rather than changing `check` semantics.
+`check` is a fast integrity/existence pass over backup metadata and stored blobs. A future deeper validation mode should be a separate `verify` command, not a change to `check`.
 
-Restore a named version from a backup root into a destination directory (two positionals: backup location, then destination; version via `-v` / `--version` / `-n` / `--name`):
+Restore (backup root, then destination; version with `-v` / `--version` / `-n` / `--name`):
 
 ```
-python3 -m backuper restore /path/to/backup/root /path/to/restore/into --version backup-version
+backuper restore /path/to/backup/root /path/to/restore/into --version backup-version
 ```
 
+## Development
 
-## Development setup
-
-Install [uv](https://docs.astral.sh/uv/), then from the repo root:
-
-```
-uv sync --group dev
-```
-
-That creates/updates `.venv` from `uv.lock` and installs the project plus dev tools (pytest, Ruff, import-linter). Alternatively run `make sync` (same as `uv sync --group dev`).
-
-## Run tests
-
-```
-make test
-make unit
-make integration
-make test-coverage
-```
-
-`make test` runs both unit and integration suites; use `make unit` or `make integration` for a single tree.
-
-## Format and lint
-
-Check everything (format, Ruff lint, import boundaries):
-
-```
-make lint
-```
-
-Apply Ruff formatting and auto-fixes:
-
-```
-make lint-fix
-```
-
-Format only (writes files):
-
-```
-make format
-```
+- **Environment:** `make sync` or `uv sync --group dev` (app plus pytest, Ruff, import-linter).
+- **Tests:** `make test` (unit + integration), or `make unit` / `make integration` / `make test-coverage`.
+- **Lint:** `make lint` (format, Ruff, import boundaries), `make lint-fix` (with auto-fixes), `make format` (format only).
