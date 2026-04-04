@@ -2,10 +2,37 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from backuper.components.csv_db import CsvBackupDatabase, CsvDb
+from backuper.components.csv_db import (
+    CsvBackupDatabase,
+    CsvDb,
+    _csvrow_to_model,
+    _StoredFile,
+)
 from backuper.components.filestore import hash_to_stored_location
 from backuper.config import CsvDbConfig
 from backuper.interfaces import BackupedFileEntry, FileEntry
+
+
+def test_csvrow_to_model_uses_first_seven_columns_when_row_is_longer() -> None:
+    row = [
+        "f",
+        "docs/readme.txt",
+        "abc",
+        "0/1/2/3/abc",
+        "False",
+        "10",
+        "1.0",
+        "extra",
+        "ignored",
+    ]
+    m = _csvrow_to_model(row)
+    assert isinstance(m, _StoredFile)
+    assert m.restore_path == "docs/readme.txt"
+    assert m.sha1hash == "abc"
+    assert m.stored_location == "0/1/2/3/abc"
+    assert m.is_compressed is False
+    assert m.size == 10
+    assert m.mtime == 1.0
 
 
 @pytest.mark.asyncio

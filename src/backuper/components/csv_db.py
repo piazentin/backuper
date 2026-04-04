@@ -55,7 +55,9 @@ def _csvrow_to_model(row) -> _FileSystemObject:
         return _DirEntry(row[1])
     if kind == "f":
         if len(row) >= 7:
-            _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = row
+            _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = (
+                row[:7]
+            )
             return _StoredFile(
                 restore_path,
                 sha1hash,
@@ -76,7 +78,8 @@ def _csvrow_to_model(row) -> _FileSystemObject:
             stored_location = str(hash_to_stored_location(sha1hash, False))
             return _StoredFile(restore_path, sha1hash, stored_location, False)
         raise ValueError(
-            f"Unsupported file CSV row: expected 3, 5, or 7+ columns, got {len(row)}"
+            f"Unsupported file CSV row: expected 3, 5, or 7+ columns "
+            f"(only the first 7 fields are used when more are present), got {len(row)}"
         )
     raise ValueError(f"Unknown CSV row type: {kind!r}")
 

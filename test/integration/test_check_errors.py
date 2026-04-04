@@ -59,10 +59,10 @@ def test_run_check_prints_no_errors_for_valid_backup(
     assert "No errors found!" in captured.out
 
 
-def test_run_check_ok_when_csv_says_uncompressed_but_blob_is_zipped(
+def test_run_check_reports_manifest_mismatch_when_csv_metadata_wrong_but_blob_exists(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """DB may record wrong is_compressed; blobs are still under hash.zip on disk."""
+    """Wrong stored_location / is_compressed in CSV while blob exists confuses restore."""
     backup = tmp_path / "backup"
     source = tmp_path / "src"
     source.mkdir()
@@ -89,8 +89,12 @@ def test_run_check_ok_when_csv_says_uncompressed_but_blob_is_zipped(
 
     capsys.readouterr()
     errors = run_check(CheckCommand(location=str(backup), version="v1"))
-    assert errors == []
-    assert "No errors found!" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert len(errors) == 1
+    assert "Manifest metadata mismatch" in errors[0]
+    assert stored_file.restore_path in errors[0]
+    assert errors[0] in out
+    assert "No errors found!" not in out
 
 
 def test_run_check_reports_missing_blobs(
