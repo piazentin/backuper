@@ -23,6 +23,17 @@ uv run backuper --help
 
 A bare system `python3 -m backuper` fails with `No module named backuper` unless you installed into that interpreter—use `uv run` from the checkout or a venv where the package is installed.
 
+**From a git clone:** you can sync the dev environment and invoke the CLI in one step with **`make backup`** from the repo root. Everything after `backup` is forwarded to `backuper` (after `uv sync --group dev`):
+
+```
+make backup new ~/backup/source ~/backup/destination
+make backup update ~/backup/source ~/backup/destination
+make backup check ~/backup/destination
+make backup restore /path/to/backup/root /path/to/restore/into --version backup-version
+```
+
+Make splits arguments on spaces, so paths **cannot contain spaces** in this form. For Backuper’s own help, use `uv run backuper --help` (after `uv sync` or `make sync`); `make backup --help` shows GNU Make’s help, not the app’s.
+
 ## Usage
 
 ```
@@ -48,5 +59,6 @@ backuper restore /path/to/backup/root /path/to/restore/into --version backup-ver
 ## Development
 
 - **Environment:** `make sync` or `uv sync --group dev` (app plus pytest, Ruff, import-linter).
+- **CLI from checkout:** see **Install and run** → *From a git clone* (`make backup …`).
 - **Tests:** `make test` (unit + integration), or `make unit` / `make integration` / `make test-coverage`.
 - **Lint:** `make lint` (format, Ruff, import boundaries), `make lint-fix` (with auto-fixes), `make format` (format only).

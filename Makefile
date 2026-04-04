@@ -1,10 +1,22 @@
 UV ?= uv
 
-.PHONY: sync setup install unit integration test test-coverage lint lint-fix format lint-imports
+# Extra goals after `backup` are forwarded to the CLI, e.g.
+#   make backup update ../source /path/to/backup-root
+# Paths with spaces are not supported (Make splits on whitespace).
+BACKUPER_PASS_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+ifneq ($(strip $(BACKUPER_PASS_ARGS)),)
+$(eval $(BACKUPER_PASS_ARGS):;@:)
+endif
+
+.PHONY: sync setup install unit integration test test-coverage lint lint-fix format lint-imports backup
 
 # Install project + dev dependencies from uv.lock
 sync setup install:
 	$(UV) sync --group dev
+
+# Sync dev env then run the CLI (same as: uv sync --group dev && uv run backuper …)
+backup:
+	$(UV) sync --group dev && $(UV) run backuper $(BACKUPER_PASS_ARGS)
 
 unit:
 	$(UV) run python -m pytest test/unit
