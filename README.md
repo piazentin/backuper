@@ -6,6 +6,11 @@ Very simple backup utility
 
 The CLI runs [`src/backuper`](src/backuper): entrypoints are the composition root, controllers are function-only orchestration with explicit dependencies, `interfaces/` holds ports and shared DTO-style types, and persistence-specific shapes (for example CSV row models in `components/csv_db`) live next to the adapters that use them. For layering, tests, and contribution notes, see **[AGENTS.md](AGENTS.md)**.
 
+## Documentation
+
+- **[docs/README.md](docs/README.md)** — index of project docs beyond the README.
+- **[docs/tech-debt-roadmap.md](docs/tech-debt-roadmap.md)** — phased technical-debt backlog (dependencies, phases, risks).
+
 ## Install and run
 
 Needs **Python 3.11+**.
