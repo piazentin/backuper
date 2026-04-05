@@ -12,6 +12,10 @@ This file is the canonical agent and contributor map for this repository; prefer
 - **Commands** live under [`src/backuper`](src/backuper) (package root: `entrypoints/`, `controllers/`, `components/`, `interfaces/`, `commands.py`, `config.py`).
 - **Practice**: New features and fixes go in `src/backuper` with tests under `test/unit` and `test/integration` as appropriate.
 
+## Additional documentation
+
+- **[Tech debt roadmap](docs/tech-debt-roadmap.md)** — phased backlog for refactors and technical debt (also indexed under [docs/README.md](docs/README.md)).
+
 ## Command naming rubric
 
 - Keep CLI commands verb-first and intent-focused (`new`, `update`, `restore`, `check`).
