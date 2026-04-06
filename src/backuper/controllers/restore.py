@@ -2,7 +2,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from backuper.commands import RestoreCommand
-from backuper.interfaces import BackupDatabase, FileStore
+from backuper.interfaces import BackupDatabase, FileStore, VersionNotFoundError
 
 
 def _resolved_path_under_destination(destination: Path, relative_path: Path) -> Path:
@@ -26,7 +26,7 @@ async def run_restore_flow(
 ) -> None:
     try:
         version_name = await db.get_version_by_name(command.version_name)
-    except RuntimeError as err:
+    except VersionNotFoundError as err:
         raise ValueError(
             f"Backup version {command.version_name} does not exist in source"
         ) from err

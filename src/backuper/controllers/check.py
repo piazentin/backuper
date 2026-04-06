@@ -1,5 +1,5 @@
 from backuper.commands import CheckCommand
-from backuper.interfaces import BackupDatabase, FileStore
+from backuper.interfaces import BackupDatabase, FileStore, VersionNotFoundError
 
 
 async def _missing_stored_files(
@@ -47,7 +47,7 @@ async def run_check_flow(
     else:
         try:
             versions = [await db.get_version_by_name(command.version)]
-        except RuntimeError as err:
+        except VersionNotFoundError as err:
             raise ValueError(
                 f"Backup version named {command.version} "
                 f"does not exist at {command.location}"

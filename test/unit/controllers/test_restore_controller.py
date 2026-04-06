@@ -8,14 +8,14 @@ from pathlib import Path
 import pytest
 from backuper.commands import RestoreCommand
 from backuper.controllers.restore import run_restore_flow
-from backuper.interfaces import FileEntry
+from backuper.interfaces import FileEntry, VersionNotFoundError
 
 
 @pytest.mark.asyncio
 async def test_run_restore_flow_raises_when_version_missing(tmp_path: Path) -> None:
     class FakeDb:
         async def get_version_by_name(self, name: str) -> str:
-            raise RuntimeError("missing")
+            raise VersionNotFoundError(name)
 
     class FakeFileStore:
         def read_blob(self, file_hash: str, is_compressed: bool) -> bytes:
