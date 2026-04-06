@@ -74,28 +74,6 @@ class BackupAnalyzer(ABC):
         pass
 
 
-@dataclass
-class BackupChunk:
-    data: bytes
-    metadata: dict
-    compression: bool = False
-    encryption: bool = False
-
-
-class BackupStreamProcessor(ABC):
-    @abstractmethod
-    async def process_stream(
-        self, entries: AsyncIterator[FileEntry]
-    ) -> AsyncIterator[BackupChunk]:
-        pass
-
-
-class BackupWriter(ABC):
-    @abstractmethod
-    async def write_stream(self, chunks: AsyncIterator[BackupChunk]) -> None:
-        pass
-
-
 class BackupDatabase(ABC):
     @abstractmethod
     async def list_versions(self) -> list[str]:

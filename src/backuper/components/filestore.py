@@ -7,7 +7,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 from backuper.components.utils import compute_hash, normalize_path
-from backuper.config import FilestoreConfig
+from backuper.config import ZIPFILE_EXT, FilestoreConfig
 from backuper.interfaces import FileStore, PutResult
 
 StoredLocation = str
@@ -18,7 +18,7 @@ def relative_dir_from_hash(filehash: str) -> str:
 
 
 def hash_to_stored_location(filehash: str, is_compressed: bool) -> os.PathLike:
-    final_name = f"{filehash}.zip" if is_compressed else filehash
+    final_name = f"{filehash}{ZIPFILE_EXT}" if is_compressed else filehash
     return os.path.join(relative_dir_from_hash(filehash), final_name)
 
 
