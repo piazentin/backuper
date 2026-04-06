@@ -50,7 +50,7 @@ async def run_check_flow(
         except RuntimeError as err:
             raise ValueError(
                 f"Backup version named {command.version} "
-                f"does not exists at {command.location}"
+                f"does not exist at {command.location}"
             ) from err
 
     errors: list[str] = []

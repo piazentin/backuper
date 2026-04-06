@@ -29,7 +29,7 @@ def test_run_check_raises_when_location_missing(tmp_path: Path) -> None:
     missing_backup = tmp_path / "missing"
     cmd = CheckCommand(location=str(missing_backup))
 
-    with pytest.raises(ValueError, match="destination path .* does not exists"):
+    with pytest.raises(ValueError, match="destination path .* does not exist"):
         run_check(cmd)
 
 
@@ -39,9 +39,7 @@ def test_run_check_raises_when_version_missing(tmp_path: Path) -> None:
     _seed_backup(backup, source, version="v1")
     cmd = CheckCommand(location=str(backup), version="unknown")
 
-    with pytest.raises(
-        ValueError, match="Backup version named unknown does not exists"
-    ):
+    with pytest.raises(ValueError, match="Backup version named unknown does not exist"):
         run_check(cmd)
 
 
