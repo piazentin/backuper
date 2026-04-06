@@ -1,8 +1,11 @@
+import logging
 from collections.abc import Callable
 from pathlib import Path
 
 from backuper.commands import RestoreCommand
 from backuper.interfaces import BackupDatabase, FileStore, VersionNotFoundError
+
+_logger = logging.getLogger(__name__)
 
 
 def _resolved_path_under_destination(destination: Path, relative_path: Path) -> Path:
@@ -32,6 +35,7 @@ async def run_restore_flow(
         ) from err
 
     destination = Path(command.destination)
+    skipped_missing_hash = 0
 
     async for entry in db.list_files(version_name):
         restore_path = _resolved_path_under_destination(
@@ -41,16 +45,27 @@ async def run_restore_flow(
             restore_path.mkdir(parents=True, exist_ok=True)
             continue
 
-        if on_restore_file is not None:
-            on_restore_file(entry.relative_path)
+        file_hash = entry.hash
+        if not file_hash:
+            skipped_missing_hash += 1
+            _logger.warning(
+                "Skipping restore for %s: missing hash in version %s",
+                entry.relative_path,
+                version_name,
+            )
+            continue
 
         restore_path.parent.mkdir(parents=True, exist_ok=True)
 
-        file_hash = entry.hash
-        if not file_hash:  # TODO should log error and continue on next entry
-            raise ValueError(
-                f"Missing hash for restore entry {entry.relative_path} in {version_name}"
-            )
+        if on_restore_file is not None:
+            on_restore_file(entry.relative_path)
+
         restore_path.write_bytes(
             filestore.read_blob(file_hash, is_compressed=entry.is_compressed)
+        )
+
+    if skipped_missing_hash:
+        _logger.warning(
+            "Skipped %d file(s) with missing hash during restore",
+            skipped_missing_hash,
         )
