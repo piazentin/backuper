@@ -346,7 +346,7 @@ Validated against the current tree (see code references below).
 - `components/csv_db.py` — `CsvDb`, `CsvBackupDatabase.list_files`, `get_files_for_version`, `get_dirs_for_version`, `get_fs_objects_for_version`
 - `components/filestore.py` — synchronous `LocalFileStore`
 - `components/file_reader.py` — `LocalFileReader`
-- `components/backup_analyzer.py`, `components/utils.py` — `compute_hash`
+- `components/backup_analyzer.py`, `utils/hashing.py` — `compute_hash`
 - `controllers/restore.py` — `run_restore_flow`
 - `interfaces/__init__.py` — ports (streaming placeholder types removed in Phase 1)
 
