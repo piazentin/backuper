@@ -8,9 +8,9 @@ from backuper.components.csv_db import (
     _csvrow_to_model,
     _StoredFile,
 )
-from backuper.components.filestore import hash_to_stored_location
 from backuper.config import CsvDbConfig
 from backuper.interfaces import BackupedFileEntry, FileEntry
+from backuper.utils.paths import hash_to_stored_location
 
 
 def test_csvrow_to_model_uses_first_seven_columns_when_row_is_longer() -> None:

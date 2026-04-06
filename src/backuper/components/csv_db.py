@@ -9,8 +9,6 @@ from pathlib import Path
 from typing import Union
 from uuid import UUID
 
-from backuper.components.filestore import hash_to_stored_location
-from backuper.components.utils import normalize_path
 from backuper.config import CsvDbConfig
 from backuper.interfaces import (
     BackupDatabase,
@@ -18,6 +16,7 @@ from backuper.interfaces import (
     FileEntry,
     VersionNotFoundError,
 )
+from backuper.utils.paths import hash_to_stored_location, normalize_path
 
 _StoredLocation = str
 

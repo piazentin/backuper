@@ -56,3 +56,9 @@ forbidden_modules = ["backuper.components"]
 name = "Controllers must not import other controller modules"
 type = "independence"
 modules = ["backuper.controllers.*"]
+
+[[tool.importlinter.contracts]]
+name = "Utils must not import components"
+type = "forbidden"
+source_modules = ["backuper.utils"]
+forbidden_modules = ["backuper.components"]
