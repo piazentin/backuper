@@ -1,0 +1,34 @@
+---
+description: Request GitHub Copilot as a PR reviewer via gh CLI (when opening or editing PRs).
+alwaysApply: false
+---
+
+# GitHub Copilot as PR reviewer
+
+Use **GitHub CLI 2.88+** and a GitHub plan that includes [Copilot code review](https://docs.github.com/copilot/using-github-copilot/code-review/using-copilot-code-review). Not supported on GitHub Enterprise Server.
+
+## Add Copilot when creating a PR
+
+```bash
+gh pr create --base main --head <branch> --title "..." --body "..." --reviewer @copilot
+```
+
+Use the literal **`@copilot`** reviewer login. Omitting `@` (e.g. `--reviewer copilot`) can fail with *Could not resolve user with login 'copilot'*.
+
+## Add Copilot to an existing PR
+
+```bash
+gh pr edit <number> --add-reviewer @copilot
+```
+
+## Verify
+
+```bash
+gh pr view <number>
+```
+
+Expect a line like `reviewers: Copilot (AI) …` when the request succeeded.
+
+## If the CLI cannot resolve Copilot
+
+Use the PR on GitHub: request review from **Copilot** in the reviewers UI, or confirm Copilot code review is enabled for the org/repo and your account.
