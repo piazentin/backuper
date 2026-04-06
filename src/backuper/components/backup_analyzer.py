@@ -1,12 +1,12 @@
 from collections.abc import AsyncIterator
 
-from backuper.components.utils import compute_hash
 from backuper.interfaces import (
     AnalyzedFileEntry,
     BackupAnalyzer,
     BackupDatabase,
     FileEntry,
 )
+from backuper.utils.hashing import compute_hash
 
 
 class BackupAnalyzerImpl(BackupAnalyzer):

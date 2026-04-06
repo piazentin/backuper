@@ -4,10 +4,6 @@ import os
 from backuper import config
 
 
-def normalize_path(path: str) -> str:
-    return "/".join(path.replace("\\", "/").strip("/").split("/"))
-
-
 def compute_hash(
     file_path: os.PathLike, buffer_size: int = config.HASHING_BUFFER_SIZE
 ) -> str:

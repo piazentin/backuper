@@ -43,15 +43,15 @@ Edges mean **“should complete or start before / strongly informs”**. Items w
 
 ```mermaid
 flowchart TB
-  subgraph early [Phase 1 - Foundations]
-    A1[Uncaught exceptions in run_with_args]
-    A2[Restore: missing hash skip vs fail]
+  subgraph early [Phase 1 - Foundations — done]
+    A1[Top-level errors: main entry boundary]
+    A2[Restore: missing hash skip + log]
     B1[Domain exception: missing version]
-    C1[Dead API: BackupChunk pipeline / ZIPFILE_EXT]
+    C1[Dead API removed; ZIPFILE_EXT in filestore]
     C2[backup.py: _analyze_path vs _collect_analyzed_entries]
   end
 
-  subgraph layering [Phase 2 - Layering]
+  subgraph layering [Phase 2 - Layering — done]
     D1[Decouple csv_db from filestore hash paths]
   end
 
@@ -103,7 +103,7 @@ flowchart TB
 
 **Narrative dependencies (not all drawn as edges):**
 
-- **Diagram gaps:** Workstream **L** (throughput, redundant CSV reads) and Phase **1.6** (structured logging / `--quiet`) have **no nodes** in the chart; see phases **1.6**, **6.4**–**6.5**, and **Implementation hooks (L)**.
+- **Diagram gaps:** Workstream **L** (throughput, redundant CSV reads) has **no node** in the chart; see **6.4**–**6.5** and **Implementation hooks (L)**. Phase **1.6** (logging / `--quiet` / `check --json`) shipped with Phase 1 and is not drawn separately.
 - **F2** depends on **F1** and elapsed support window (policy, not only code). **E1 → F2** is an ordering preference (cleaner types before shrinking `_csvrow_to_model`); it is not a substitute for **F1** + the support window.
 - **H2** (streaming) overlaps **H1** (observer); doing both in one effort avoids double refactors of `_run_backup_stream`.
 - **L** (single-pass **`list_files`**, redundant I/O) is a **quick sync win** and can land before or alongside **H2**; it does not depend on an async strategy.
@@ -119,16 +119,20 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 
 ### Phase 1 — Foundations (safety, correctness, noise reduction)
 
+**Status:** Complete. Top-level handling lives on **`main()`** in [`src/backuper/entrypoints/main.py`](../src/backuper/entrypoints/main.py) (`run_with_args` keeps parse+dispatch only—no outer try/except, for tests and direct callers); restore skips missing hashes with warnings; **`VersionNotFoundError`**; grammar fixes; streaming types removed and **`ZIPFILE_EXT`** canonical in filestore; **`backuper`** logger, **`-q` / `--quiet`**, and **`check --json`**.
+
 | Order | Item | Notes |
 |------:|------|--------|
-| 1.1 | Centralize top-level error handling in `run_with_args` | Avoid raw tracebacks for users |
-| 1.2 | Restore: decide **skip + log** vs **fail** for missing hash; align `run_restore_flow` | Closes open TODO |
-| 1.3 | Replace `RuntimeError` in `CsvDb.get_version_by_name` with a **domain exception**; narrow controller mapping | Sets pattern for Phase 3 and HTTP |
+| 1.1 | Centralize top-level error handling in the CLI entry (`main()`) | Avoid raw tracebacks for users; `ValueError` → stderr, unexpected → log + generic message |
+| 1.2 | Restore: **skip + log** for missing hash; align `run_restore_flow` | Implemented |
+| 1.3 | Replace `RuntimeError` in `CsvDb.get_version_by_name` with **`VersionNotFoundError`**; narrow controller mapping | Sets pattern for Phase 3 and HTTP |
 | 1.4 | Fix “does not exists” and similar copy; adjust tests | Mechanical |
-| 1.5 | Remove or wire **dead surface**: `BackupChunk` / `BackupStreamProcessor` / `BackupWriter`; **`ZIPFILE_EXT`** vs inlined `.zip` | Reduces migration load for **E** |
-| 1.6 | Move beyond **`print`**-only CLI: **structured logging**, optional **`--quiet`**, **machine-readable** output where worthwhile | Cross-cuts UX and ops; can follow 1.1–1.4 |
+| 1.5 | Remove **dead surface**: `BackupChunk` / `BackupStreamProcessor` / `BackupWriter`; **`ZIPFILE_EXT`** vs inlined `.zip` in filestore | Reduces migration load for **E** |
+| 1.6 | **`print`**-only CLI reduced: **structured logging**, **`--quiet`**, **`check --json`** | Broader migration of backup progress to logging remains Phase 6 |
 
 ### Phase 2 — Layering
+
+**Status:** Complete. **`csv_db`** does not import **`filestore`**; path and hash helpers live in **`src/backuper/utils/`** (`paths.py`, `hashing.py`); **`components/utils.py`** removed; **`AGENTS.md`** layering and import-linter rules for **`utils`** vs **`components`** updated.
 
 | Order | Item | Notes |
 |------:|------|--------|
@@ -231,10 +235,10 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 
 | ID | Node label |
 |----|------------|
-| A1 | Uncaught exceptions in `run_with_args` |
-| A2 | Restore: missing hash skip vs fail |
+| A1 | Top-level errors: `main()` entry boundary |
+| A2 | Restore: missing hash skip + log |
 | B1 | Domain exception: missing version |
-| C1 | Dead API: BackupChunk pipeline / ZIPFILE_EXT |
+| C1 | Dead streaming API removed; `ZIPFILE_EXT` in filestore |
 | C2 | `backup.py`: `_analyze_path` vs `_collect_analyzed_entries` |
 | D1 | Decouple `csv_db` from filestore hash paths |
 | E1 | `models/` + `ports/` split |
@@ -303,7 +307,7 @@ Validated against the current tree (see code references below).
 
 - **`_collect_analyzed_entries`** builds a **full list**; **`_run_backup_stream`** then **`for entry in analyzed_list`** with sync **`filestore.put`** / **`db.add_file`** (`backup.py`). No producer/consumer overlap.
 
-**Implication:** Higher peak memory on large trees; pipelining needs threading/async design—tracked as **H2** / **6.3** (and unused **`BackupStreamProcessor`** / **`BackupWriter`** / **`BackupChunk`** in **1.5**).
+**Implication:** Higher peak memory on large trees; pipelining needs threading/async design—tracked as **H2** / **6.3** (streaming types were **removed** in Phase **1.5**).
 
 **4. Redundant CSV reads in `list_files`**
 
@@ -311,9 +315,9 @@ Validated against the current tree (see code references below).
 
 **Implication:** Straightforward **sync** optimization (Phase **6.4**); `get_fs_objects_for_version` already reads the file once.
 
-**5. Unused streaming abstractions**
+**5. Streaming abstractions (historical)**
 
-- **`BackupStreamProcessor`**, **`BackupWriter`**, **`BackupChunk`** in `interfaces` — not wired; either future pipeline design or trim (**1.5**).
+- **`BackupStreamProcessor`**, **`BackupWriter`**, **`BackupChunk`** were **removed** from `interfaces` (Phase **1.5**). A future streaming pipeline would introduce new types alongside **6.2** / **6.3**.
 
 **6. Progress / “responsiveness”**
 
@@ -327,7 +331,7 @@ Validated against the current tree (see code references below).
 |----------|------|--------|
 | Quick win | Single-pass CSV for **`list_files`** | **6.4** |
 | Throughput (if profile says so) | Bounded parallelism for hashing and/or blob writes | **6.5** |
-| Architecture | Streaming analysis → backup; revisit unused stream types | **6.1–6.3**, **1.5** |
+| Architecture | Streaming analysis → backup | **6.1–6.3** |
 | Honest async | After concurrency/streaming strategy is clear; avoid wrapping blocking calls in `async def` without **`to_thread`** or real overlap | **Guiding principle 6**; **Phase 10** |
 
 **Non-goals (unless requirements change)**
@@ -344,7 +348,7 @@ Validated against the current tree (see code references below).
 - `components/file_reader.py` — `LocalFileReader`
 - `components/backup_analyzer.py`, `components/utils.py` — `compute_hash`
 - `controllers/restore.py` — `run_restore_flow`
-- `interfaces/__init__.py` — ports + unused streaming types
+- `interfaces/__init__.py` — ports (streaming placeholder types removed in Phase 1)
 
 ---
 
