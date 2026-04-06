@@ -96,8 +96,19 @@ def configure_update_parser(parser: argparse.ArgumentParser):
 
 
 def configure_check_parser(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Print check results as a single JSON object on stdout.",
+    )
+
     def to_command(ns):
-        return c.CheckCommand(location=ns.location, version=ns.version)
+        return c.CheckCommand(
+            location=ns.location,
+            version=ns.version,
+            json_output=ns.json_output,
+        )
 
     with_location_arg(parser)
     with_check_version_arg(parser)
@@ -120,8 +131,15 @@ def configure_restore_parser(parser: argparse.ArgumentParser):
 
 def parse(args):
     parser = argparse.ArgumentParser("Backup utility")
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Reduce informational log output.",
+    )
     subparsers = parser.add_subparsers(
-        title="Valid commands: new, update, check, restore"
+        title="Valid commands: new, update, check, restore",
+        required=True,
     )
 
     configure_new_parser(subparsers.add_parser("new"))
@@ -130,4 +148,4 @@ def parse(args):
     configure_restore_parser(subparsers.add_parser("restore"))
 
     parsed = parser.parse_args(args)
-    return parsed.func(parsed)
+    return parsed.func(parsed), parsed.quiet

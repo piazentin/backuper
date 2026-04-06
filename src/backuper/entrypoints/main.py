@@ -1,3 +1,4 @@
+import logging
 import sys
 
 from backuper.commands import (
@@ -14,9 +15,21 @@ from backuper.entrypoints.cli import (
     run_update,
 )
 
+_LOG = logging.getLogger("backuper")
 
-def run_with_args() -> None:
-    command = parser.parse(sys.argv[1:])
+
+def _configure_logging(quiet: bool) -> None:
+    level = logging.WARNING if quiet else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(levelname)s: %(message)s",
+        force=True,
+    )
+
+
+def dispatch_command(
+    command: NewCommand | UpdateCommand | CheckCommand | RestoreCommand,
+) -> None:
     if isinstance(command, NewCommand):
         run_new(command)
     elif isinstance(command, UpdateCommand):
@@ -27,3 +40,26 @@ def run_with_args() -> None:
         run_restore(command)
     else:
         raise ValueError(f"Unrecognized command {command}")
+
+
+def run_with_args() -> None:
+    command, quiet = parser.parse(sys.argv[1:])
+    _configure_logging(quiet)
+    dispatch_command(command)
+
+
+def main() -> int:
+    try:
+        command, quiet = parser.parse(sys.argv[1:])
+        _configure_logging(quiet)
+        dispatch_command(command)
+    except SystemExit:
+        raise
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    except Exception:
+        _LOG.exception("Unhandled error")
+        print("An unexpected error occurred.", file=sys.stderr)
+        return 1
+    return 0

@@ -21,6 +21,7 @@ class UpdateCommand:
 class CheckCommand:
     location: str
     version: str | None = None
+    json_output: bool = False
 
 
 @dataclass

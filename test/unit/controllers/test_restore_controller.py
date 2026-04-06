@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
 from backuper.commands import RestoreCommand
 from backuper.controllers.restore import run_restore_flow
-from backuper.interfaces import FileEntry
+from backuper.interfaces import FileEntry, VersionNotFoundError
 
 
 @pytest.mark.asyncio
 async def test_run_restore_flow_raises_when_version_missing(tmp_path: Path) -> None:
     class FakeDb:
         async def get_version_by_name(self, name: str) -> str:
-            raise RuntimeError("missing")
+            raise VersionNotFoundError(name)
 
     class FakeFileStore:
         def read_blob(self, file_hash: str, is_compressed: bool) -> bytes:
@@ -36,7 +37,9 @@ async def test_run_restore_flow_raises_when_version_missing(tmp_path: Path) -> N
 
 
 @pytest.mark.asyncio
-async def test_run_restore_flow_raises_when_file_hash_missing(tmp_path: Path) -> None:
+async def test_run_restore_flow_skips_when_file_hash_missing(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     class FakeDb:
         async def get_version_by_name(self, name: str) -> str:
             return "v1"
@@ -57,7 +60,7 @@ async def test_run_restore_flow_raises_when_file_hash_missing(tmp_path: Path) ->
             raise AssertionError("unreachable")
 
     dest = tmp_path / "out"
-    with pytest.raises(ValueError, match="Missing hash for restore entry"):
+    with caplog.at_level(logging.WARNING):
         await run_restore_flow(
             RestoreCommand(
                 location=str(tmp_path),
@@ -67,6 +70,62 @@ async def test_run_restore_flow_raises_when_file_hash_missing(tmp_path: Path) ->
             db=FakeDb(),
             filestore=FakeFileStore(),
         )
+    assert not (dest / "a.txt").exists()
+    assert "missing hash" in caplog.text
+    assert "Skipped 1 file(s) with missing hash" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_run_restore_flow_mixed_good_and_missing_hash(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    class FakeDb:
+        async def get_version_by_name(self, name: str) -> str:
+            return "v1"
+
+        async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
+            yield FileEntry(
+                path=Path("bad.txt"),
+                relative_path=Path("bad.txt"),
+                size=1,
+                mtime=0.0,
+                is_directory=False,
+                hash=None,
+                is_compressed=False,
+            )
+            yield FileEntry(
+                path=Path("good.txt"),
+                relative_path=Path("good.txt"),
+                size=3,
+                mtime=0.0,
+                is_directory=False,
+                hash="deadbeef",
+                is_compressed=False,
+            )
+
+    class FakeFileStore:
+        def read_blob(self, file_hash: str, is_compressed: bool) -> bytes:
+            assert file_hash == "deadbeef"
+            return b"ok"
+
+    dest = tmp_path / "out"
+    seen: list[Path] = []
+    with caplog.at_level(logging.WARNING):
+        await run_restore_flow(
+            RestoreCommand(
+                location=str(tmp_path),
+                destination=str(dest),
+                version_name="v1",
+            ),
+            db=FakeDb(),
+            filestore=FakeFileStore(),
+            on_restore_file=lambda p: seen.append(p),
+        )
+    assert not (dest / "bad.txt").exists()
+    assert (dest / "good.txt").read_bytes() == b"ok"
+    assert seen == [Path("good.txt")]
+    assert "bad.txt" in caplog.text
+    assert "Skipped 1 file(s) with missing hash" in caplog.text
 
 
 @pytest.mark.asyncio

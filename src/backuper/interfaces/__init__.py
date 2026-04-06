@@ -8,6 +8,14 @@ from pathlib import Path
 from uuid import UUID
 
 
+class VersionNotFoundError(Exception):
+    """Raised when a named backup version does not exist in the database."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__(f"Version not found: {name}")
+
+
 @dataclass
 class FileEntry:
     path: Path
@@ -66,28 +74,6 @@ class BackupAnalyzer(ABC):
         pass
 
 
-@dataclass
-class BackupChunk:
-    data: bytes
-    metadata: dict
-    compression: bool = False
-    encryption: bool = False
-
-
-class BackupStreamProcessor(ABC):
-    @abstractmethod
-    async def process_stream(
-        self, entries: AsyncIterator[FileEntry]
-    ) -> AsyncIterator[BackupChunk]:
-        pass
-
-
-class BackupWriter(ABC):
-    @abstractmethod
-    async def write_stream(self, chunks: AsyncIterator[BackupChunk]) -> None:
-        pass
-
-
 class BackupDatabase(ABC):
     @abstractmethod
     async def list_versions(self) -> list[str]:
@@ -96,7 +82,7 @@ class BackupDatabase(ABC):
 
     @abstractmethod
     async def get_version_by_name(self, name: str) -> str:
-        """Return the canonical version name. Raises RuntimeError when missing."""
+        """Return the canonical version name. Raises VersionNotFoundError when missing."""
         pass
 
     @abstractmethod

@@ -16,6 +16,7 @@ from backuper.interfaces import (
     BackupDatabase,
     BackupedFileEntry,
     FileEntry,
+    VersionNotFoundError,
 )
 
 _StoredLocation = str
@@ -135,7 +136,7 @@ class CsvDb:
         if self.maybe_get_version_by_name(name):
             return _Version(name)
         else:
-            raise RuntimeError("Version not found")
+            raise VersionNotFoundError(name)
 
     def get_fs_objects_for_version(self, version: _Version) -> list[_FileSystemObject]:
         version_file = self._csv_path_from_name(version.name)

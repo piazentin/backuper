@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 from pathlib import Path
 
@@ -36,7 +37,10 @@ def _local_filestore(backup_root: Path) -> LocalFileStore:
     )
 
 
-def _present_check_stdout(errors: list[str]) -> None:
+def _present_check_stdout(errors: list[str], *, json_output: bool) -> None:
+    if json_output:
+        print(json.dumps({"errors": errors}))
+        return
     for error in errors:
         print(error)
     if len(errors) == 0:
@@ -64,7 +68,7 @@ def run_new(command: NewCommand) -> None:
     source = Path(command.source)
     destination = Path(command.location)
     if not source.exists():
-        raise ValueError(f"source path {command.source} does not exists")
+        raise ValueError(f"source path {command.source} does not exist")
     if destination.exists():
         raise ValueError(f"destination path {command.location} already exists")
 
@@ -87,9 +91,9 @@ def run_update(command: UpdateCommand) -> None:
     source = Path(command.source)
     destination = Path(command.location)
     if not source.exists():
-        raise ValueError(f"source path {command.source} does not exists")
+        raise ValueError(f"source path {command.source} does not exist")
     if not destination.exists():
-        raise ValueError(f"destination path {command.location} does not exists")
+        raise ValueError(f"destination path {command.location} does not exist")
 
     print(f"Updating backup at {command.location} with new version {command.version}")
     asyncio.run(
@@ -109,7 +113,7 @@ def run_update(command: UpdateCommand) -> None:
 def run_check(command: CheckCommand) -> list[str]:
     destination = Path(command.location)
     if not destination.exists():
-        raise ValueError(f"destination path {command.location} does not exists")
+        raise ValueError(f"destination path {command.location} does not exist")
 
     errors = asyncio.run(
         run_check_flow(
@@ -118,7 +122,7 @@ def run_check(command: CheckCommand) -> list[str]:
             filestore=_local_filestore(destination),
         )
     )
-    _present_check_stdout(errors)
+    _present_check_stdout(errors, json_output=command.json_output)
 
     return errors
 
