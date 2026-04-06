@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -55,6 +56,45 @@ def test_run_check_prints_no_errors_for_valid_backup(
 
     assert errors == []
     assert "No errors found!" in captured.out
+
+
+def test_run_check_json_success(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    backup = tmp_path / "backup"
+    source = tmp_path / "src"
+    _seed_backup(backup, source, version="v1")
+    capsys.readouterr()
+
+    errors = run_check(CheckCommand(location=str(backup), json_output=True))
+    captured = capsys.readouterr()
+
+    assert errors == []
+    assert json.loads(captured.out) == {"errors": []}
+    assert "No errors found!" not in captured.out
+
+
+def test_run_check_json_with_errors(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    backup = tmp_path / "backup"
+    source = tmp_path / "src"
+    _seed_backup(backup, source, version="v1")
+
+    db = CsvDb(CsvDbConfig(backup_dir=str(backup)))
+    version = db.get_version_by_name("v1")
+    stored_file = db.get_files_for_version(version)[0]
+    stored_blob = backup / "data" / stored_file.stored_location
+    stored_blob.unlink()
+    capsys.readouterr()
+
+    errors = run_check(
+        CheckCommand(location=str(backup), version="v1", json_output=True),
+    )
+    captured = capsys.readouterr()
+
+    assert len(errors) == 1
+    assert json.loads(captured.out) == {"errors": errors}
 
 
 def test_run_check_reports_manifest_mismatch_when_csv_metadata_wrong_but_blob_exists(

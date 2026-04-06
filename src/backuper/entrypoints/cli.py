@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 from pathlib import Path
 
@@ -36,7 +37,10 @@ def _local_filestore(backup_root: Path) -> LocalFileStore:
     )
 
 
-def _present_check_stdout(errors: list[str]) -> None:
+def _present_check_stdout(errors: list[str], *, json_output: bool) -> None:
+    if json_output:
+        print(json.dumps({"errors": errors}))
+        return
     for error in errors:
         print(error)
     if len(errors) == 0:
@@ -118,7 +122,7 @@ def run_check(command: CheckCommand) -> list[str]:
             filestore=_local_filestore(destination),
         )
     )
-    _present_check_stdout(errors)
+    _present_check_stdout(errors, json_output=command.json_output)
 
     return errors
 

@@ -1,4 +1,6 @@
-from backuper.entrypoints.main import run_with_args
+import sys
+
+from backuper.entrypoints.main import main
 
 if __name__ == "__main__":
-    run_with_args()
+    sys.exit(main())

@@ -53,6 +53,11 @@ backuper update ~/backup/source/dir ~/backup/destination/dir
 backuper check ~/backup/destination/dir
 ```
 
+Optional flags:
+
+- **Before the subcommand:** `-q` / `--quiet` — less informational logging (stderr).
+- **`check` only:** `--json` — print one JSON object on stdout: `{"errors": ["…", …]}` (empty list when there are no issues). Suppresses the usual per-line messages and the `No errors found!` line.
+
 `check` is a fast integrity/existence pass over backup metadata and stored blobs. A future deeper validation mode should be a separate `verify` command, not a change to `check`.
 
 Restore (backup root, then destination; version with `-v` / `--version` / `-n` / `--name`):
