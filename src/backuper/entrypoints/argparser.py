@@ -138,7 +138,8 @@ def parse(args):
         help="Reduce informational log output.",
     )
     subparsers = parser.add_subparsers(
-        title="Valid commands: new, update, check, restore"
+        title="Valid commands: new, update, check, restore",
+        required=True,
     )
 
     configure_new_parser(subparsers.add_parser("new"))

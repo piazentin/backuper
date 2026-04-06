@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from backuper.commands import (
     CheckCommand,
     NewCommand,
@@ -59,6 +60,16 @@ def test_parse_quiet_before_subcommand() -> None:
     cmd, quiet = argparser.parse(["--quiet", "check", "/backup/root"])
     assert isinstance(cmd, CheckCommand)
     assert quiet is True
+
+
+def test_parse_requires_subcommand() -> None:
+    with pytest.raises(SystemExit):
+        argparser.parse([])
+
+
+def test_parse_requires_subcommand_even_with_quiet() -> None:
+    with pytest.raises(SystemExit):
+        argparser.parse(["--quiet"])
 
 
 def test_parse_restore_command() -> None:

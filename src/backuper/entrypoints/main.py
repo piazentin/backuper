@@ -51,16 +51,13 @@ def run_with_args() -> None:
 def main() -> int:
     try:
         command, quiet = parser.parse(sys.argv[1:])
+        _configure_logging(quiet)
+        dispatch_command(command)
     except SystemExit:
         raise
-    _configure_logging(quiet)
-    try:
-        dispatch_command(command)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
-    except SystemExit:
-        raise
     except Exception:
         _LOG.exception("Unhandled error")
         print("An unexpected error occurred.", file=sys.stderr)

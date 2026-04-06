@@ -13,7 +13,7 @@ class VersionNotFoundError(Exception):
 
     def __init__(self, name: str) -> None:
         self.name = name
-        super().__init__("Version not found")
+        super().__init__(f"Version not found: {name}")
 
 
 @dataclass
