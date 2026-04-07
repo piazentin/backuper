@@ -3,7 +3,7 @@ from uuid import UUID
 
 import pytest
 from backuper.components.backup_analyzer import BackupAnalyzerImpl
-from backuper.interfaces import BackupedFileEntry, FileEntry
+from backuper.models import BackedUpFileEntry, FileEntry
 from test.aux.mock_backup_database import MockBackupDatabase
 
 
@@ -68,7 +68,7 @@ async def test_backup_analyzer():
 
     mock_db = MockBackupDatabase(
         files_by_metadata={
-            ("LICENSE", 1072, 1234567890.0): BackupedFileEntry(
+            ("LICENSE", 1072, 1234567890.0): BackedUpFileEntry(
                 source_file=license_file,
                 backup_id=UUID("12345678-1234-5678-1234-567812345678"),
                 stored_location="/path/to/stored/file",
@@ -78,7 +78,7 @@ async def test_backup_analyzer():
         },
         files_by_hash={
             "fef9161f9f9a492dba2b1357298f17897849fefc": [
-                BackupedFileEntry(
+                BackedUpFileEntry(
                     source_file=text_file,
                     backup_id=UUID("12345678-1234-5678-1234-567812345678"),
                     stored_location="/path/to/stored/file",

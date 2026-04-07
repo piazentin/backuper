@@ -10,6 +10,7 @@ from backuper.commands import CheckCommand, NewCommand, UpdateCommand
 from backuper.components.csv_db import CsvDb
 from backuper.config import CsvDbConfig
 from backuper.entrypoints.cli import run_check, run_new, run_update
+from backuper.models import CliUsageError, VersionNotFoundError
 
 
 def _seed_backup(destination: Path, source: Path, *, version: str = "v1") -> None:
@@ -30,7 +31,7 @@ def test_run_check_raises_when_location_missing(tmp_path: Path) -> None:
     missing_backup = tmp_path / "missing"
     cmd = CheckCommand(location=str(missing_backup))
 
-    with pytest.raises(ValueError, match="destination path .* does not exist"):
+    with pytest.raises(CliUsageError, match="destination path .* does not exist"):
         run_check(cmd)
 
 
@@ -40,7 +41,9 @@ def test_run_check_raises_when_version_missing(tmp_path: Path) -> None:
     _seed_backup(backup, source, version="v1")
     cmd = CheckCommand(location=str(backup), version="unknown")
 
-    with pytest.raises(ValueError, match="Backup version named unknown does not exist"):
+    with pytest.raises(
+        VersionNotFoundError, match="Backup version named unknown does not exist"
+    ):
         run_check(cmd)
 
 

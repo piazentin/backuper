@@ -14,6 +14,7 @@ from backuper.entrypoints.cli import (
     run_restore,
     run_update,
 )
+from backuper.models import UnreachableCommandError, UserFacingError
 
 _LOG = logging.getLogger("backuper")
 
@@ -39,7 +40,7 @@ def dispatch_command(
     elif isinstance(command, RestoreCommand):
         run_restore(command)
     else:
-        raise ValueError(f"Unrecognized command {command}")
+        raise UnreachableCommandError(f"Unrecognized command {command}")
 
 
 def run_with_args() -> None:
@@ -55,7 +56,11 @@ def main() -> int:
         dispatch_command(command)
     except SystemExit:
         raise
-    except ValueError as exc:
+    except UnreachableCommandError:
+        _LOG.exception("Unhandled unreachable command")
+        print("An unexpected error occurred.", file=sys.stderr)
+        return 1
+    except UserFacingError as exc:
         print(str(exc), file=sys.stderr)
         return 1
     except Exception:

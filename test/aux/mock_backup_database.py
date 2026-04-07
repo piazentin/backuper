@@ -1,11 +1,8 @@
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from backuper.interfaces import (
-    BackupDatabase,
-    BackupedFileEntry,
-    FileEntry,
-)
+from backuper.models import BackedUpFileEntry, FileEntry
+from backuper.ports import BackupDatabase
 
 
 class MockBackupDatabase(BackupDatabase):
@@ -13,8 +10,8 @@ class MockBackupDatabase(BackupDatabase):
 
     def __init__(
         self,
-        files_by_metadata: dict[tuple[str, int, float], BackupedFileEntry] = None,
-        files_by_hash: dict[str, list[BackupedFileEntry]] = None,
+        files_by_metadata: dict[tuple[str, int, float], BackedUpFileEntry] = None,
+        files_by_hash: dict[str, list[BackedUpFileEntry]] = None,
     ):
         self.files_by_metadata = files_by_metadata or {}
         self.files_by_hash = files_by_hash or {}
@@ -33,16 +30,16 @@ class MockBackupDatabase(BackupDatabase):
         # Not used in tests
         pass
 
-    async def add_file(self, version: str, entry: BackupedFileEntry) -> None:
+    async def add_file(self, version: str, entry: BackedUpFileEntry) -> None:
         # Not used in tests
         pass
 
-    async def get_files_by_hash(self, hash: str) -> list[BackupedFileEntry]:
+    async def get_files_by_hash(self, hash: str) -> list[BackedUpFileEntry]:
         return self.files_by_hash.get(hash, [])
 
     async def get_files_by_metadata(
         self, relative_path: Path, mtime: float, size: int
-    ) -> list[BackupedFileEntry]:
+    ) -> list[BackedUpFileEntry]:
         key = (str(relative_path), size, mtime)
         result = self.files_by_metadata.get(key)
         return [result] if result else []

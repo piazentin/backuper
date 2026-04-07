@@ -9,7 +9,12 @@ from pathlib import Path
 import pytest
 from backuper.commands import RestoreCommand
 from backuper.controllers.restore import run_restore_flow
-from backuper.interfaces import FileEntry, VersionNotFoundError
+from backuper.models import (
+    FileEntry,
+    RestorePathError,
+    RestoreVersionNotFoundError,
+    VersionNotFoundError,
+)
 
 
 @pytest.mark.asyncio
@@ -23,7 +28,8 @@ async def test_run_restore_flow_raises_when_version_missing(tmp_path: Path) -> N
             raise AssertionError("unreachable")
 
     with pytest.raises(
-        ValueError, match="Backup version missing_version does not exist in source"
+        RestoreVersionNotFoundError,
+        match="Backup version missing_version does not exist in source",
     ):
         await run_restore_flow(
             RestoreCommand(
@@ -226,7 +232,7 @@ async def test_run_restore_flow_rejects_path_outside_destination(
 
     dest = tmp_path / "out"
     dest.mkdir()
-    with pytest.raises(ValueError, match="outside destination"):
+    with pytest.raises(RestorePathError, match="outside destination"):
         await run_restore_flow(
             RestoreCommand(
                 location=str(tmp_path),

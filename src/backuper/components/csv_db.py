@@ -10,12 +10,13 @@ from typing import Union
 from uuid import UUID
 
 from backuper.config import CsvDbConfig
-from backuper.interfaces import (
-    BackupDatabase,
-    BackupedFileEntry,
+from backuper.models import (
+    BackedUpFileEntry,
     FileEntry,
+    MalformedBackupCsvError,
     VersionNotFoundError,
 )
+from backuper.ports import BackupDatabase
 from backuper.utils.paths import hash_to_stored_location, normalize_path
 
 _StoredLocation = str
@@ -49,7 +50,7 @@ _FileSystemObject = Union[_DirEntry, _StoredFile]
 
 def _csvrow_to_model(row) -> _FileSystemObject:
     if not row:
-        raise ValueError("Empty CSV row")
+        raise MalformedBackupCsvError("Empty CSV row")
     kind = row[0]
     if kind == "d":
         return _DirEntry(row[1])
@@ -77,11 +78,11 @@ def _csvrow_to_model(row) -> _FileSystemObject:
             _, restore_path, sha1hash = row
             stored_location = str(hash_to_stored_location(sha1hash, False))
             return _StoredFile(restore_path, sha1hash, stored_location, False)
-        raise ValueError(
+        raise MalformedBackupCsvError(
             f"Unsupported file CSV row: expected 3, 5, or 7+ columns "
             f"(only the first 7 fields are used when more are present), got {len(row)}"
         )
-    raise ValueError(f"Unknown CSV row type: {kind!r}")
+    raise MalformedBackupCsvError(f"Unknown CSV row type: {kind!r}")
 
 
 def _model_to_csvrow(model: _FileSystemObject) -> str:
@@ -90,7 +91,7 @@ def _model_to_csvrow(model: _FileSystemObject) -> str:
     elif isinstance(model, _StoredFile):
         return f'"f","{model.restore_path}","{model.sha1hash}","{model.stored_location}","{model.is_compressed}","{model.size}","{model.mtime}"\n'
     else:
-        raise ValueError("Do not know how to parse object")
+        raise MalformedBackupCsvError("Do not know how to parse object")
 
 
 class CsvDb:
@@ -212,7 +213,7 @@ class CsvBackupDatabase(BackupDatabase):
 
     def _stored_file_to_backup_entry(
         self, stored_file: _StoredFile
-    ) -> BackupedFileEntry:
+    ) -> BackedUpFileEntry:
         path = Path(stored_file.restore_path)
         source_file = FileEntry(
             path=path,
@@ -222,7 +223,7 @@ class CsvBackupDatabase(BackupDatabase):
             is_directory=False,
         )
         backup_id = self._generate_uuid_from_hash(stored_file.sha1hash)
-        return BackupedFileEntry(
+        return BackedUpFileEntry(
             source_file=source_file,
             backup_id=backup_id,
             stored_location=stored_file.stored_location,
@@ -264,7 +265,7 @@ class CsvBackupDatabase(BackupDatabase):
     async def create_version(self, version: str) -> None:
         self._csv_db.create_version(version)
 
-    async def add_file(self, version: str, entry: BackupedFileEntry) -> None:
+    async def add_file(self, version: str, entry: BackedUpFileEntry) -> None:
         version_obj = self._csv_db.get_version_by_name(version)
 
         if entry.source_file.is_directory:
@@ -287,7 +288,7 @@ class CsvBackupDatabase(BackupDatabase):
             )
             self._files_by_hash.setdefault(stored_file.sha1hash, []).append(stored_file)
 
-    async def get_files_by_hash(self, hash: str) -> list[BackupedFileEntry]:
+    async def get_files_by_hash(self, hash: str) -> list[BackedUpFileEntry]:
         """Get file entries by their hash value"""
         self._ensure_file_indexes()
         result = []
@@ -297,7 +298,7 @@ class CsvBackupDatabase(BackupDatabase):
 
     async def get_files_by_metadata(
         self, relative_path: Path, mtime: float, size: int
-    ) -> list[BackupedFileEntry]:
+    ) -> list[BackedUpFileEntry]:
         """Get file entries by their metadata (relative path, mtime, and size)"""
         self._ensure_file_indexes()
         rel = str(relative_path)

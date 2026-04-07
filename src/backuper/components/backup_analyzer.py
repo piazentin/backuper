@@ -1,11 +1,7 @@
 from collections.abc import AsyncIterator
 
-from backuper.interfaces import (
-    AnalyzedFileEntry,
-    BackupAnalyzer,
-    BackupDatabase,
-    FileEntry,
-)
+from backuper.models import AnalyzedFileEntry, FileEntry
+from backuper.ports import BackupAnalyzer, BackupDatabase
 from backuper.utils.hashing import compute_hash
 
 

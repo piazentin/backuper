@@ -3,18 +3,25 @@ from collections.abc import Callable
 from pathlib import Path
 
 from backuper.commands import RestoreCommand
-from backuper.interfaces import BackupDatabase, FileStore, VersionNotFoundError
+from backuper.models import (
+    RestorePathError,
+    RestoreVersionNotFoundError,
+    VersionNotFoundError,
+)
+from backuper.ports import BackupDatabase, FileStore
 
 _logger = logging.getLogger(__name__)
 
 
 def _resolved_path_under_destination(destination: Path, relative_path: Path) -> Path:
     if relative_path.is_absolute():
-        raise ValueError(f"Invalid restore entry path (absolute): {relative_path}")
+        raise RestorePathError(
+            f"Invalid restore entry path (absolute): {relative_path}"
+        )
     root = destination.resolve()
     candidate = (destination / relative_path).resolve()
     if candidate != root and not candidate.is_relative_to(root):
-        raise ValueError(
+        raise RestorePathError(
             f"Invalid restore entry path (outside destination): {relative_path}"
         )
     return candidate
@@ -30,9 +37,7 @@ async def run_restore_flow(
     try:
         version_name = await db.get_version_by_name(command.version_name)
     except VersionNotFoundError as err:
-        raise ValueError(
-            f"Backup version {command.version_name} does not exist in source"
-        ) from err
+        raise RestoreVersionNotFoundError(command.version_name) from err
 
     destination = Path(command.destination)
     skipped_missing_hash = 0

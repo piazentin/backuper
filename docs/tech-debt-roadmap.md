@@ -55,7 +55,7 @@ flowchart TB
     D1[Decouple csv_db from filestore hash paths]
   end
 
-  subgraph contract [Phase 3 - Contract split]
+  subgraph contract [Phase 3 - Contract split — done]
     E1[models/ + ports/ split]
     E2[Rename BackupedFileEntry + copy]
   end
@@ -139,6 +139,8 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 | 2.1 | Extract `hash_to_stored_location` (or equivalent) so **`csv_db` does not import `filestore`** | Prefer helpers under a neutral module or narrow port (**D**) |
 
 ### Phase 3 — Contract architecture
+
+**Status:** Complete. **`interfaces/`** removed in favor of **`models/`** (value types + domain exceptions) and **`ports/`** (ABCs only; **`ports` → `models`**); import-linter contracts and **`AGENTS.md`** layering updated; **`BackupedFileEntry`** renamed to **`BackedUpFileEntry`** with copy fixes; application **`ValueError`** in **`src/backuper/`** replaced with typed **`UserFacingError`** subclasses for CLI and controller boundaries.
 
 | Order | Item | Notes |
 |------:|------|--------|
@@ -263,7 +265,7 @@ Detail preserved from earlier working notes—**not** extra scope by default; us
 
 ### Contract split (**E** / Phase 3)
 
-- Dependency direction: **`ports` → `models` only**; thin `__init__.py` re-exports if imports should stay stable mid-migration.
+- Dependency direction: **`ports` → `models` only**; packages re-export via each package’s **`__init__.py`** (no separate **`interfaces/`** shim).
 - Naming: prefer **`models/`** over a single `interfaces` bucket or `dtos/` + `ports/` — **`models`** reads better here.
 
 ### CSV migration (**F** / Phase 4)
@@ -292,7 +294,7 @@ Validated against the current tree (see code references below).
 
 - **`CsvDb`** is **synchronous** (`open`, `csv.reader`, append writes, etc.). **`CsvBackupDatabase`** exposes **`async def`** port methods that **delegate synchronously** to `CsvDb`—no real non-blocking I/O.
 - **`LocalFileReader.read_directory`** is an async generator built on blocking **`os.walk`**, **`os.path.getmtime`**, **`os.path.getsize`** (`file_reader.py`).
-- **`FileStore` / `LocalFileStore`**: port is **fully sync**. **`_to_backuped_entry`** in `backup.py` calls **`filestore.put(...)`** without awaiting non-blocking work.
+- **`FileStore` / `LocalFileStore`**: port is **fully sync**. **`_to_backed_up_entry`** in `backup.py` calls **`filestore.put(...)`** without awaiting non-blocking work.
 - **`run_restore_flow`**: **`restore_path.write_bytes(filestore.read_blob(...))`** — sync disk read/write inside an `async def` (`restore.py`).
 
 **Implication:** The event loop can be blocked for long stretches; **`asyncio` alone** does not yield better interleaving unless work is **offloaded** (`asyncio.to_thread`, bounded pools) or I/O is redesigned. For **HTTP**, Phase **10** covers event-loop fairness; for **CLI**, see **Guiding principle 6** (Honest async).
@@ -342,13 +344,13 @@ Validated against the current tree (see code references below).
 **Code references**
 
 - `entrypoints/cli.py` — `asyncio.run`
-- `controllers/backup.py` — `_collect_analyzed_entries`, `_run_backup_stream`, `_to_backuped_entry`
+- `controllers/backup.py` — `_collect_analyzed_entries`, `_run_backup_stream`, `_to_backed_up_entry`
 - `components/csv_db.py` — `CsvDb`, `CsvBackupDatabase.list_files`, `get_files_for_version`, `get_dirs_for_version`, `get_fs_objects_for_version`
 - `components/filestore.py` — synchronous `LocalFileStore`
 - `components/file_reader.py` — `LocalFileReader`
 - `components/backup_analyzer.py`, `utils/hashing.py` — `compute_hash`
 - `controllers/restore.py` — `run_restore_flow`
-- `interfaces/__init__.py` — ports (streaming placeholder types removed in Phase 1)
+- `ports/__init__.py`, `models/__init__.py` — ports and value types (streaming placeholder types removed in Phase 1)
 
 ---
 

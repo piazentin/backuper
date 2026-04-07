@@ -1,7 +1,5 @@
-from backuper.interfaces import (
-    AnalysisReporter,
-    AnalyzedFileEntry,
-)
+from backuper.models import AnalyzedFileEntry
+from backuper.ports import AnalysisReporter
 
 
 class StdoutAnalysisReporter(AnalysisReporter):

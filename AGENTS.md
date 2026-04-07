@@ -6,12 +6,12 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 - `python -m backuper` → [`src/backuper/__main__.py`](src/backuper/__main__.py) → [`main()`](src/backuper/entrypoints/main.py) (`sys.exit`) → [`argparser.parse`](src/backuper/entrypoints/argparser.py) (returns a command plus `quiet`) → [`dispatch_command`](src/backuper/entrypoints/main.py) → [`run_new` / `run_update` / `run_check` / `run_restore`](src/backuper/entrypoints/cli.py).
 - Installed CLI: `[project.scripts]` maps `backuper` to `backuper.entrypoints.main:main` (e.g. `uv run backuper …` after `uv sync`).
-- **`main()`** configures the root logger, then dispatches. It prints **`ValueError`** messages to stderr (exit **1**, no traceback), logs unexpected exceptions at **ERROR** with full traceback and prints a short generic message to stderr (exit **1**), and re-raises **`SystemExit`** (e.g. `--help`, argparse errors). **`run_with_args()`** parses and dispatches without that outer error boundary (useful for tests or callers that want uncaught exceptions).
+- **`main()`** configures the root logger, then dispatches. It prints **`UserFacingError`** messages to stderr (exit **1**, no traceback), logs unexpected exceptions at **ERROR** with full traceback and prints a short generic message to stderr (exit **1**), and re-raises **`SystemExit`** (e.g. `--help`, argparse errors). **`run_with_args()`** parses and dispatches without that outer error boundary (useful for tests or callers that want uncaught exceptions).
 - **Parent parser:** `-q` / `--quiet` lowers log verbosity (logging level **WARNING** instead of **INFO**). **`check`** accepts **`--json`**: single JSON object on stdout, `{"errors": [...]}`, instead of human-oriented lines (see [`cli._present_check_stdout`](src/backuper/entrypoints/cli.py)).
 
 ## Architecture
 
-- **Commands** live under [`src/backuper`](src/backuper) (package root: `entrypoints/`, `controllers/`, `components/`, `utils/`, `interfaces/`, `commands.py`, `config.py`).
+- **Commands** live under [`src/backuper`](src/backuper) (package root: `entrypoints/`, `controllers/`, `components/`, `utils/`, `models/`, `ports/`, `commands.py`, `config.py`).
 - **Practice**: New features and fixes go in `src/backuper` with tests under `test/unit` and `test/integration` as appropriate.
 
 ## Additional documentation
@@ -41,7 +41,7 @@ Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run
 
 ## Formatting and lint
 
-- **Ruff** (format + lint) and **import-linter**: `make lint` / `make lint-fix` (see [README.md](README.md)).
+- **Ruff** (format + lint) and **import-linter**: `make lint` / `make lint-fix` (see [README.md](README.md)). **Import-linter** contracts in [`pyproject.toml`](pyproject.toml) include: controllers do not import `components` or each other; `utils`, `models`, and `ports` do not import `components`; and a **layers** rule that `backuper.ports` may depend on `backuper.models` only (not the reverse).
 
 ## Pull requests
 
@@ -52,9 +52,10 @@ Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run
 ## Implementation layering
 
 - **`entrypoints/`** — Delivery adapters and **composition root** for commands. [`src/backuper/entrypoints/cli.py`](src/backuper/entrypoints/cli.py) is the CLI adapter: it owns stdout UX, basic path/schema validation, and **dependency injection** (constructing concrete adapters and passing them into controllers). There is **no** `src/backuper/cli.py` shim—callers use [`backuper.entrypoints.cli`](src/backuper/entrypoints/cli.py) only. Orchestration in `controllers/` is **swappable delivery**: the same functions should be reusable from another entrypoint later (for example a web API) without duplicating use-case logic.
-- **`controllers/`** — Use-case orchestration **only** as **module-level functions** (no orchestration classes). Dependencies are passed **explicitly** as separate parameters; do **not** introduce shared “deps bundle” dataclasses or NamedTuples for hand-off. Where two or more collaborators could be confused, prefer **keyword-only** injected parameters (pattern: `fn(command, *, db=..., filestore=...)`). Controllers depend on **`interfaces`** for port and DTO types; they must not import concrete **`components`** (those are wired in **`entrypoints/`**). They may import **`utils/`** when shared helpers are needed.
-- **`interfaces/`** — Port protocols, shared types, and exceptions ([`backuper.interfaces`](src/backuper/interfaces/__init__.py)). This is the home for **ports**; **`components/`** supply the concrete implementations used at the composition root.
+- **`controllers/`** — Use-case orchestration **only** as **module-level functions** (no orchestration classes). Dependencies are passed **explicitly** as separate parameters; do **not** introduce shared “deps bundle” dataclasses or NamedTuples for hand-off. Where two or more collaborators could be confused, prefer **keyword-only** injected parameters (pattern: `fn(command, *, db=..., filestore=...)`). Controllers depend on **`models`** and **`ports`** for DTO types and port protocols; they must not import concrete **`components`** (those are wired in **`entrypoints/`**). They may import **`utils/`** when shared helpers are needed.
+- **`models/`** — Immutable value types and shared domain exceptions used by **`ports`**, **`controllers`**, and **`components`** ([`backuper.models`](src/backuper/models/__init__.py)). Must not import **`ports`** or **`components`** (import-linter **layers** + forbidden edges).
+- **`ports/`** — Abstract port protocols only ([`backuper.ports`](src/backuper/ports/__init__.py)); import **`models`** for signatures only (`ports` → `models`). Must not import **`components`**. **`components`** implement these protocols at the composition root using **`models`** for DTOs.
 - **`utils/`** — Shared **pure** helpers (e.g. path normalization, hashing, content-addressed path strings) that depend on **`config`** (and the stdlib) only; they must not import **`components/`** (see import-linter). **`components/`** may import **`utils/`**.
-- **`components/`** — Reusable building blocks (e.g. file I/O, CSV DB, analyzer, filestore) that implement **`interfaces`** and remain implementation details behind the composition root.
+- **`components/`** — Reusable building blocks (e.g. file I/O, CSV DB, analyzer, filestore) that implement **`ports`** using **`models`** and remain implementation details behind the composition root.
 - **`commands.py`** — Implementation command DTOs only ([`src/backuper/commands.py`](src/backuper/commands.py)).
 - **`config.py`** — Shared configuration types and constants ([`src/backuper/config.py`](src/backuper/config.py)).
