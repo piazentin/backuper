@@ -4,8 +4,8 @@ from uuid import uuid4
 
 from backuper.models import (
     AnalyzedFileEntry,
+    BackedUpFileEntry,
     BackupAnalysisSummary,
-    BackupedFileEntry,
 )
 from backuper.ports import (
     AnalysisReporter,
@@ -136,20 +136,20 @@ async def _run_backup_stream(
             if on_file_progress is not None and file_idx % one_percent == 0:
                 on_file_progress(file_idx, total_files)
             file_idx += 1
-        backup_entry = await _to_backuped_entry(entry, db=db, filestore=filestore)
+        backup_entry = await _to_backed_up_entry(entry, db=db, filestore=filestore)
         await db.add_file(version, backup_entry)
 
 
-async def _to_backuped_entry(
+async def _to_backed_up_entry(
     entry: AnalyzedFileEntry,
     *,
     db: BackupDatabase,
     filestore: FileStore,
-) -> BackupedFileEntry:
+) -> BackedUpFileEntry:
     source_file = entry.source_file
 
     if source_file.is_directory:
-        return BackupedFileEntry(
+        return BackedUpFileEntry(
             source_file=source_file,
             backup_id=uuid4(),
             stored_location="",
@@ -161,7 +161,7 @@ async def _to_backuped_entry(
         matches = await db.get_files_by_hash(entry.hash)
         if matches:
             matched = matches[0]
-            return BackupedFileEntry(
+            return BackedUpFileEntry(
                 source_file=source_file,
                 backup_id=matched.backup_id,
                 stored_location=matched.stored_location,
@@ -170,7 +170,7 @@ async def _to_backuped_entry(
             )
 
     stored = filestore.put(source_file.path, source_file.relative_path, entry.hash)
-    return BackupedFileEntry(
+    return BackedUpFileEntry(
         source_file=source_file,
         backup_id=uuid4(),
         stored_location=stored.stored_location,

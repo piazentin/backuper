@@ -10,7 +10,7 @@ from typing import Union
 from uuid import UUID
 
 from backuper.config import CsvDbConfig
-from backuper.models import BackupedFileEntry, FileEntry, VersionNotFoundError
+from backuper.models import BackedUpFileEntry, FileEntry, VersionNotFoundError
 from backuper.ports import BackupDatabase
 from backuper.utils.paths import hash_to_stored_location, normalize_path
 
@@ -208,7 +208,7 @@ class CsvBackupDatabase(BackupDatabase):
 
     def _stored_file_to_backup_entry(
         self, stored_file: _StoredFile
-    ) -> BackupedFileEntry:
+    ) -> BackedUpFileEntry:
         path = Path(stored_file.restore_path)
         source_file = FileEntry(
             path=path,
@@ -218,7 +218,7 @@ class CsvBackupDatabase(BackupDatabase):
             is_directory=False,
         )
         backup_id = self._generate_uuid_from_hash(stored_file.sha1hash)
-        return BackupedFileEntry(
+        return BackedUpFileEntry(
             source_file=source_file,
             backup_id=backup_id,
             stored_location=stored_file.stored_location,
@@ -260,7 +260,7 @@ class CsvBackupDatabase(BackupDatabase):
     async def create_version(self, version: str) -> None:
         self._csv_db.create_version(version)
 
-    async def add_file(self, version: str, entry: BackupedFileEntry) -> None:
+    async def add_file(self, version: str, entry: BackedUpFileEntry) -> None:
         version_obj = self._csv_db.get_version_by_name(version)
 
         if entry.source_file.is_directory:
@@ -283,7 +283,7 @@ class CsvBackupDatabase(BackupDatabase):
             )
             self._files_by_hash.setdefault(stored_file.sha1hash, []).append(stored_file)
 
-    async def get_files_by_hash(self, hash: str) -> list[BackupedFileEntry]:
+    async def get_files_by_hash(self, hash: str) -> list[BackedUpFileEntry]:
         """Get file entries by their hash value"""
         self._ensure_file_indexes()
         result = []
@@ -293,7 +293,7 @@ class CsvBackupDatabase(BackupDatabase):
 
     async def get_files_by_metadata(
         self, relative_path: Path, mtime: float, size: int
-    ) -> list[BackupedFileEntry]:
+    ) -> list[BackedUpFileEntry]:
         """Get file entries by their metadata (relative path, mtime, and size)"""
         self._ensure_file_indexes()
         rel = str(relative_path)

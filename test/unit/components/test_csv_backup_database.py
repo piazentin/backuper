@@ -9,7 +9,7 @@ from backuper.components.csv_db import (
     _StoredFile,
 )
 from backuper.config import CsvDbConfig
-from backuper.models import BackupedFileEntry, FileEntry
+from backuper.models import BackedUpFileEntry, FileEntry
 from backuper.utils.paths import hash_to_stored_location
 
 
@@ -84,7 +84,7 @@ async def test_csv_backup_database_add_and_lookup_file_entries(tmp_path: Path) -
         mtime=1711700000.123,
         is_directory=False,
     )
-    stored_file = BackupedFileEntry(
+    stored_file = BackedUpFileEntry(
         source_file=file_entry,
         backup_id=UUID("11111111-1111-1111-1111-111111111111"),
         stored_location="data/f1",
@@ -98,7 +98,7 @@ async def test_csv_backup_database_add_and_lookup_file_entries(tmp_path: Path) -
         mtime=1711700001.0,
         is_directory=False,
     )
-    second_stored_file = BackupedFileEntry(
+    second_stored_file = BackedUpFileEntry(
         source_file=second_file_entry,
         backup_id=UUID("33333333-3333-3333-3333-333333333333"),
         stored_location="data/f2",
@@ -142,7 +142,7 @@ async def test_csv_backup_database_add_and_list_directory_entries(
     db = CsvBackupDatabase(csv_db)
     await db.create_version("20260329010000")
 
-    dir_entry = BackupedFileEntry(
+    dir_entry = BackedUpFileEntry(
         source_file=FileEntry(
             path=Path("/src/subdir"),
             relative_path=Path("subdir"),
@@ -201,7 +201,7 @@ async def test_csv_backup_database_writes_and_appends_csv_rows(tmp_path: Path) -
     assert csv_file.exists()
     assert csv_file.read_text(encoding="utf-8") == ""
 
-    first = BackupedFileEntry(
+    first = BackedUpFileEntry(
         source_file=FileEntry(
             path=Path("/src/a.txt"),
             relative_path=Path("a.txt"),
@@ -214,7 +214,7 @@ async def test_csv_backup_database_writes_and_appends_csv_rows(tmp_path: Path) -
         is_compressed=False,
         hash="ha",
     )
-    second = BackupedFileEntry(
+    second = BackedUpFileEntry(
         source_file=FileEntry(
             path=Path("/src/b.txt"),
             relative_path=Path("b.txt"),

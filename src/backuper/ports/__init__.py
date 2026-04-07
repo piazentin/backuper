@@ -7,7 +7,7 @@ from pathlib import Path
 
 from backuper.models import (
     AnalyzedFileEntry,
-    BackupedFileEntry,
+    BackedUpFileEntry,
     FileEntry,
     PutResult,
 )
@@ -49,19 +49,19 @@ class BackupDatabase(ABC):
         pass
 
     @abstractmethod
-    async def add_file(self, version: str, entry: BackupedFileEntry) -> None:
+    async def add_file(self, version: str, entry: BackedUpFileEntry) -> None:
         """Add a file entry to a specific backup version"""
         pass
 
     @abstractmethod
-    async def get_files_by_hash(self, hash: str) -> list[BackupedFileEntry]:
+    async def get_files_by_hash(self, hash: str) -> list[BackedUpFileEntry]:
         """Get file entries by their hash value"""
         pass
 
     @abstractmethod
     async def get_files_by_metadata(
         self, relative_path: Path, mtime: float, size: int
-    ) -> list[BackupedFileEntry]:
+    ) -> list[BackedUpFileEntry]:
         """Get file entries by their metadata (relative path, mtime, and size)"""
         pass
 

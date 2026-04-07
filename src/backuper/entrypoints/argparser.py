@@ -11,7 +11,7 @@ def _default_name() -> str:
 def with_source_arg(parser: argparse.ArgumentParser):
     parser.add_argument(
         "source",
-        help="Source directory to backup.\nThis is where the data to be backuped is.",
+        help="Source directory to backup.\nThis is where the data to be backed up is.",
     )
 
 
@@ -20,14 +20,14 @@ def with_destination_arg(parser: argparse.ArgumentParser):
         "destination",
         default=None,
         help="Destination to restore to.\n"
-        "This is where your backuped data will be copied to.",
+        "This is where your backed-up data will be copied to.",
     )
 
 
 def with_location_arg(parser: argparse.ArgumentParser):
     parser.add_argument(
         "location",
-        help="Backup data location. This is where your data is backuped.\n"
+        help="Backup data location. This is where your data is backed up.\n"
         "Must be an empty directory for the creation of a new backup.\n"
         "Must be an existing backup directory for a restore,"
         " check, or update.",

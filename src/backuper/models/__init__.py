@@ -36,7 +36,7 @@ class AnalyzedFileEntry:
 
 
 @dataclass
-class BackupedFileEntry:
+class BackedUpFileEntry:
     """Contains backup-specific information for a file"""
 
     source_file: FileEntry  # The original file entry
