@@ -34,8 +34,22 @@ class _PendingFileRow:
     blob_compression_preference: bool | None
 
 
+def _csv_row_line(fields: list[object]) -> str:
+    """Serialize one CSV row with proper quoting/escaping (round-trips with ``csv.reader``)."""
+    buf = io.StringIO()
+    writer = csv.writer(
+        buf,
+        delimiter=",",
+        quotechar='"',
+        quoting=csv.QUOTE_ALL,
+        lineterminator="\n",
+    )
+    writer.writerow(fields)
+    return buf.getvalue()
+
+
 def _format_directory_line(normalized_path: str) -> str:
-    return f'"d","{normalized_path}",""\n'
+    return _csv_row_line(["d", normalized_path, ""])
 
 
 def _format_file_line(
@@ -46,9 +60,16 @@ def _format_file_line(
     size: int,
     mtime: float,
 ) -> str:
-    return (
-        f'"f","{restore_path}","{sha1hash}","{stored_location}",'
-        f'"{is_compressed}","{size}","{mtime}"\n'
+    return _csv_row_line(
+        [
+            "f",
+            restore_path,
+            sha1hash,
+            stored_location,
+            "True" if is_compressed else "False",
+            size,
+            mtime,
+        ]
     )
 
 

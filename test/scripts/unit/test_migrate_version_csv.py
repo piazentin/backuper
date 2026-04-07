@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 from pathlib import Path
 
 import pytest
@@ -97,6 +99,21 @@ def test_migrate_canonical_round_trip_stable(tmp_path: Path) -> None:
     )
     assert migrated == text
     assert not warnings
+
+
+def test_migrate_preserves_double_quotes_in_restore_path(tmp_path: Path) -> None:
+    """Embedded quotes in paths must serialize with CSV escaping (not raw f-strings)."""
+    data_root = _data_root_with_blob(tmp_path)
+    text = f'"f","say ""hi"".txt","{_HELLO_SHA1}"\n'
+    migrated, warnings = migrate_version_csv_text(
+        text,
+        data_root=data_root,
+        version_path=Path("v.csv"),
+    )
+    assert not warnings
+    row = next(csv.reader(io.StringIO(migrated)))
+    assert row[0] == "f"
+    assert row[1] == 'say "hi".txt'
 
 
 def test_migrate_idempotent_second_pass_matches_first(tmp_path: Path) -> None:

@@ -74,7 +74,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "-v",
         "--verbose",
         action="store_true",
-        help="Log enrichment warnings to stderr",
+        help="Enable INFO-level logging (e.g. progress per manifest)",
     )
     return p.parse_args(argv)
 
@@ -101,6 +101,8 @@ def main(argv: list[str] | None = None) -> int:
     exit_code = 0
     for csv_path in targets:
         try:
+            if args.verbose:
+                _LOG.info("Migrating %s", csv_path)
             text = read_text(csv_path)
             migrated, warnings = migrate_version_csv_text(
                 text,

@@ -39,6 +39,18 @@ def test_csvrow_to_model_rejects_short_file_rows() -> None:
         _csvrow_to_model(["f", "a.txt", "hashonly"])
 
 
+def test_csvrow_to_model_rejects_non_integer_size() -> None:
+    row = ["f", "a.txt", "abc", "0/1/2/3/abc", "False", "not-int", "1.0"]
+    with pytest.raises(MalformedBackupCsvError, match="size field"):
+        _csvrow_to_model(row)
+
+
+def test_csvrow_to_model_rejects_non_float_mtime() -> None:
+    row = ["f", "a.txt", "abc", "0/1/2/3/abc", "False", "10", "bad"]
+    with pytest.raises(MalformedBackupCsvError, match="mtime field"):
+        _csvrow_to_model(row)
+
+
 @pytest.mark.asyncio
 async def test_csv_backup_database_ignores_appledouble_sidecar_csv(
     tmp_path: Path,

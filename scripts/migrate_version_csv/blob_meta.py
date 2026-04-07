@@ -118,8 +118,4 @@ def enrich_size_mtime(
     )
     out_size = logical_size if need_size else None
     out_mtime = blob_mtime if need_mtime else None
-    if need_size and logical_size == 0:
-        warnings.append(
-            f"size/mtime enrichment yielded size 0 for blob {blob_path} (hash {sha1hash!r})"
-        )
     return out_size, out_mtime, warnings

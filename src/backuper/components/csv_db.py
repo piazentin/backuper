@@ -59,13 +59,25 @@ def _csvrow_to_model(row) -> _FileSystemObject:
             _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = (
                 row[:7]
             )
+            try:
+                parsed_size = int(size) if size else 0
+            except ValueError as e:
+                raise MalformedBackupCsvError(
+                    f"Invalid file CSV row: size field is not a valid integer: {size!r}"
+                ) from e
+            try:
+                parsed_mtime = float(mtime) if mtime else 0.0
+            except ValueError as e:
+                raise MalformedBackupCsvError(
+                    f"Invalid file CSV row: mtime field is not a valid float: {mtime!r}"
+                ) from e
             return _StoredFile(
                 restore_path,
                 sha1hash,
                 stored_location,
                 is_compressed == "True",
-                int(size) if size else 0,
-                float(mtime) if mtime else 0.0,
+                parsed_size,
+                parsed_mtime,
             )
         raise MalformedBackupCsvError(
             f"Unsupported file CSV row: expected at least 7 columns "
