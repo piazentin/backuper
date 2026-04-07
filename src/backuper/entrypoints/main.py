@@ -56,6 +56,10 @@ def main() -> int:
         dispatch_command(command)
     except SystemExit:
         raise
+    except UnreachableCommandError:
+        _LOG.exception("Unhandled unreachable command")
+        print("An unexpected error occurred.", file=sys.stderr)
+        return 1
     except UserFacingError as exc:
         print(str(exc), file=sys.stderr)
         return 1

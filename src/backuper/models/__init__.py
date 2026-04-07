@@ -30,7 +30,7 @@ from .exceptions import (
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class FileEntry:
     path: Path
     relative_path: Path
@@ -42,7 +42,7 @@ class FileEntry:
     stored_location: str | None = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class AnalyzedFileEntry:
     """Contains analysis results for a file"""
 
@@ -52,7 +52,7 @@ class AnalyzedFileEntry:
     backup_id: UUID | None = None  # Will contain UUID if already backed up
 
 
-@dataclass
+@dataclass(frozen=True)
 class BackedUpFileEntry:
     """Contains backup-specific information for a file"""
 
