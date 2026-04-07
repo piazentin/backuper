@@ -66,6 +66,28 @@ Restore (backup root, then destination; version with `-v` / `--version` / `-n` /
 backuper restore /path/to/backup/root /path/to/restore/into --version backup-version
 ```
 
+## Version CSV migration
+
+If an existing backup tree still has **legacy** version manifests (short `f` rows without the full seven columns the current reader expects), migrate them **before** running `new`, `update`, `check`, or `restore` on that tree. Full rules, blob enrichment, and rollback files (`.bak`) are in **[docs/csv-migration-contract.md](docs/csv-migration-contract.md)**.
+
+From the repository root, use the dev environment so `scripts/` is importable:
+
+```
+uv sync --group dev
+uv run python -m scripts.migrate_version_csv --help
+```
+
+Typical flow: pass the **backup root** (the directory that contains `db/` and `data/` by default). Preview with `--dry-run`, then run again without it to write migrated CSVs (atomic replace; originals preserved as `.bak` per the contract):
+
+```
+uv run python -m scripts.migrate_version_csv /path/to/backup/root --dry-run
+uv run python -m scripts.migrate_version_csv /path/to/backup/root
+```
+
+Use `--db-dir` / `--data-dir` if your layout uses different names than `db` / `data`. Use `--csv path/to/db/version.csv` (repeatable) to migrate specific manifests instead of all `*.csv` under the db directory. Add `-v` / `--verbose` for enrichment warnings on stderr.
+
+Run migration only during a **quiet window** (no concurrent `backuper` commands against the same tree).
+
 ## Development
 
 - **Environment:** `make sync` or `uv sync --group dev` (app plus pytest, Ruff, import-linter).

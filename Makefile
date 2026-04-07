@@ -25,10 +25,10 @@ integration:
 	$(UV) run python -m pytest test/integration
 
 test:
-	$(UV) run python -m pytest test/unit test/integration
+	$(UV) run python -m pytest test/unit test/integration test/scripts
 
 test-coverage:
-	$(UV) run python -m pytest test/unit test/integration --cov=. --cov-report=term-missing
+	$(UV) run python -m pytest test/unit test/integration test/scripts --cov=. --cov-report=term-missing
 
 lint:
 	$(UV) run ruff format --check .

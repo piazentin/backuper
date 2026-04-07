@@ -17,6 +17,7 @@ This file is the canonical agent and contributor map for this repository; prefer
 ## Additional documentation
 
 - **[Tech debt roadmap](docs/tech-debt-roadmap.md)** — phased backlog for refactors and technical debt (also indexed under [docs/README.md](docs/README.md)).
+- **CSV migration (operators):** legacy version manifests must be migrated with **`uv run python -m scripts.migrate_version_csv`** before using the current runtime on an existing backup tree; see **[`docs/csv-migration-contract.md`](docs/csv-migration-contract.md)**.
 
 ## Command naming rubric
 
@@ -30,10 +31,10 @@ This file is the canonical agent and contributor map for this repository; prefer
 - **`make backup`** — `uv sync --group dev && uv run backuper …`; pass CLI args as extra goals, e.g. `make backup update /path/to/source /path/to/backup-root` (see [`Makefile`](Makefile)).
 - **`make unit`** — `pytest test/unit` (isolated tests: entrypoints, controllers, components) under `uv run`.
 - **`make integration`** — `pytest test/integration` (on-disk layout, CSV rows, CLI-style flows).
-- **`make test`** — both trees: `pytest test/unit test/integration`.
+- **`make test`** — `pytest test/unit test/integration test/scripts` (includes migration script tests under [`test/scripts/`](test/scripts/)).
 - **`make test-coverage`** — same scope as `make test` with coverage (`--cov=.`).
 
-Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run python -m pytest test/unit/...` or `test/integration/...`.
+Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run python -m pytest test/unit/...`, `test/integration/...`, or `test/scripts/...`.
 
 ## On-disk and CSV contract
 

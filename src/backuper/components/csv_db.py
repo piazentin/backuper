@@ -17,7 +17,7 @@ from backuper.models import (
     VersionNotFoundError,
 )
 from backuper.ports import BackupDatabase
-from backuper.utils.paths import hash_to_stored_location, normalize_path
+from backuper.utils.paths import normalize_path
 
 _StoredLocation = str
 
@@ -59,27 +59,28 @@ def _csvrow_to_model(row) -> _FileSystemObject:
             _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = (
                 row[:7]
             )
+            try:
+                parsed_size = int(size) if size else 0
+            except ValueError as e:
+                raise MalformedBackupCsvError(
+                    f"Invalid file CSV row: size field is not a valid integer: {size!r}"
+                ) from e
+            try:
+                parsed_mtime = float(mtime) if mtime else 0.0
+            except ValueError as e:
+                raise MalformedBackupCsvError(
+                    f"Invalid file CSV row: mtime field is not a valid float: {mtime!r}"
+                ) from e
             return _StoredFile(
                 restore_path,
                 sha1hash,
                 stored_location,
                 is_compressed == "True",
-                int(size) if size else 0,
-                float(mtime) if mtime else 0.0,
+                parsed_size,
+                parsed_mtime,
             )
-        if len(row) == 5:
-            # Old format without size and mtime
-            _, restore_path, sha1hash, stored_location, is_compressed = row
-            return _StoredFile(
-                restore_path, sha1hash, stored_location, is_compressed == "True"
-            )
-        if len(row) == 3:
-            # Legacy: restore path + hash only (no stored location in CSV)
-            _, restore_path, sha1hash = row
-            stored_location = str(hash_to_stored_location(sha1hash, False))
-            return _StoredFile(restore_path, sha1hash, stored_location, False)
         raise MalformedBackupCsvError(
-            f"Unsupported file CSV row: expected 3, 5, or 7+ columns "
+            f"Unsupported file CSV row: expected at least 7 columns "
             f"(only the first 7 fields are used when more are present), got {len(row)}"
         )
     raise MalformedBackupCsvError(f"Unknown CSV row type: {kind!r}")
