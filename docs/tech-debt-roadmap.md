@@ -272,6 +272,12 @@ Detail preserved from earlier working notes—**not** extra scope by default; us
 
 - Call out the migration path in **release notes**; **support window** of a few releases, then remove script and duplicated helpers.
 - **Strip list** when retiring migration: script, tests that exist only for it, helpers added solely for migration—then simplify the reader.
+- Canonical contract and migration policy are documented in **[`docs/csv-migration-contract.md`](csv-migration-contract.md)**:
+  - canonical rows: `d` as 3 columns (`kind`, normalized path, reserved empty field), `f` as 7 columns (`kind`, restore path, hash, stored location, compressed flag, size, mtime)
+  - legacy accepted source shapes for file rows: 3 / 5 / 7+ columns with deterministic mapping to canonical rows
+  - fail-fast error policy with file path + row number reporting; no in-place replacement on malformed input
+  - idempotency requirement (`--dry-run`, deterministic serialization, no-op when already canonical)
+  - maintenance-window guidance: operator-only action, run when no backup/update/check/restore command is active
 
 ### Reporting / backup pipeline (**H** / Phase 6)
 
