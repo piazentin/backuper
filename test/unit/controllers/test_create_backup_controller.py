@@ -13,13 +13,11 @@ from backuper.controllers.backup import (
     add_version,
     new_backup,
 )
-from backuper.interfaces import (
+from backuper.models import AnalyzedFileEntry, BackupAnalysisSummary, FileEntry
+from backuper.ports import (
     AnalysisReporter,
-    AnalyzedFileEntry,
-    BackupAnalysisSummary,
     BackupAnalyzer,
     BackupDatabase,
-    FileEntry,
     FileReader,
 )
 

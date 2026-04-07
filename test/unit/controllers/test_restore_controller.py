@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from backuper.commands import RestoreCommand
 from backuper.controllers.restore import run_restore_flow
-from backuper.interfaces import FileEntry, VersionNotFoundError
+from backuper.models import FileEntry, VersionNotFoundError
 
 
 @pytest.mark.asyncio

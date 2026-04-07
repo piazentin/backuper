@@ -21,7 +21,7 @@ from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import add_version, new_backup
 from backuper.controllers.check import run_check_flow
 from backuper.controllers.restore import run_restore_flow
-from backuper.interfaces import BackupAnalysisSummary
+from backuper.models import BackupAnalysisSummary
 
 
 def _csv_db(backup_root: Path) -> CsvDb:

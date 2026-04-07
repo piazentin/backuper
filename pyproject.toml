@@ -62,3 +62,15 @@ name = "Utils must not import components"
 type = "forbidden"
 source_modules = ["backuper.utils"]
 forbidden_modules = ["backuper.components"]
+
+[[tool.importlinter.contracts]]
+name = "Models must not import components"
+type = "forbidden"
+source_modules = ["backuper.models"]
+forbidden_modules = ["backuper.components"]
+
+[[tool.importlinter.contracts]]
+name = "Ports must not import components"
+type = "forbidden"
+source_modules = ["backuper.ports"]
+forbidden_modules = ["backuper.components"]

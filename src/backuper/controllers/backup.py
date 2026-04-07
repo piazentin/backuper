@@ -2,13 +2,15 @@ from collections.abc import Callable
 from pathlib import Path
 from uuid import uuid4
 
-from backuper.interfaces import (
-    AnalysisReporter,
+from backuper.models import (
     AnalyzedFileEntry,
     BackupAnalysisSummary,
+    BackupedFileEntry,
+)
+from backuper.ports import (
+    AnalysisReporter,
     BackupAnalyzer,
     BackupDatabase,
-    BackupedFileEntry,
     FileReader,
     FileStore,
 )

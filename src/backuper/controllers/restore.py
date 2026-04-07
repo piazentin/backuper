@@ -3,7 +3,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 from backuper.commands import RestoreCommand
-from backuper.interfaces import BackupDatabase, FileStore, VersionNotFoundError
+from backuper.models import VersionNotFoundError
+from backuper.ports import BackupDatabase, FileStore
 
 _logger = logging.getLogger(__name__)
 

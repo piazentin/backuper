@@ -7,7 +7,8 @@ from pathlib import Path
 from zipfile import ZipFile
 
 from backuper.config import FilestoreConfig
-from backuper.interfaces import FileStore, PutResult
+from backuper.models import PutResult
+from backuper.ports import FileStore
 from backuper.utils.hashing import compute_hash
 from backuper.utils.paths import hash_to_stored_location, normalize_path
 

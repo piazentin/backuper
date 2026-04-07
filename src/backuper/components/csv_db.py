@@ -10,12 +10,8 @@ from typing import Union
 from uuid import UUID
 
 from backuper.config import CsvDbConfig
-from backuper.interfaces import (
-    BackupDatabase,
-    BackupedFileEntry,
-    FileEntry,
-    VersionNotFoundError,
-)
+from backuper.models import BackupedFileEntry, FileEntry, VersionNotFoundError
+from backuper.ports import BackupDatabase
 from backuper.utils.paths import hash_to_stored_location, normalize_path
 
 _StoredLocation = str

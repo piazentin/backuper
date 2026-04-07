@@ -1,11 +1,8 @@
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from backuper.interfaces import (
-    BackupDatabase,
-    BackupedFileEntry,
-    FileEntry,
-)
+from backuper.models import BackupedFileEntry, FileEntry
+from backuper.ports import BackupDatabase
 
 
 class MockBackupDatabase(BackupDatabase):

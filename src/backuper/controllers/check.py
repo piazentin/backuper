@@ -1,5 +1,6 @@
 from backuper.commands import CheckCommand
-from backuper.interfaces import BackupDatabase, FileStore, VersionNotFoundError
+from backuper.models import VersionNotFoundError
+from backuper.ports import BackupDatabase, FileStore
 
 
 async def _missing_stored_files(

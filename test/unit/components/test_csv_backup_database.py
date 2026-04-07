@@ -9,7 +9,7 @@ from backuper.components.csv_db import (
     _StoredFile,
 )
 from backuper.config import CsvDbConfig
-from backuper.interfaces import BackupedFileEntry, FileEntry
+from backuper.models import BackupedFileEntry, FileEntry
 from backuper.utils.paths import hash_to_stored_location
 
 

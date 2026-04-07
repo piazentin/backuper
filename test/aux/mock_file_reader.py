@@ -1,7 +1,8 @@
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from backuper.interfaces import FileEntry, FileReader
+from backuper.models import FileEntry
+from backuper.ports import FileReader
 
 
 class MockFileReader(FileReader):
