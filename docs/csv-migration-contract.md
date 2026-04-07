@@ -1,12 +1,21 @@
-# CSV migration contract (Phase 4.1)
+# CSV migration contract
 
-This document defines the migration target format for version CSV manifests, plus the accepted legacy source shapes and safety semantics for the standalone migration script.
+## Operator requirement (read this first)
+
+The **`backuper` runtime** (`new`, `update`, `check`, `restore`) reads **canonical** version CSV rows only—see [Canonical CSV row contract](#canonical-csv-row-contract) and `CsvDb` in `src/backuper/components/csv_db.py`. It does **not** accept legacy short file rows (3 or 5 columns).
+
+If you have an **existing backup tree** whose version manifests still use legacy shapes, you **must** run the standalone migration **before** relying on this version of the tool against that tree:
+
+```bash
+uv run python -m scripts.migrate_version_csv --help
+```
+
+Migration details, legacy source shapes, dry-run/apply semantics, and rollback artifacts are defined below.
 
 ## Scope
 
 - Applies to migration of existing `<backup_root>/<backup_db_dir>/<version>.csv` files.
-- Does not change runtime command behavior (`new`, `update`, `check`, `restore`) during the support window.
-- Defines the canonical output shape that Phase 4.2 will rely on when legacy decode branches are removed.
+- Defines the canonical output shape that the runtime expects after migration.
 
 ## Canonical CSV row contract
 
@@ -46,7 +55,7 @@ Example:
 
 ## Legacy-to-canonical mapping rules
 
-Legacy compatibility currently accepts file rows with 3, 5, or 7+ columns. Migration converts all file rows to canonical 7-column form.
+The **migration script** accepts legacy file rows with 3, 5, or 7+ columns and converts them to canonical 7-column form. The **runtime** does not; use the script to upgrade old manifests.
 
 ### Size and mtime enrichment from the backed-up blob
 

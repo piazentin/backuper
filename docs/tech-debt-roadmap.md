@@ -10,7 +10,7 @@ Short index of files in this folder: [docs/README.md](README.md).
 
 1. **Shrink surface area before large moves** — Remove or wire dead code before splitting `interfaces/` so migrations carry less baggage.
 2. **Stabilize contracts early** — Domain exceptions and clear layering make later refactors (`models/` + `ports/`, HTTP) safer.
-3. **CSV legacy is a lifecycle** — Ship migration and a support window *before* deleting compatibility branches in hot paths.
+3. **CSV manifests** — Operators upgrade legacy version CSVs with the **standalone migration script**; the **`backuper` runtime** reads **canonical rows only** (see [`docs/csv-migration-contract.md`](csv-migration-contract.md)).
 4. **CLI rename and backup pipeline** — Can proceed in parallel once foundations exist; unify observer + streaming when touching the same code paths.
 5. **CSV adapter boundary** — Prefer a **composition-root factory** that returns `BackupDatabase` and keeps `CsvDb` implementation-private; **merge** the two classes only if the split stops earning its keep (larger change).
 6. **Honest async** — `asyncio.run()` and `async def` / `AsyncIterator` ports do **not** by themselves improve throughput or responsiveness for this **single-process CLI** when the heavy work remains **blocking disk, CSV I/O, and sync hashing** on the main thread. Gains come from **offloading** (`asyncio.to_thread`, bounded pools), **true overlap** (pipelining, parallelism with caps), or **redundant I/O fixes**—not from more `async` wrappers alone.
@@ -26,7 +26,7 @@ Short index of files in this folder: [docs/README.md](README.md).
 | C | **Dead / duplicate surface** | Remove or implement unused types; merge test-only paths |
 | D | **Layering** | `csv_db` ↔ `filestore` decoupling; shared helpers or ports |
 | E | **Contract architecture** | Split `interfaces/` → `models/` + `ports/`; import-linter + `AGENTS.md` |
-| F | **CSV lifecycle** | Standalone migration script → later strip legacy `_csvrow_to_model` branches |
+| F | **CSV lifecycle** | **Standalone migration script** (required for legacy trees) + **runtime** `_csvrow_to_model` accepts canonical rows only |
 | **F′** | **CSV adapter composition** | `CsvDb` + `CsvBackupDatabase` double construction at call sites; factory (preferred) or single-class merge |
 | G | **CLI product** | `check` → `verify-integrity` (single integrity command) |
 | H | **Backup pipeline** | Streaming vs full list; unified `AnalysisReporter` / observer |
@@ -60,9 +60,9 @@ flowchart TB
     E2[Rename BackupedFileEntry + copy]
   end
 
-  subgraph csv [Phase 4 - CSV lifecycle]
-    F1[Standalone CSV migration script]
-    F2[Remove legacy row branches after window]
+  subgraph csv [Phase 4 - CSV lifecycle — done]
+    F1[Standalone CSV migration script — kept]
+    F2[Runtime `_csvrow_to_model` — canonical file rows only]
   end
 
   subgraph cli [Phase 5 - CLI]
@@ -104,7 +104,7 @@ flowchart TB
 **Narrative dependencies (not all drawn as edges):**
 
 - **Diagram gaps:** Workstream **L** (throughput, redundant CSV reads) has **no node** in the chart; see **6.4**–**6.5** and **Implementation hooks (L)**. Phase **1.6** (logging / `--quiet` / `check --json`) shipped with Phase 1 and is not drawn separately.
-- **F2** depends on **F1** and elapsed support window (policy, not only code). **E1 → F2** is an ordering preference (cleaner types before shrinking `_csvrow_to_model`); it is not a substitute for **F1** + the support window.
+- **F2** (runtime canonical-only) is paired with **F1** (migration for existing trees): operators run **`scripts.migrate_version_csv`** before using current **`backuper`** on legacy manifests. **E1 → F2** is an ordering preference (cleaner types before shrinking `_csvrow_to_model`).
 - **H2** (streaming) overlaps **H1** (observer); doing both in one effort avoids double refactors of `_run_backup_stream`.
 - **L** (single-pass **`list_files`**, redundant I/O) is a **quick sync win** and can land before or alongside **H2**; it does not depend on an async strategy.
 - **Multi-UX** items (async in `run_restore_flow`, injectable config vs globals, HTTP error mapping) **activate when HTTP is real**; contract **E** and domain errors **B** reduce pain first. **CLI** blocking behavior is a separate concern from **Phase 10** (*When HTTP / second composition root exists*—event-loop fairness under HTTP).
@@ -150,10 +150,12 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 
 ### Phase 4 — CSV legacy lifecycle
 
+**Status:** Complete. **`scripts/migrate_version_csv`** remains the **supported path** to convert legacy manifests; **`_csvrow_to_model`** in **`csv_db.py`** accepts **canonical `f` rows only** (at least seven columns). Unmigrated backup trees are not readable by the current runtime—operators must run migration first (see **[`docs/csv-migration-contract.md`](csv-migration-contract.md)**).
+
 | Order | Item | Notes |
 |------:|------|--------|
-| 4.1 | Ship **standalone** migration (outside core hot path); temporary duplication vs `csv_db` acceptable | Per policy: `scripts/` or small `migrate` CLI; avoid forcing premature shared abstractions with `CsvDb` |
-| 4.2 | After support window: remove script, tests, duplicated helpers; **simplify `_csvrow_to_model`** to one canonical shape | Today: **3-, 5-, and 7-column** row variants; document unsupported unmigrated trees clearly |
+| 4.1 | **Standalone** migration under `scripts/` (outside core hot path) | `uv run python -m scripts.migrate_version_csv`; tests under `test/scripts/` |
+| 4.2 | **Simplify `_csvrow_to_model`** to canonical shape only in the runtime | Legacy decode lives in the migration script, not in `CsvDb` |
 
 ### Phase 5 — CLI integrity command
 
@@ -222,7 +224,7 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 | UX / grammar / copy | 1 (e.g. 1.4) |
 | Structured logging / `--quiet` / machine-readable output | 1 (1.6) |
 | Uncaught exceptions | 1 |
-| CSV legacy + migration | 4 |
+| CSV migration + canonical runtime rows | 4 |
 | `CsvDb` + `CsvBackupDatabase` (factory vs merge) | 7 |
 | CI and tooling | 9 |
 | Naming `BackupedFileEntry` | 3 |
@@ -246,7 +248,7 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 | E1 | `models/` + `ports/` split |
 | E2 | Rename BackupedFileEntry + copy |
 | F1 | Standalone CSV migration script |
-| F2 | Remove legacy row branches after window |
+| F2 | Runtime `_csvrow_to_model`: canonical file rows only |
 | G1 | `check` → `verify-integrity` |
 | H1 | Unified observer / AnalysisReporter |
 | H2 | Streaming or single-pass backup |
@@ -268,16 +270,11 @@ Detail preserved from earlier working notes—**not** extra scope by default; us
 - Dependency direction: **`ports` → `models` only**; packages re-export via each package’s **`__init__.py`** (no separate **`interfaces/`** shim).
 - Naming: prefer **`models/`** over a single `interfaces` bucket or `dtos/` + `ports/` — **`models`** reads better here.
 
-### CSV migration (**F** / Phase 4)
+### CSV migration (**F** / Phase 4) — shipped
 
-- Call out the migration path in **release notes**; **support window** of a few releases, then remove script and duplicated helpers.
-- **Strip list** when retiring migration: script, tests that exist only for it, helpers added solely for migration—then simplify the reader.
-- Canonical contract and migration policy are documented in **[`docs/csv-migration-contract.md`](csv-migration-contract.md)**:
-  - canonical rows: `d` as 3 columns (`kind`, normalized path, reserved empty field), `f` as 7 columns (`kind`, restore path, hash, stored location, compressed flag, size, mtime)
-  - legacy accepted source shapes for file rows: 3 / 5 / 7+ columns with deterministic mapping to canonical rows
-  - fail-fast error policy with file path + row number reporting; no in-place replacement on malformed input
-  - idempotency requirement (`--dry-run`, deterministic serialization, no-op when already canonical)
-  - maintenance-window guidance: operator-only action, run when no backup/update/check/restore command is active
+- **Operators** with existing backup trees **must** run the migration script before using the current runtime; details are in **[`docs/csv-migration-contract.md`](csv-migration-contract.md)**.
+- Canonical rows for the **runtime**: `d` as 3 columns (`kind`, normalized path, reserved empty field), `f` as 7 columns (`kind`, restore path, hash, stored location, compressed flag, size, mtime).
+- **Migration script** accepts legacy file rows (3 / 5 / 7+ columns), maps them to canonical rows, and documents fail-fast policy, idempotency, atomic writes, and maintenance-window guidance.
 
 ### Reporting / backup pipeline (**H** / Phase 6)
 
@@ -363,7 +360,7 @@ Validated against the current tree (see code references below).
 ## Risks if order is ignored
 
 - **Contract split (E) before dead-code cleanup (C)** — More symbols and import paths to move twice.
-- **Stripping CSV legacy (F2) before migration (F1)** — Data loss or unsupported trees without a clear path.
+- **Using the runtime on an unmigrated backup tree** — Legacy manifests will not parse; run **`scripts.migrate_version_csv`** first (see [`docs/csv-migration-contract.md`](csv-migration-contract.md)).
 - **HTTP (10) before domain errors and structured failures (1, 3)** — Adapters re-map stringly `ValueError` repeatedly.
 - **Streaming (H2) without observer unification (H1)** — Two disruptive changes to the same hot path.
 - **HTTP or a second entrypoint before CSV factory (7.1)** — Risk duplicating `CsvBackupDatabase(CsvDb(...))` wiring; do **7.1** before or with the first non-CLI composition root.
