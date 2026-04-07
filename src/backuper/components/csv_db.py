@@ -10,7 +10,12 @@ from typing import Union
 from uuid import UUID
 
 from backuper.config import CsvDbConfig
-from backuper.models import BackedUpFileEntry, FileEntry, VersionNotFoundError
+from backuper.models import (
+    BackedUpFileEntry,
+    FileEntry,
+    MalformedBackupCsvError,
+    VersionNotFoundError,
+)
 from backuper.ports import BackupDatabase
 from backuper.utils.paths import hash_to_stored_location, normalize_path
 
@@ -45,7 +50,7 @@ _FileSystemObject = Union[_DirEntry, _StoredFile]
 
 def _csvrow_to_model(row) -> _FileSystemObject:
     if not row:
-        raise ValueError("Empty CSV row")
+        raise MalformedBackupCsvError("Empty CSV row")
     kind = row[0]
     if kind == "d":
         return _DirEntry(row[1])
@@ -73,11 +78,11 @@ def _csvrow_to_model(row) -> _FileSystemObject:
             _, restore_path, sha1hash = row
             stored_location = str(hash_to_stored_location(sha1hash, False))
             return _StoredFile(restore_path, sha1hash, stored_location, False)
-        raise ValueError(
+        raise MalformedBackupCsvError(
             f"Unsupported file CSV row: expected 3, 5, or 7+ columns "
             f"(only the first 7 fields are used when more are present), got {len(row)}"
         )
-    raise ValueError(f"Unknown CSV row type: {kind!r}")
+    raise MalformedBackupCsvError(f"Unknown CSV row type: {kind!r}")
 
 
 def _model_to_csvrow(model: _FileSystemObject) -> str:
@@ -86,7 +91,7 @@ def _model_to_csvrow(model: _FileSystemObject) -> str:
     elif isinstance(model, _StoredFile):
         return f'"f","{model.restore_path}","{model.sha1hash}","{model.stored_location}","{model.is_compressed}","{model.size}","{model.mtime}"\n'
     else:
-        raise ValueError("Do not know how to parse object")
+        raise MalformedBackupCsvError("Do not know how to parse object")
 
 
 class CsvDb:

@@ -4,13 +4,30 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
 
-
-class VersionNotFoundError(Exception):
-    """Raised when a named backup version does not exist in the database."""
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-        super().__init__(f"Version not found: {name}")
+from .exceptions import (
+    CliUsageError as CliUsageError,
+)
+from .exceptions import (
+    MalformedBackupCsvError as MalformedBackupCsvError,
+)
+from .exceptions import (
+    RestorePathError as RestorePathError,
+)
+from .exceptions import (
+    RestoreVersionNotFoundError as RestoreVersionNotFoundError,
+)
+from .exceptions import (
+    UnreachableCommandError as UnreachableCommandError,
+)
+from .exceptions import (
+    UserFacingError as UserFacingError,
+)
+from .exceptions import (
+    VersionAlreadyExistsError as VersionAlreadyExistsError,
+)
+from .exceptions import (
+    VersionNotFoundError as VersionNotFoundError,
+)
 
 
 @dataclass

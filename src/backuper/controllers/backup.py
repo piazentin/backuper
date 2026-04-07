@@ -6,6 +6,7 @@ from backuper.models import (
     AnalyzedFileEntry,
     BackedUpFileEntry,
     BackupAnalysisSummary,
+    VersionAlreadyExistsError,
 )
 from backuper.ports import (
     AnalysisReporter,
@@ -71,7 +72,7 @@ async def add_version(
 ) -> None:
     versions = await db.list_versions()
     if version in versions:
-        raise ValueError(f"There is already a backup versioned with the name {version}")
+        raise VersionAlreadyExistsError(version)
     await db.create_version(version)
     await _run_backup_stream(
         source,

@@ -13,7 +13,12 @@ from backuper.controllers.backup import (
     add_version,
     new_backup,
 )
-from backuper.models import AnalyzedFileEntry, BackupAnalysisSummary, FileEntry
+from backuper.models import (
+    AnalyzedFileEntry,
+    BackupAnalysisSummary,
+    FileEntry,
+    VersionAlreadyExistsError,
+)
 from backuper.ports import (
     AnalysisReporter,
     BackupAnalyzer,
@@ -97,7 +102,10 @@ async def test_add_version_raises_when_version_already_exists(tmp_path: Path) ->
         db=db,
         filestore=filestore,
     )
-    with pytest.raises(ValueError, match="already a backup versioned"):
+    with pytest.raises(
+        VersionAlreadyExistsError,
+        match="already a backup versioned",
+    ):
         await add_version(
             source,
             version,

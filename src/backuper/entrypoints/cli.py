@@ -21,7 +21,7 @@ from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import add_version, new_backup
 from backuper.controllers.check import run_check_flow
 from backuper.controllers.restore import run_restore_flow
-from backuper.models import BackupAnalysisSummary
+from backuper.models import BackupAnalysisSummary, CliUsageError
 
 
 def _csv_db(backup_root: Path) -> CsvDb:
@@ -68,9 +68,9 @@ def run_new(command: NewCommand) -> None:
     source = Path(command.source)
     destination = Path(command.location)
     if not source.exists():
-        raise ValueError(f"source path {command.source} does not exist")
+        raise CliUsageError(f"source path {command.source} does not exist")
     if destination.exists():
-        raise ValueError(f"destination path {command.location} already exists")
+        raise CliUsageError(f"destination path {command.location} already exists")
 
     print(f"Creating new backup from {command.source} into {command.location}")
     asyncio.run(
@@ -91,9 +91,9 @@ def run_update(command: UpdateCommand) -> None:
     source = Path(command.source)
     destination = Path(command.location)
     if not source.exists():
-        raise ValueError(f"source path {command.source} does not exist")
+        raise CliUsageError(f"source path {command.source} does not exist")
     if not destination.exists():
-        raise ValueError(f"destination path {command.location} does not exist")
+        raise CliUsageError(f"destination path {command.location} does not exist")
 
     print(f"Updating backup at {command.location} with new version {command.version}")
     asyncio.run(
@@ -113,7 +113,7 @@ def run_update(command: UpdateCommand) -> None:
 def run_check(command: CheckCommand) -> list[str]:
     destination = Path(command.location)
     if not destination.exists():
-        raise ValueError(f"destination path {command.location} does not exist")
+        raise CliUsageError(f"destination path {command.location} does not exist")
 
     errors = asyncio.run(
         run_check_flow(
@@ -131,11 +131,11 @@ def run_restore(command: RestoreCommand) -> None:
     source = Path(command.location)
     destination = Path(command.destination)
     if not source.exists():
-        raise ValueError(f"Backup source path {command.location} does not exist")
+        raise CliUsageError(f"Backup source path {command.location} does not exist")
     if destination.exists():
         with os.scandir(destination) as entries:
             if any(entries):
-                raise ValueError(
+                raise CliUsageError(
                     f'Backup restore destination "{command.destination}" '
                     "already exists and is not empty"
                 )

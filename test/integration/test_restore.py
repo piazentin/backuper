@@ -12,6 +12,7 @@ from backuper.commands import (
     UpdateCommand,
 )
 from backuper.entrypoints.cli import run_new, run_restore, run_update
+from backuper.models import CliUsageError, RestoreVersionNotFoundError
 
 
 def _repo_root() -> Path:
@@ -33,7 +34,7 @@ def test_run_restore_raises_when_backup_root_missing(tmp_path: Path) -> None:
         version_name="v1",
     )
 
-    with pytest.raises(ValueError, match="Backup source path .* does not exist"):
+    with pytest.raises(CliUsageError, match="Backup source path .* does not exist"):
         run_restore(cmd)
 
 
@@ -50,7 +51,7 @@ def test_run_restore_raises_when_destination_not_empty(tmp_path: Path) -> None:
         destination=str(dest),
         version_name="v1",
     )
-    with pytest.raises(ValueError, match="already exists and is not empty"):
+    with pytest.raises(CliUsageError, match="already exists and is not empty"):
         run_restore(cmd)
 
 
@@ -66,7 +67,8 @@ def test_run_restore_raises_when_version_missing(tmp_path: Path) -> None:
     )
 
     with pytest.raises(
-        ValueError, match="Backup version unknown does not exist in source"
+        RestoreVersionNotFoundError,
+        match="Backup version unknown does not exist in source",
     ):
         run_restore(cmd)
 

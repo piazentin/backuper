@@ -13,6 +13,7 @@ from backuper.commands import (
     UpdateCommand,
 )
 from backuper.entrypoints import main as main_mod
+from backuper.models import CliUsageError, UnreachableCommandError
 
 
 def test_run_with_args_dispatches_new(
@@ -96,7 +97,7 @@ def test_run_with_args_raises_for_unrecognized_command_type(
     )
     monkeypatch.setattr(sys, "argv", ["backuper", "ignored"])
 
-    with pytest.raises(ValueError, match="Unrecognized command"):
+    with pytest.raises(UnreachableCommandError, match="Unrecognized command"):
         main_mod.run_with_args()
 
 
@@ -127,7 +128,7 @@ def test_main_returns_0_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert main_mod.main() == 0
 
 
-def test_main_returns_1_on_valueerror_from_dispatch(
+def test_main_returns_1_on_user_facing_error_from_dispatch(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -135,7 +136,7 @@ def test_main_returns_1_on_valueerror_from_dispatch(
     monkeypatch.setattr(main_mod.parser, "parse", lambda args: (cmd, False))
 
     def fake_run_new(_c: NewCommand) -> None:
-        raise ValueError("bad input")
+        raise CliUsageError("bad input")
 
     monkeypatch.setattr(main_mod, "run_new", fake_run_new)
     monkeypatch.setattr(sys, "argv", ["backuper", "new", "s", "l"])

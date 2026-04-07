@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from backuper.commands import CheckCommand
 from backuper.models import VersionNotFoundError
 from backuper.ports import BackupDatabase, FileStore
@@ -49,9 +51,8 @@ async def run_check_flow(
         try:
             versions = [await db.get_version_by_name(command.version)]
         except VersionNotFoundError as err:
-            raise ValueError(
-                f"Backup version named {command.version} "
-                f"does not exist at {command.location}"
+            raise VersionNotFoundError(
+                err.name, location=Path(command.location)
             ) from err
 
     errors: list[str] = []
