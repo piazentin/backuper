@@ -41,7 +41,7 @@ Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run
 
 ## Formatting and lint
 
-- **Ruff** (format + lint) and **import-linter**: `make lint` / `make lint-fix` (see [README.md](README.md)).
+- **Ruff** (format + lint) and **import-linter**: `make lint` / `make lint-fix` (see [README.md](README.md)). **Import-linter** contracts in [`pyproject.toml`](pyproject.toml) include: controllers do not import `components` or each other; `utils`, `models`, and `ports` do not import `components`; and a **layers** rule that `backuper.ports` may depend on `backuper.models` only (not the reverse).
 
 ## Pull requests
 
@@ -53,8 +53,8 @@ Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run
 
 - **`entrypoints/`** — Delivery adapters and **composition root** for commands. [`src/backuper/entrypoints/cli.py`](src/backuper/entrypoints/cli.py) is the CLI adapter: it owns stdout UX, basic path/schema validation, and **dependency injection** (constructing concrete adapters and passing them into controllers). There is **no** `src/backuper/cli.py` shim—callers use [`backuper.entrypoints.cli`](src/backuper/entrypoints/cli.py) only. Orchestration in `controllers/` is **swappable delivery**: the same functions should be reusable from another entrypoint later (for example a web API) without duplicating use-case logic.
 - **`controllers/`** — Use-case orchestration **only** as **module-level functions** (no orchestration classes). Dependencies are passed **explicitly** as separate parameters; do **not** introduce shared “deps bundle” dataclasses or NamedTuples for hand-off. Where two or more collaborators could be confused, prefer **keyword-only** injected parameters (pattern: `fn(command, *, db=..., filestore=...)`). Controllers depend on **`models`** and **`ports`** for DTO types and port protocols; they must not import concrete **`components`** (those are wired in **`entrypoints/`**). They may import **`utils/`** when shared helpers are needed.
-- **`models/`** — Immutable value types and shared domain exceptions used by **`ports`**, **`controllers`**, and **`components`** ([`backuper.models`](src/backuper/models/__init__.py)).
-- **`ports/`** — Abstract port protocols only ([`backuper.ports`](src/backuper/ports/__init__.py)); they import **`models`** for signatures (`ports` → `models` only). **`components`** implement these ports at the composition root.
+- **`models/`** — Immutable value types and shared domain exceptions used by **`ports`**, **`controllers`**, and **`components`** ([`backuper.models`](src/backuper/models/__init__.py)). Must not import **`ports`** or **`components`** (import-linter **layers** + forbidden edges).
+- **`ports/`** — Abstract port protocols only ([`backuper.ports`](src/backuper/ports/__init__.py)); import **`models`** for signatures only (`ports` → `models`). Must not import **`components`**. **`components`** implement these protocols at the composition root using **`models`** for DTOs.
 - **`utils/`** — Shared **pure** helpers (e.g. path normalization, hashing, content-addressed path strings) that depend on **`config`** (and the stdlib) only; they must not import **`components/`** (see import-linter). **`components/`** may import **`utils/`**.
 - **`components/`** — Reusable building blocks (e.g. file I/O, CSV DB, analyzer, filestore) that implement **`ports`** using **`models`** and remain implementation details behind the composition root.
 - **`commands.py`** — Implementation command DTOs only ([`src/backuper/commands.py`](src/backuper/commands.py)).

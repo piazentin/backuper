@@ -74,3 +74,14 @@ name = "Ports must not import components"
 type = "forbidden"
 source_modules = ["backuper.ports"]
 forbidden_modules = ["backuper.components"]
+
+# Higher layers may import lower layers only (see import-linter "layers" contract).
+# `ports` sits above `models`: protocols may use value types in signatures; `models`
+# must not import `ports`.
+[[tool.importlinter.contracts]]
+name = "Ports layer above models"
+type = "layers"
+layers = [
+  "backuper.ports",
+  "backuper.models",
+]
