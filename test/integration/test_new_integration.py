@@ -22,6 +22,7 @@ from backuper.components.csv_db import (
 )
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
+from backuper.components.reporter import NoOpAnalysisReporter
 from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import new_backup
 
@@ -101,6 +102,7 @@ async def test_new_backup_integration_zip_disabled(
                 zip_enabled=False,
             )
         ),
+        reporter=NoOpAnalysisReporter(),
     )
 
     data_root = destination / "data"
@@ -134,6 +136,7 @@ async def test_new_backup_integration_zip_enabled(
                 zip_enabled=True,
             )
         ),
+        reporter=NoOpAnalysisReporter(),
     )
 
     data_root = destination / "data"

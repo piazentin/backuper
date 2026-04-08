@@ -2,7 +2,7 @@ from pathlib import Path
 from uuid import UUID
 
 from backuper.components.reporter import StdoutAnalysisReporter
-from backuper.models import AnalyzedFileEntry, FileEntry
+from backuper.models import AnalyzedFileEntry, BackupAnalysisSummary, FileEntry
 
 
 def test_stdout_analysis_reporter_prints_expected_message(capsys) -> None:
@@ -26,3 +26,36 @@ def test_stdout_analysis_reporter_prints_expected_message(capsys) -> None:
         capsys.readouterr().out
         == "Already backed up: file.txt (Backup ID: 12345678-1234-5678-1234-567812345678)\n"
     )
+
+
+def test_stdout_analysis_reporter_prints_analysis_summary(capsys) -> None:
+    reporter = StdoutAnalysisReporter()
+    summary = BackupAnalysisSummary(
+        version_name="v9",
+        num_directories=1,
+        num_files=2,
+        total_file_size=42,
+        files_to_backup=1,
+    )
+
+    reporter.report_analysis_summary(summary)
+
+    out = capsys.readouterr().out
+    assert "Running analysis... This may take a while." in out
+    assert "+++++ BACKUP ANALYSIS RESULT FOR VERSION v9 +++++" in out
+    assert "Number of directories: 1" in out
+    assert "Number of files: 2" in out
+    assert "Total size of files: 42" in out
+    assert "Files to backup: 1" in out
+
+
+def test_stdout_analysis_reporter_prints_file_progress(capsys) -> None:
+    reporter = StdoutAnalysisReporter()
+    reporter.report_file_progress(1, 4)
+    assert capsys.readouterr().out == "Processed 25% of files...\n"
+
+
+def test_stdout_analysis_reporter_skips_progress_when_no_files(capsys) -> None:
+    reporter = StdoutAnalysisReporter()
+    reporter.report_file_progress(0, 0)
+    assert capsys.readouterr().out == ""

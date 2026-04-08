@@ -7,6 +7,7 @@ from backuper.components.backup_analyzer import BackupAnalyzerImpl
 from backuper.components.csv_db import CsvBackupDatabase, CsvDb
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
+from backuper.components.reporter import NoOpAnalysisReporter
 from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import (
     _iterate_analyzed_entries,
@@ -55,6 +56,7 @@ async def test_create_backup_writes_data_store_and_metadata(tmp_path: Path) -> N
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
+        reporter=NoOpAnalysisReporter(),
     )
 
     backed_up_entries = []
@@ -101,6 +103,7 @@ async def test_add_version_raises_when_version_already_exists(tmp_path: Path) ->
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
+        reporter=NoOpAnalysisReporter(),
     )
     with pytest.raises(
         VersionAlreadyExistsError,
@@ -113,6 +116,7 @@ async def test_add_version_raises_when_version_already_exists(tmp_path: Path) ->
             analyzer=BackupAnalyzerImpl(),
             db=db,
             filestore=filestore,
+            reporter=NoOpAnalysisReporter(),
         )
 
 
@@ -166,10 +170,31 @@ class _DbStub(BackupDatabase):
 
 class _CollectingReporter(AnalysisReporter):
     def __init__(self) -> None:
-        self.entries = []
+        self.entries: list[AnalyzedFileEntry] = []
 
     def report(self, entry: AnalyzedFileEntry) -> None:
         self.entries.append(entry)
+
+    def report_analysis_summary(self, summary: BackupAnalysisSummary) -> None:
+        pass
+
+    def report_file_progress(self, file_index: int, total_files: int) -> None:
+        pass
+
+
+class _RecordingBackupReporter(AnalysisReporter):
+    def __init__(self) -> None:
+        self.summaries: list[BackupAnalysisSummary] = []
+        self.progress: list[tuple[int, int]] = []
+
+    def report(self, entry: AnalyzedFileEntry) -> None:
+        pass
+
+    def report_analysis_summary(self, summary: BackupAnalysisSummary) -> None:
+        self.summaries.append(summary)
+
+    def report_file_progress(self, file_index: int, total_files: int) -> None:
+        self.progress.append((file_index, total_files))
 
 
 @pytest.mark.asyncio
@@ -191,7 +216,7 @@ async def test_iterate_analyzed_entries_reports_via_reporter(tmp_path: Path) -> 
 
 
 @pytest.mark.asyncio
-async def test_new_backup_with_callbacks_reports_summary_and_progress(
+async def test_new_backup_with_reporter_reports_summary_and_progress(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "source"
@@ -210,8 +235,7 @@ async def test_new_backup_with_callbacks_reports_summary_and_progress(
         )
     )
 
-    summaries: list[BackupAnalysisSummary] = []
-    progress: list[tuple[int, int]] = []
+    recording = _RecordingBackupReporter()
 
     await new_backup(
         source,
@@ -220,14 +244,13 @@ async def test_new_backup_with_callbacks_reports_summary_and_progress(
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
-        on_analysis_summary=summaries.append,
-        on_file_progress=lambda i, t: progress.append((i, t)),
+        reporter=recording,
     )
 
-    assert len(summaries) == 1
-    s = summaries[0]
+    assert len(recording.summaries) == 1
+    s = recording.summaries[0]
     assert s.version_name == version
     assert s.num_files == 2
     assert s.files_to_backup == 2
     assert s.total_file_size == 9
-    assert progress == [(0, 2), (1, 2)]
+    assert recording.progress == [(0, 2), (1, 2)]

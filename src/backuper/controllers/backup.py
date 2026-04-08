@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from pathlib import Path
 from uuid import uuid4
 
@@ -9,6 +9,7 @@ from backuper.models import (
     VersionAlreadyExistsError,
 )
 from backuper.ports import (
+    AnalysisReporter,
     BackupAnalyzer,
     BackupDatabase,
     FileReader,
@@ -37,8 +38,7 @@ async def new_backup(
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
     filestore: FileStore,
-    on_analysis_summary: Callable[[BackupAnalysisSummary], None] | None = None,
-    on_file_progress: Callable[[int, int], None] | None = None,
+    reporter: AnalysisReporter,
 ) -> None:
     versions = await db.list_versions()
     if version not in versions:
@@ -50,8 +50,7 @@ async def new_backup(
         analyzer=analyzer,
         db=db,
         filestore=filestore,
-        on_analysis_summary=on_analysis_summary,
-        on_file_progress=on_file_progress,
+        reporter=reporter,
     )
 
 
@@ -63,8 +62,7 @@ async def add_version(
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
     filestore: FileStore,
-    on_analysis_summary: Callable[[BackupAnalysisSummary], None] | None = None,
-    on_file_progress: Callable[[int, int], None] | None = None,
+    reporter: AnalysisReporter,
 ) -> None:
     versions = await db.list_versions()
     if version in versions:
@@ -77,8 +75,7 @@ async def add_version(
         analyzer=analyzer,
         db=db,
         filestore=filestore,
-        on_analysis_summary=on_analysis_summary,
-        on_file_progress=on_file_progress,
+        reporter=reporter,
     )
 
 
@@ -118,14 +115,12 @@ async def _run_backup_stream(
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
     filestore: FileStore,
-    on_analysis_summary: Callable[[BackupAnalysisSummary], None] | None = None,
-    on_file_progress: Callable[[int, int], None] | None = None,
+    reporter: AnalysisReporter,
 ) -> None:
     analyzed_list = await _collect_analyzed_entries(
         source, file_reader=file_reader, analyzer=analyzer, db=db
     )
-    if on_analysis_summary is not None:
-        on_analysis_summary(_backup_analysis_summary(analyzed_list, version))
+    reporter.report_analysis_summary(_backup_analysis_summary(analyzed_list, version))
 
     total_files = sum(1 for e in analyzed_list if not e.source_file.is_directory)
     one_percent = int(max(1, total_files / 100))
@@ -133,8 +128,8 @@ async def _run_backup_stream(
     file_idx = 0
     for entry in analyzed_list:
         if not entry.source_file.is_directory:
-            if on_file_progress is not None and file_idx % one_percent == 0:
-                on_file_progress(file_idx, total_files)
+            if file_idx % one_percent == 0:
+                reporter.report_file_progress(file_idx, total_files)
             file_idx += 1
         backup_entry = await _to_backed_up_entry(entry, db=db, filestore=filestore)
         await db.add_file(version, backup_entry)

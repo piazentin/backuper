@@ -8,6 +8,7 @@ from pathlib import Path
 from backuper.models import (
     AnalyzedFileEntry,
     BackedUpFileEntry,
+    BackupAnalysisSummary,
     FileEntry,
     PutResult,
 )
@@ -69,6 +70,14 @@ class BackupDatabase(ABC):
 class AnalysisReporter(ABC):
     @abstractmethod
     def report(self, entry: AnalyzedFileEntry) -> None:
+        pass
+
+    @abstractmethod
+    def report_analysis_summary(self, summary: BackupAnalysisSummary) -> None:
+        pass
+
+    @abstractmethod
+    def report_file_progress(self, file_index: int, total_files: int) -> None:
         pass
 
 
