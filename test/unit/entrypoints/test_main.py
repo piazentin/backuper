@@ -7,10 +7,10 @@ from unittest.mock import sentinel
 
 import pytest
 from backuper.commands import (
-    CheckCommand,
     NewCommand,
     RestoreCommand,
     UpdateCommand,
+    VerifyIntegrityCommand,
 )
 from backuper.entrypoints import main as main_mod
 from backuper.models import CliUsageError, UnreachableCommandError
@@ -52,18 +52,18 @@ def test_run_with_args_dispatches_update(
     assert captured == [cmd]
 
 
-def test_run_with_args_dispatches_check(
+def test_run_with_args_dispatches_verify_integrity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    cmd = CheckCommand(location="/b")
+    cmd = VerifyIntegrityCommand(location="/b")
     monkeypatch.setattr(main_mod.parser, "parse", lambda args: (cmd, False))
-    captured: list[CheckCommand] = []
+    captured: list[VerifyIntegrityCommand] = []
 
-    def fake_run_check(c: CheckCommand) -> list[str]:
+    def fake_run_verify_integrity(c: VerifyIntegrityCommand) -> list[str]:
         captured.append(c)
         return []
 
-    monkeypatch.setattr(main_mod, "run_check", fake_run_check)
+    monkeypatch.setattr(main_mod, "run_verify_integrity", fake_run_verify_integrity)
     monkeypatch.setattr(sys, "argv", ["backuper", "ignored"])
 
     main_mod.run_with_args()
@@ -152,7 +152,7 @@ def test_main_propagates_systemexit_from_parse(
         raise SystemExit(3)
 
     monkeypatch.setattr(main_mod.parser, "parse", boom)
-    monkeypatch.setattr(sys, "argv", ["backuper", "check"])
+    monkeypatch.setattr(sys, "argv", ["backuper", "verify-integrity"])
 
     with pytest.raises(SystemExit) as excinfo:
         main_mod.main()

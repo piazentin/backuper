@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from backuper.commands import CheckCommand
+from backuper.commands import VerifyIntegrityCommand
 from backuper.models import VersionNotFoundError
 from backuper.ports import BackupDatabase, FileStore
 
@@ -39,8 +39,8 @@ async def _missing_stored_files(
     return errors
 
 
-async def run_check_flow(
-    command: CheckCommand,
+async def run_verify_integrity_flow(
+    command: VerifyIntegrityCommand,
     *,
     db: BackupDatabase,
     filestore: FileStore,

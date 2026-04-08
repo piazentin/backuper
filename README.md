@@ -33,7 +33,7 @@ A bare system `python3 -m backuper` fails with `No module named backuper` unless
 ```
 make backup new ~/backup/source ~/backup/destination
 make backup update ~/backup/source ~/backup/destination
-make backup check ~/backup/destination
+make backup verify-integrity ~/backup/destination
 make backup restore /path/to/backup/root /path/to/restore/into --version backup-version
 ```
 
@@ -50,15 +50,15 @@ backuper update ~/backup/source/dir ~/backup/destination/dir
 ```
 
 ```
-backuper check ~/backup/destination/dir
+backuper verify-integrity ~/backup/destination/dir
 ```
 
 Optional flags:
 
 - **Before the subcommand:** `-q` / `--quiet` — less informational logging (stderr).
-- **`check` only:** `--json` — print one JSON object on stdout: `{"errors": ["…", …]}` (empty list when there are no issues). Suppresses the usual per-line messages and the `No errors found!` line.
+- **`verify-integrity` only:** `--json` — print one JSON object on stdout: `{"errors": ["…", …]}` (empty list when there are no issues). Suppresses the usual per-line messages and the `No errors found!` line.
 
-`check` is a fast integrity/existence pass over backup metadata and stored blobs. A future deeper validation mode should be a separate `verify` command, not a change to `check`.
+`verify-integrity` is a fast integrity/existence pass over backup metadata and stored blobs.
 
 Restore (backup root, then destination; version with `-v` / `--version` / `-n` / `--name`):
 
@@ -68,7 +68,7 @@ backuper restore /path/to/backup/root /path/to/restore/into --version backup-ver
 
 ## Version CSV migration
 
-If an existing backup tree still has **legacy** version manifests (short `f` rows without the full seven columns the current reader expects), migrate them **before** running `new`, `update`, `check`, or `restore` on that tree. Full rules, blob enrichment, and rollback files (`.bak`) are in **[docs/csv-migration-contract.md](docs/csv-migration-contract.md)**.
+If an existing backup tree still has **legacy** version manifests (short `f` rows without the full seven columns the current reader expects), migrate them **before** running `new`, `update`, `verify-integrity`, or `restore` on that tree. Full rules, blob enrichment, and rollback files (`.bak`) are in **[docs/csv-migration-contract.md](docs/csv-migration-contract.md)**.
 
 From the repository root, use the dev environment so `scripts/` is importable:
 

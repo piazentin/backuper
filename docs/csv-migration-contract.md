@@ -2,7 +2,7 @@
 
 ## Operator requirement (read this first)
 
-The **`backuper` runtime** (`new`, `update`, `check`, `restore`) reads **canonical** version CSV rows only—see [Canonical CSV row contract](#canonical-csv-row-contract) and `CsvDb` in `src/backuper/components/csv_db.py`. It does **not** accept legacy short file rows (3 or 5 columns).
+The **`backuper` runtime** (`new`, `update`, `verify-integrity`, `restore`) reads **canonical** version CSV rows only—see [Canonical CSV row contract](#canonical-csv-row-contract) and `CsvDb` in `src/backuper/components/csv_db.py`. It does **not** accept legacy short file rows (3 or 5 columns).
 
 If you have an **existing backup tree** whose version manifests still use legacy shapes, you **must** run the standalone migration **before** relying on this version of the tool against that tree:
 
@@ -169,10 +169,10 @@ If interrupted before the final rename, the original CSV is unchanged; any new `
 
 Migration is an operator-only maintenance action and should run only during a quiet window:
 
-- Do not run while `new`, `update`, `check`, or `restore` is active.
+- Do not run while `new`, `update`, `verify-integrity`, or `restore` is active.
 - Take a filesystem-level backup/snapshot of the backup root first.
 - Run dry-run first, review planned changes and any failures.
 - Run apply once dry-run output is clean.
-- Validate with normal project flows after migration (`make test` for repo validation, and a real `check`/`restore` on migrated data as needed).
+- Validate with normal project flows after migration (`make test` for repo validation, and a real `verify-integrity`/`restore` on migrated data as needed).
 
 Concurrency locks are out of scope for Phase 4.1; this is a documented operational policy.

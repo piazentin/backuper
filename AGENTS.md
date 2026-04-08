@@ -4,10 +4,10 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 ## Entry point
 
-- `python -m backuper` → [`src/backuper/__main__.py`](src/backuper/__main__.py) → [`main()`](src/backuper/entrypoints/main.py) (`sys.exit`) → [`argparser.parse`](src/backuper/entrypoints/argparser.py) (returns a command plus `quiet`) → [`dispatch_command`](src/backuper/entrypoints/main.py) → [`run_new` / `run_update` / `run_check` / `run_restore`](src/backuper/entrypoints/cli.py).
+- `python -m backuper` → [`src/backuper/__main__.py`](src/backuper/__main__.py) → [`main()`](src/backuper/entrypoints/main.py) (`sys.exit`) → [`argparser.parse`](src/backuper/entrypoints/argparser.py) (returns a command plus `quiet`) → [`dispatch_command`](src/backuper/entrypoints/main.py) → [`run_new` / `run_update` / `run_verify_integrity` / `run_restore`](src/backuper/entrypoints/cli.py).
 - Installed CLI: `[project.scripts]` maps `backuper` to `backuper.entrypoints.main:main` (e.g. `uv run backuper …` after `uv sync`).
 - **`main()`** configures the root logger, then dispatches. It prints **`UserFacingError`** messages to stderr (exit **1**, no traceback), logs unexpected exceptions at **ERROR** with full traceback and prints a short generic message to stderr (exit **1**), and re-raises **`SystemExit`** (e.g. `--help`, argparse errors). **`run_with_args()`** parses and dispatches without that outer error boundary (useful for tests or callers that want uncaught exceptions).
-- **Parent parser:** `-q` / `--quiet` lowers log verbosity (logging level **WARNING** instead of **INFO**). **`check`** accepts **`--json`**: single JSON object on stdout, `{"errors": [...]}`, instead of human-oriented lines (see [`cli._present_check_stdout`](src/backuper/entrypoints/cli.py)).
+- **Parent parser:** `-q` / `--quiet` lowers log verbosity (logging level **WARNING** instead of **INFO**). **`verify-integrity`** accepts **`--json`**: single JSON object on stdout, `{"errors": [...]}`, instead of human-oriented lines (see [`cli._present_verify_integrity_stdout`](src/backuper/entrypoints/cli.py)).
 
 ## Architecture
 
@@ -21,9 +21,9 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 ## Command naming rubric
 
-- Keep CLI commands verb-first and intent-focused (`new`, `update`, `restore`, `check`).
-- `check` is the lightweight integrity/existence pass (current behavior).
-- If deeper and more expensive validation is added later, introduce a separate `verify` command rather than changing `check` semantics.
+- Keep CLI commands verb-first and intent-focused (`new`, `update`, `restore`, `verify-integrity`).
+- `verify-integrity` is the lightweight integrity/existence pass (current behavior).
+- If deeper and more expensive validation is added later, introduce a separate command rather than changing `verify-integrity` semantics.
 
 ## Tests
 

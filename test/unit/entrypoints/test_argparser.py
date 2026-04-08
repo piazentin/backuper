@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 from backuper.commands import (
-    CheckCommand,
     NewCommand,
     RestoreCommand,
     UpdateCommand,
+    VerifyIntegrityCommand,
 )
 from backuper.entrypoints import argparser
 
@@ -32,33 +32,35 @@ def test_parse_update_command() -> None:
     assert cmd.version == "weekly"
 
 
-def test_parse_check_all_versions() -> None:
-    cmd, quiet = argparser.parse(["check", "/backup/root"])
-    assert isinstance(cmd, CheckCommand)
+def test_parse_verify_integrity_all_versions() -> None:
+    cmd, quiet = argparser.parse(["verify-integrity", "/backup/root"])
+    assert isinstance(cmd, VerifyIntegrityCommand)
     assert quiet is False
     assert cmd.location == "/backup/root"
     assert cmd.version is None
     assert cmd.json_output is False
 
 
-def test_parse_check_single_version() -> None:
-    cmd, quiet = argparser.parse(["check", "/backup/root", "--version", "v1"])
-    assert isinstance(cmd, CheckCommand)
+def test_parse_verify_integrity_single_version() -> None:
+    cmd, quiet = argparser.parse(
+        ["verify-integrity", "/backup/root", "--version", "v1"]
+    )
+    assert isinstance(cmd, VerifyIntegrityCommand)
     assert quiet is False
     assert cmd.location == "/backup/root"
     assert cmd.version == "v1"
 
 
-def test_parse_check_json_flag() -> None:
-    cmd, quiet = argparser.parse(["check", "/backup/root", "--json"])
-    assert isinstance(cmd, CheckCommand)
+def test_parse_verify_integrity_json_flag() -> None:
+    cmd, quiet = argparser.parse(["verify-integrity", "/backup/root", "--json"])
+    assert isinstance(cmd, VerifyIntegrityCommand)
     assert quiet is False
     assert cmd.json_output is True
 
 
 def test_parse_quiet_before_subcommand() -> None:
-    cmd, quiet = argparser.parse(["--quiet", "check", "/backup/root"])
-    assert isinstance(cmd, CheckCommand)
+    cmd, quiet = argparser.parse(["--quiet", "verify-integrity", "/backup/root"])
+    assert isinstance(cmd, VerifyIntegrityCommand)
     assert quiet is True
 
 
