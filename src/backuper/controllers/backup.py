@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from uuid import uuid4
 
@@ -9,7 +9,6 @@ from backuper.models import (
     VersionAlreadyExistsError,
 )
 from backuper.ports import (
-    AnalysisReporter,
     BackupAnalyzer,
     BackupDatabase,
     FileReader,
@@ -17,20 +16,17 @@ from backuper.ports import (
 )
 
 
-async def _analyze_path(
-    path: Path,
+async def _iterate_analyzed_entries(
+    source: Path,
     *,
     file_reader: FileReader,
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
-    reporter: AnalysisReporter,
-) -> None:
-    """Analyze a path and emit analyzed file entries through ``reporter``."""
-    file_entries = file_reader.read_directory(path)
+) -> AsyncIterator[AnalyzedFileEntry]:
+    file_entries = file_reader.read_directory(source)
     analyzed_entries = analyzer.analyze_stream(file_entries, db)
-
     async for entry in analyzed_entries:
-        reporter.report(entry)
+        yield entry
 
 
 async def new_backup(
@@ -106,9 +102,12 @@ async def _collect_analyzed_entries(
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
 ) -> list[AnalyzedFileEntry]:
-    file_entries = file_reader.read_directory(source)
-    analyzed_entries = analyzer.analyze_stream(file_entries, db)
-    return [entry async for entry in analyzed_entries]
+    return [
+        entry
+        async for entry in _iterate_analyzed_entries(
+            source, file_reader=file_reader, analyzer=analyzer, db=db
+        )
+    ]
 
 
 async def _run_backup_stream(

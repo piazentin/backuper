@@ -9,7 +9,7 @@ from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
 from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import (
-    _analyze_path,
+    _iterate_analyzed_entries,
     add_version,
     new_backup,
 )
@@ -173,15 +173,15 @@ class _CollectingReporter(AnalysisReporter):
 
 
 @pytest.mark.asyncio
-async def test_analyze_path_reports_structured_entries(tmp_path: Path) -> None:
+async def test_iterate_analyzed_entries_reports_via_reporter(tmp_path: Path) -> None:
     reporter = _CollectingReporter()
-    await _analyze_path(
+    async for entry in _iterate_analyzed_entries(
         tmp_path,
         file_reader=_ReaderStub(),
         analyzer=_AnalyzerStub(),
         db=_DbStub(),
-        reporter=reporter,
-    )
+    ):
+        reporter.report(entry)
 
     assert len(reporter.entries) == 1
     reported = reporter.entries[0]
