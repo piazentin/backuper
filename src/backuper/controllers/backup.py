@@ -99,6 +99,7 @@ async def _run_backup_stream(
         source, file_reader=file_reader, analyzer=analyzer, db=db
     ):
         acc.consume(entry)
+        reporter.report(entry)
         analyzed_in_order.append(entry)
 
     summary = acc.to_summary(version)

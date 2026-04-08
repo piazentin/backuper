@@ -184,11 +184,12 @@ class _CollectingReporter(AnalysisReporter):
 
 class _RecordingBackupReporter(AnalysisReporter):
     def __init__(self) -> None:
+        self.entries: list[AnalyzedFileEntry] = []
         self.summaries: list[BackupAnalysisSummary] = []
         self.progress: list[tuple[int, int]] = []
 
     def report(self, entry: AnalyzedFileEntry) -> None:
-        pass
+        self.entries.append(entry)
 
     def report_analysis_summary(self, summary: BackupAnalysisSummary) -> None:
         self.summaries.append(summary)
@@ -247,6 +248,11 @@ async def test_new_backup_with_reporter_reports_summary_and_progress(
         reporter=recording,
     )
 
+    assert len(recording.entries) == 2
+    assert {e.source_file.relative_path for e in recording.entries} == {
+        Path("a.txt"),
+        Path("b.txt"),
+    }
     assert len(recording.summaries) == 1
     s = recording.summaries[0]
     assert s.version_name == version

@@ -48,7 +48,7 @@ flowchart TB
     A2[Restore: missing hash skip + log]
     B1[Domain exception: missing version]
     C1[Dead API removed; ZIPFILE_EXT in filestore]
-    C2[backup.py: _analyze_path vs _collect_analyzed_entries]
+    C2[backup.py: analysis walk + backup leg]
   end
 
   subgraph layering [Phase 2 - Layering — done]
@@ -169,7 +169,7 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 
 | Order | Item | Notes |
 |------:|------|--------|
-| 6.1 | Merge or delete **`_analyze_path`** vs **`_collect_analyzed_entries`** drift | From dead/duplicate notes |
+| 6.1 | Single analysis walk via **`_iterate_analyzed_entries`**; **`_collect_analyzed_entries`** removed (historical: drift vs **`_analyze_path`**) | Landed |
 | 6.2 | Unify on **observer / `AnalysisReporter`** for analysis, progress, phases | Replace ad hoc callbacks from `cli.py` |
 | 6.3 | **Single pass** / streaming from `analyze_stream` where semantics allow | Addresses memory + double iteration; pairs with **6.2**. **6.3a** (design): streaming invariants under *Implementation hooks* → *Reporting / backup pipeline*. |
 | 6.4 | **`list_files` redundant CSV I/O**: `CsvBackupDatabase.list_files` calls **`get_files_for_version`** then **`get_dirs_for_version`** — each **opens and fully parses** the same version CSV (`CsvDb` in `csv_db.py`). Replace with **one read** per version (e.g. `get_fs_objects_for_version` + split, or single pass filtering `f`/`d`) | Clear win for restore/check on large manifests; **sync** optimization |
@@ -245,7 +245,7 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 | A2 | Restore: missing hash skip + log |
 | B1 | Domain exception: missing version |
 | C1 | Dead streaming API removed; `ZIPFILE_EXT` in filestore |
-| C2 | `backup.py`: `_analyze_path` vs `_collect_analyzed_entries` |
+| C2 | `backup.py`: analysis walk + buffered backup leg |
 | D1 | Decouple `csv_db` from filestore hash paths |
 | E1 | `models/` + `ports/` split |
 | E2 | Rename BackupedFileEntry + copy |
@@ -280,7 +280,7 @@ Detail preserved from earlier working notes—**not** extra scope by default; us
 
 ### Reporting / backup pipeline (**H** / Phase 6)
 
-- Today **`_run_backup_stream`** wires **`AnalysisReporter`** for summary and file progress after **`_collect_analyzed_entries`** materializes the full list; the same list is iterated again for progress + **`db.add_file`** / **`filestore.put`** (double pass + peak memory vs the analyzed list).
+- Today **`_run_backup_stream`** wires **`AnalysisReporter`** during a single async iteration over analyzed entries (**`report`** per entry, then **`report_analysis_summary`** once), but it still buffers **`analyzed_in_order`** before the backup leg runs **`db.add_file`** / **`filestore.put`** in a second pass—avoiding the old **`_collect_analyzed_entries`** helper while keeping the same peak-memory tradeoff versus a fully pipelined analysis→backup stream.
 - Optional later: **`async` reporting sinks** if HTTP needs non-blocking hooks; sync reporting is unlikely to beat disk I/O as the bottleneck.
 
 **6.3a — Streaming backup invariants (design hook for H2 / 6.3).** A single-pass or streaming pipeline must preserve today’s observable semantics unless a follow-up explicitly changes them:
@@ -317,9 +317,9 @@ Validated against the current tree (see code references below).
 
 **Implication:** Wall-clock gains may need **parallel hashing with a cap** (Phase **6.5**) or other overlap—not only `async def`.
 
-**3. No streaming pipeline for backup (full materialization)**
+**3. No end-to-end streaming for backup (analysis buffer + backup pass)**
 
-- **`_collect_analyzed_entries`** builds a **full list**; **`_run_backup_stream`** then **`for entry in analyzed_list`** with sync **`filestore.put`** / **`db.add_file`** (`backup.py`). No producer/consumer overlap.
+- **`_run_backup_stream`** walks analysis once (**`_iterate_analyzed_entries`**, accumulator + per-entry **`reporter.report`**), buffers **`analyzed_in_order`**, then iterates that list for sync **`filestore.put`** / **`db.add_file`** (`backup.py`). No producer/consumer overlap across the two legs.
 
 **Implication:** Higher peak memory on large trees; pipelining needs threading/async design—tracked as **H2** / **6.3** (streaming types were **removed** in Phase **1.5**).
 
@@ -356,7 +356,7 @@ Validated against the current tree (see code references below).
 **Code references**
 
 - `entrypoints/cli.py` — `asyncio.run`
-- `controllers/backup.py` — `_collect_analyzed_entries`, `_run_backup_stream`, `_to_backed_up_entry`
+- `controllers/backup.py` — `_iterate_analyzed_entries`, `_run_backup_stream`, `_to_backed_up_entry`
 - `components/csv_db.py` — `CsvDb`, `CsvBackupDatabase.list_files`, `get_files_for_version`, `get_dirs_for_version`, `get_fs_objects_for_version`
 - `components/filestore.py` — synchronous `LocalFileStore`
 - `components/file_reader.py` — `LocalFileReader`
