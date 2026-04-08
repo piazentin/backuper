@@ -5,10 +5,10 @@ from pathlib import Path
 
 from backuper import config as implementation_config
 from backuper.commands import (
-    CheckCommand,
     NewCommand,
     RestoreCommand,
     UpdateCommand,
+    VerifyIntegrityCommand,
 )
 from backuper.components.backup_analyzer import BackupAnalyzerImpl
 from backuper.components.csv_db import (
@@ -37,7 +37,7 @@ def _local_filestore(backup_root: Path) -> LocalFileStore:
     )
 
 
-def _present_check_stdout(errors: list[str], *, json_output: bool) -> None:
+def _present_verify_integrity_stdout(errors: list[str], *, json_output: bool) -> None:
     if json_output:
         print(json.dumps({"errors": errors}))
         return
@@ -110,7 +110,7 @@ def run_update(command: UpdateCommand) -> None:
     )
 
 
-def run_check(command: CheckCommand) -> list[str]:
+def run_verify_integrity(command: VerifyIntegrityCommand) -> list[str]:
     destination = Path(command.location)
     if not destination.exists():
         raise CliUsageError(f"destination path {command.location} does not exist")
@@ -122,7 +122,7 @@ def run_check(command: CheckCommand) -> list[str]:
             filestore=_local_filestore(destination),
         )
     )
-    _present_check_stdout(errors, json_output=command.json_output)
+    _present_verify_integrity_stdout(errors, json_output=command.json_output)
 
     return errors
 

@@ -18,7 +18,7 @@ class UpdateCommand:
 
 
 @dataclass
-class CheckCommand:
+class VerifyIntegrityCommand:
     location: str
     version: str | None = None
     json_output: bool = False

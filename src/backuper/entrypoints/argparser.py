@@ -30,7 +30,7 @@ def with_location_arg(parser: argparse.ArgumentParser):
         help="Backup data location. This is where your data is backed up.\n"
         "Must be an empty directory for the creation of a new backup.\n"
         "Must be an existing backup directory for a restore,"
-        " check, or update.",
+        " verify-integrity, or update.",
     )
 
 
@@ -47,13 +47,13 @@ def with_version_arg(parser: argparse.ArgumentParser):
     )
 
 
-def with_check_version_arg(parser: argparse.ArgumentParser):
+def with_verify_integrity_version_arg(parser: argparse.ArgumentParser):
     parser.add_argument(
         *VERSION_ARG_ALIASES,
         dest="version",
         default=None,
-        help="Optional of the version of the backup to check.\n"
-        "If not informed, will check all versions.",
+        help="Optional version of the backup to verify.\n"
+        "If not informed, all versions are verified.",
     )
 
 
@@ -95,23 +95,23 @@ def configure_update_parser(parser: argparse.ArgumentParser):
     parser.set_defaults(func=to_command)
 
 
-def configure_check_parser(parser: argparse.ArgumentParser):
+def configure_verify_integrity_parser(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--json",
         action="store_true",
         dest="json_output",
-        help="Print check results as a single JSON object on stdout.",
+        help="Print verification results as a single JSON object on stdout.",
     )
 
     def to_command(ns):
-        return c.CheckCommand(
+        return c.VerifyIntegrityCommand(
             location=ns.location,
             version=ns.version,
             json_output=ns.json_output,
         )
 
     with_location_arg(parser)
-    with_check_version_arg(parser)
+    with_verify_integrity_version_arg(parser)
     parser.set_defaults(func=to_command)
 
 
@@ -138,13 +138,13 @@ def parse(args):
         help="Reduce informational log output.",
     )
     subparsers = parser.add_subparsers(
-        title="Valid commands: new, update, check, restore",
+        title="Valid commands: new, update, verify-integrity, restore",
         required=True,
     )
 
     configure_new_parser(subparsers.add_parser("new"))
     configure_update_parser(subparsers.add_parser("update"))
-    configure_check_parser(subparsers.add_parser("check"))
+    configure_verify_integrity_parser(subparsers.add_parser("verify-integrity"))
     configure_restore_parser(subparsers.add_parser("restore"))
 
     parsed = parser.parse_args(args)

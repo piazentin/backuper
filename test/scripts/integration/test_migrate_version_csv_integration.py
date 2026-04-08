@@ -1,6 +1,6 @@
 """
 Integration tests: legacy CSV manifests migrate to canonical shape and remain readable
-by runtime ``CsvDb`` / ``check``-style flows.
+by runtime ``CsvDb`` / ``verify-integrity``-style flows.
 """
 
 from __future__ import annotations
@@ -8,10 +8,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from backuper.commands import CheckCommand
+from backuper.commands import VerifyIntegrityCommand
 from backuper.components.csv_db import CsvDb, _StoredFile, _Version
 from backuper.config import CsvDbConfig
-from backuper.entrypoints.cli import run_check
+from backuper.entrypoints.cli import run_verify_integrity
 from scripts.migrate_version_csv.__main__ import main
 from scripts.migrate_version_csv.atomic_output import write_migrated_atomic
 from scripts.migrate_version_csv.migrate import migrate_version_csv_text
@@ -131,11 +131,13 @@ def test_migrate_cli_reports_error_on_malformed_row(backup_root: Path) -> None:
     assert main([str(backup_root), "--csv", str(csv_path)]) == 1
 
 
-def test_run_check_succeeds_after_migration(backup_root: Path) -> None:
+def test_run_verify_integrity_succeeds_after_migration(backup_root: Path) -> None:
     csv_path = backup_root / "db" / "v1.csv"
     csv_path.write_text(f'"f","hello.txt","{_HELLO_SHA1}"\n', encoding="utf-8")
     assert main([str(backup_root), "--csv", str(csv_path)]) == 0
-    run_check(CheckCommand(location=str(backup_root), version="v1"))
+    run_verify_integrity(
+        VerifyIntegrityCommand(location=str(backup_root), version="v1")
+    )
 
 
 def test_write_migrated_atomic_idempotent_on_canonical_text(

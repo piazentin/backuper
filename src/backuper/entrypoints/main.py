@@ -2,17 +2,17 @@ import logging
 import sys
 
 from backuper.commands import (
-    CheckCommand,
     NewCommand,
     RestoreCommand,
     UpdateCommand,
+    VerifyIntegrityCommand,
 )
 from backuper.entrypoints import argparser as parser
 from backuper.entrypoints.cli import (
-    run_check,
     run_new,
     run_restore,
     run_update,
+    run_verify_integrity,
 )
 from backuper.models import UnreachableCommandError, UserFacingError
 
@@ -29,14 +29,14 @@ def _configure_logging(quiet: bool) -> None:
 
 
 def dispatch_command(
-    command: NewCommand | UpdateCommand | CheckCommand | RestoreCommand,
+    command: NewCommand | UpdateCommand | VerifyIntegrityCommand | RestoreCommand,
 ) -> None:
     if isinstance(command, NewCommand):
         run_new(command)
     elif isinstance(command, UpdateCommand):
         run_update(command)
-    elif isinstance(command, CheckCommand):
-        run_check(command)
+    elif isinstance(command, VerifyIntegrityCommand):
+        run_verify_integrity(command)
     elif isinstance(command, RestoreCommand):
         run_restore(command)
     else:

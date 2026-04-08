@@ -1,4 +1,4 @@
-"""CHECK-command behavior tests for implementation `run_check`."""
+"""VERIFY-INTEGRITY command behavior tests for `run_verify_integrity`."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ import json
 from pathlib import Path
 
 import pytest
-from backuper.commands import CheckCommand, NewCommand, UpdateCommand
+from backuper.commands import NewCommand, UpdateCommand, VerifyIntegrityCommand
 from backuper.components.csv_db import CsvDb
 from backuper.config import CsvDbConfig
-from backuper.entrypoints.cli import run_check, run_new, run_update
+from backuper.entrypoints.cli import run_new, run_update, run_verify_integrity
 from backuper.models import CliUsageError, VersionNotFoundError
 
 
@@ -27,41 +27,41 @@ def _seed_backup_version(destination: Path, source: Path, *, version: str) -> No
     )
 
 
-def test_run_check_raises_when_location_missing(tmp_path: Path) -> None:
+def test_run_verify_integrity_raises_when_location_missing(tmp_path: Path) -> None:
     missing_backup = tmp_path / "missing"
-    cmd = CheckCommand(location=str(missing_backup))
+    cmd = VerifyIntegrityCommand(location=str(missing_backup))
 
     with pytest.raises(CliUsageError, match="destination path .* does not exist"):
-        run_check(cmd)
+        run_verify_integrity(cmd)
 
 
-def test_run_check_raises_when_version_missing(tmp_path: Path) -> None:
+def test_run_verify_integrity_raises_when_version_missing(tmp_path: Path) -> None:
     backup = tmp_path / "backup"
     source = tmp_path / "src"
     _seed_backup(backup, source, version="v1")
-    cmd = CheckCommand(location=str(backup), version="unknown")
+    cmd = VerifyIntegrityCommand(location=str(backup), version="unknown")
 
     with pytest.raises(
         VersionNotFoundError, match="Backup version named unknown does not exist"
     ):
-        run_check(cmd)
+        run_verify_integrity(cmd)
 
 
-def test_run_check_prints_no_errors_for_valid_backup(
+def test_run_verify_integrity_prints_no_errors_for_valid_backup(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     backup = tmp_path / "backup"
     source = tmp_path / "src"
     _seed_backup(backup, source, version="v1")
 
-    errors = run_check(CheckCommand(location=str(backup)))
+    errors = run_verify_integrity(VerifyIntegrityCommand(location=str(backup)))
     captured = capsys.readouterr()
 
     assert errors == []
     assert "No errors found!" in captured.out
 
 
-def test_run_check_json_success(
+def test_run_verify_integrity_json_success(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     backup = tmp_path / "backup"
@@ -69,7 +69,9 @@ def test_run_check_json_success(
     _seed_backup(backup, source, version="v1")
     capsys.readouterr()
 
-    errors = run_check(CheckCommand(location=str(backup), json_output=True))
+    errors = run_verify_integrity(
+        VerifyIntegrityCommand(location=str(backup), json_output=True)
+    )
     captured = capsys.readouterr()
 
     assert errors == []
@@ -77,7 +79,7 @@ def test_run_check_json_success(
     assert "No errors found!" not in captured.out
 
 
-def test_run_check_json_with_errors(
+def test_run_verify_integrity_json_with_errors(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     backup = tmp_path / "backup"
@@ -91,8 +93,8 @@ def test_run_check_json_with_errors(
     stored_blob.unlink()
     capsys.readouterr()
 
-    errors = run_check(
-        CheckCommand(location=str(backup), version="v1", json_output=True),
+    errors = run_verify_integrity(
+        VerifyIntegrityCommand(location=str(backup), version="v1", json_output=True),
     )
     captured = capsys.readouterr()
 
@@ -100,7 +102,7 @@ def test_run_check_json_with_errors(
     assert json.loads(captured.out) == {"errors": errors}
 
 
-def test_run_check_reports_manifest_mismatch_when_csv_metadata_wrong_but_blob_exists(
+def test_run_verify_integrity_reports_manifest_mismatch_when_csv_metadata_wrong_but_blob_exists(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Wrong stored_location / is_compressed in CSV while blob exists confuses restore."""
@@ -129,7 +131,9 @@ def test_run_check_reports_manifest_mismatch_when_csv_metadata_wrong_but_blob_ex
     csv_path.write_text(text, encoding="utf-8")
 
     capsys.readouterr()
-    errors = run_check(CheckCommand(location=str(backup), version="v1"))
+    errors = run_verify_integrity(
+        VerifyIntegrityCommand(location=str(backup), version="v1")
+    )
     out = capsys.readouterr().out
     assert len(errors) == 1
     assert "Manifest metadata mismatch" in errors[0]
@@ -138,7 +142,7 @@ def test_run_check_reports_manifest_mismatch_when_csv_metadata_wrong_but_blob_ex
     assert "No errors found!" not in out
 
 
-def test_run_check_reports_missing_blobs(
+def test_run_verify_integrity_reports_missing_blobs(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     backup = tmp_path / "backup"
@@ -152,8 +156,10 @@ def test_run_check_reports_missing_blobs(
     stored_blob.unlink()
     capsys.readouterr()
 
-    check_command = CheckCommand(location=str(backup), version="v1")
-    errors = run_check(check_command)
+    verify_integrity_command = VerifyIntegrityCommand(
+        location=str(backup), version="v1"
+    )
+    errors = run_verify_integrity(verify_integrity_command)
     stdout = capsys.readouterr().out
 
     assert len(errors) == 1
@@ -163,7 +169,7 @@ def test_run_check_reports_missing_blobs(
     assert errors[0] in stdout
 
 
-def test_run_check_all_versions_aggregates_missing_blobs(
+def test_run_verify_integrity_all_versions_aggregates_missing_blobs(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     backup = tmp_path / "backup"
@@ -180,8 +186,8 @@ def test_run_check_all_versions_aggregates_missing_blobs(
         stored_blob.unlink()
     capsys.readouterr()
 
-    check_command = CheckCommand(location=str(backup))
-    implementation_errors = run_check(check_command)
+    verify_integrity_command = VerifyIntegrityCommand(location=str(backup))
+    implementation_errors = run_verify_integrity(verify_integrity_command)
     implementation_stdout = capsys.readouterr().out
 
     assert len(implementation_errors) == 2
