@@ -232,3 +232,79 @@ async def test_csv_backup_database_writes_and_appends_csv_rows(tmp_path: Path) -
     assert len(lines_after_second) == 2
     assert '"f","a.txt","ha","data/a","False","10","111.0"' in content_after_second
     assert '"f","b.txt","hb","data/b","False","20","222.0"' in content_after_second
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_list_files_single_csv_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """list_files must scan the version CSV once (no separate get_files + get_dirs passes)."""
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    version = "20260329030000"
+    await db.create_version(version)
+
+    def fail_if_legacy_double_read(*_args, **_kwargs) -> None:
+        raise AssertionError(
+            "list_files must not call get_files_for_version or get_dirs_for_version"
+        )
+
+    monkeypatch.setattr(csv_db, "get_files_for_version", fail_if_legacy_double_read)
+    monkeypatch.setattr(csv_db, "get_dirs_for_version", fail_if_legacy_double_read)
+
+    fs_calls: list[str] = []
+    real_get_fs = CsvDb.get_fs_objects_for_version
+
+    def track_get_fs(self: CsvDb, ver) -> list:
+        fs_calls.append(ver.name)
+        return real_get_fs(self, ver)
+
+    monkeypatch.setattr(CsvDb, "get_fs_objects_for_version", track_get_fs)
+
+    items: list[FileEntry] = []
+    async for item in db.list_files(version):
+        items.append(item)
+
+    assert fs_calls == [version]
+    assert items == []
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_list_files_mixed_rows_yield_files_then_dirs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """All file entries (in CSV order among `f` rows) then all dirs (CSV order among `d`)."""
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    version = "20260329040000"
+    await db.create_version(version)
+    csv_file = tmp_path / "db" / f"{version}.csv"
+    csv_file.write_text(
+        '"d","first_dir",""\n'
+        '"f","z.txt","hz","lz","False","1","1.0"\n'
+        '"d","second_dir",""\n'
+        '"f","a.txt","ha","la","False","2","2.0"\n',
+        encoding="utf-8",
+    )
+
+    def fail_if_legacy_double_read(*_args, **_kwargs) -> None:
+        raise AssertionError(
+            "list_files must not call get_files_for_version or get_dirs_for_version"
+        )
+
+    monkeypatch.setattr(csv_db, "get_files_for_version", fail_if_legacy_double_read)
+    monkeypatch.setattr(csv_db, "get_dirs_for_version", fail_if_legacy_double_read)
+
+    items: list[FileEntry] = []
+    async for item in db.list_files(version):
+        items.append(item)
+
+    assert len(items) == 4
+    assert [i.relative_path for i in items[:2]] == [Path("z.txt"), Path("a.txt")]
+    assert not items[0].is_directory and not items[1].is_directory
+    assert items[0].hash == "hz" and items[1].hash == "ha"
+    assert [i.relative_path for i in items[2:]] == [
+        Path("first_dir"),
+        Path("second_dir"),
+    ]
+    assert items[2].is_directory and items[3].is_directory
