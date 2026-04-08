@@ -159,6 +159,8 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 
 ### Phase 5 — CLI integrity command
 
+**Status:** Complete. The CLI integrity command was hard-renamed from **`check`** to **`verify-integrity`** with no compatibility alias, and parser/dispatch/tests/docs were updated while preserving behavior (including `--json` output mode).
+
 | Order | Item | Notes |
 |------:|------|--------|
 | 5.1 | **`check` → `verify-integrity`**; optional depth/cost flags on one command | `argparser`, `cli`, `commands`, controllers, tests, `README.md`, `AGENTS.md` |
