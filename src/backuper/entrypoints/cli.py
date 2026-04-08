@@ -19,8 +19,8 @@ from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
 from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import add_version, new_backup
-from backuper.controllers.check import run_check_flow
 from backuper.controllers.restore import run_restore_flow
+from backuper.controllers.verify_integrity import run_verify_integrity_flow
 from backuper.models import BackupAnalysisSummary, CliUsageError
 
 
@@ -116,7 +116,7 @@ def run_verify_integrity(command: VerifyIntegrityCommand) -> list[str]:
         raise CliUsageError(f"destination path {command.location} does not exist")
 
     errors = asyncio.run(
-        run_check_flow(
+        run_verify_integrity_flow(
             command,
             db=CsvBackupDatabase(_csv_db(destination)),
             filestore=_local_filestore(destination),

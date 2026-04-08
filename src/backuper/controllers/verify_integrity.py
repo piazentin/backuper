@@ -39,7 +39,7 @@ async def _missing_stored_files(
     return errors
 
 
-async def run_check_flow(
+async def run_verify_integrity_flow(
     command: VerifyIntegrityCommand,
     *,
     db: BackupDatabase,
