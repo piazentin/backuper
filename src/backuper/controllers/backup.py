@@ -5,7 +5,7 @@ from uuid import uuid4
 from backuper.models import (
     AnalyzedFileEntry,
     BackedUpFileEntry,
-    BackupAnalysisSummary,
+    BackupAnalysisSummaryAccumulator,
     VersionAlreadyExistsError,
 )
 from backuper.ports import (
@@ -79,34 +79,6 @@ async def add_version(
     )
 
 
-def _backup_analysis_summary(
-    analyzed: list[AnalyzedFileEntry], version: str
-) -> BackupAnalysisSummary:
-    file_entries = [e for e in analyzed if not e.source_file.is_directory]
-    return BackupAnalysisSummary(
-        version_name=version,
-        num_directories=sum(1 for e in analyzed if e.source_file.is_directory),
-        num_files=len(file_entries),
-        total_file_size=sum(e.source_file.size for e in file_entries),
-        files_to_backup=sum(1 for e in file_entries if not e.already_backed_up),
-    )
-
-
-async def _collect_analyzed_entries(
-    source: Path,
-    *,
-    file_reader: FileReader,
-    analyzer: BackupAnalyzer,
-    db: BackupDatabase,
-) -> list[AnalyzedFileEntry]:
-    return [
-        entry
-        async for entry in _iterate_analyzed_entries(
-            source, file_reader=file_reader, analyzer=analyzer, db=db
-        )
-    ]
-
-
 async def _run_backup_stream(
     source: Path,
     version: str,
@@ -117,16 +89,26 @@ async def _run_backup_stream(
     filestore: FileStore,
     reporter: AnalysisReporter,
 ) -> None:
-    analyzed_list = await _collect_analyzed_entries(
-        source, file_reader=file_reader, analyzer=analyzer, db=db
-    )
-    reporter.report_analysis_summary(_backup_analysis_summary(analyzed_list, version))
+    # Stream analysis in walk order: accumulate counts and buffer entries, then
+    # report_analysis_summary once before the backup leg. File progress uses
+    # total_files == summary.num_files (0-based indices for non-directories).
+    acc = BackupAnalysisSummaryAccumulator()
+    analyzed_in_order: list[AnalyzedFileEntry] = []
 
-    total_files = sum(1 for e in analyzed_list if not e.source_file.is_directory)
+    async for entry in _iterate_analyzed_entries(
+        source, file_reader=file_reader, analyzer=analyzer, db=db
+    ):
+        acc.consume(entry)
+        analyzed_in_order.append(entry)
+
+    summary = acc.to_summary(version)
+    reporter.report_analysis_summary(summary)
+
+    total_files = summary.num_files
     one_percent = int(max(1, total_files / 100))
 
     file_idx = 0
-    for entry in analyzed_list:
+    for entry in analyzed_in_order:
         if not entry.source_file.is_directory:
             if file_idx % one_percent == 0:
                 reporter.report_file_progress(file_idx, total_files)

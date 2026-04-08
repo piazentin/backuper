@@ -171,7 +171,7 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 |------:|------|--------|
 | 6.1 | Merge or delete **`_analyze_path`** vs **`_collect_analyzed_entries`** drift | From dead/duplicate notes |
 | 6.2 | Unify on **observer / `AnalysisReporter`** for analysis, progress, phases | Replace ad hoc callbacks from `cli.py` |
-| 6.3 | **Single pass** / streaming from `analyze_stream` where semantics allow | Addresses memory + double iteration; pairs with **6.2** |
+| 6.3 | **Single pass** / streaming from `analyze_stream` where semantics allow | Addresses memory + double iteration; pairs with **6.2**. **6.3a** (design): streaming invariants under *Implementation hooks* → *Reporting / backup pipeline*. |
 | 6.4 | **`list_files` redundant CSV I/O**: `CsvBackupDatabase.list_files` calls **`get_files_for_version`** then **`get_dirs_for_version`** — each **opens and fully parses** the same version CSV (`CsvDb` in `csv_db.py`). Replace with **one read** per version (e.g. `get_fs_objects_for_version` + split, or single pass filtering `f`/`d`) | Clear win for restore/check on large manifests; **sync** optimization |
 | 6.5 | **Hashing / disk throughput** (if profiling shows hot paths): **bounded** parallel hashing and/or overlapping blob writes — thread/process pool with a **cap**; measure before widening | Not “more asyncio” alone; avoid unbounded disk parallelism (thrashing) |
 
@@ -280,9 +280,16 @@ Detail preserved from earlier working notes—**not** extra scope by default; us
 
 ### Reporting / backup pipeline (**H** / Phase 6)
 
-- Today **`_run_backup_stream`** uses **`on_analysis_summary`** (`Callable[[BackupAnalysisSummary], None]`) and **`on_file_progress`** (`Callable[[int, int], None]`), not **`AnalysisReporter`** / **`StdoutAnalysisReporter`**.
-- Summary is built **after** the fact via **`_backup_analysis_summary(analyzed_list, …)`** on the materialized list from **`_collect_analyzed_entries`**; the same list is iterated again for progress + **`db.add_file`** / **`filestore.put`** (double pass + memory overlap with “full analyzed list”).
+- Today **`_run_backup_stream`** wires **`AnalysisReporter`** for summary and file progress after **`_collect_analyzed_entries`** materializes the full list; the same list is iterated again for progress + **`db.add_file`** / **`filestore.put`** (double pass + peak memory vs the analyzed list).
 - Optional later: **`async` reporting sinks** if HTTP needs non-blocking hooks; sync reporting is unlikely to beat disk I/O as the bottleneck.
+
+**6.3a — Streaming backup invariants (design hook for H2 / 6.3).** A single-pass or streaming pipeline must preserve today’s observable semantics unless a follow-up explicitly changes them:
+
+1. **Directory vs file order** — Match **`LocalFileReader.read_directory`**: for each `os.walk` root, emit **all child directory `FileEntry`s** (`is_directory=True`) **before** **files** in that directory; continue in **`os.walk` DFS order**. Each yielded analyzed entry corresponds to **one** **`db.add_file`** for the version **including directories** (same manifest shape as the materialized path).
+
+2. **Dedup / hash lookups** — For **files**, **`BackupAnalyzerImpl.analyze_stream`** tries **metadata** (`get_files_by_metadata`) then, on miss, **sync `compute_hash`** and **content** (`get_files_by_hash`); **`stored_files[0]`** (first match) wins at each step. **`_to_backed_up_entry`** uses **`get_files_by_hash`** again when **`already_backed_up`** and **`entry.hash`** are set, again taking the **first** match. Streaming must **complete per entry** in walk order so “first match” and CSV rows stay aligned (ties with Phase **8.2**).
+
+3. **Summary and progress granularity (6.3b — locked)** — Controllers **incrementally accumulate** analysis aggregates via **`BackupAnalysisSummaryAccumulator`** (`models`), then emit **one** **`report_analysis_summary`** after the **analysis leg** ends and **before** the **backup leg** (current CLI: summary first, then “Processed …%”). **`report_file_progress(i, total)`** keeps **`total == summary.num_files`** with **no** unknown-total API and **no** extra filesystem pass for counts; **`i`** is **0-based** in **walk order**; throttle stays ~**1%** of files. A future **streaming backup** pipeline (**6.3c**) must preserve this **phase ordering** unless UX changes are intentional and documented.
 
 ### Multi-UX / HTTP (**J** / Phase 10)
 
