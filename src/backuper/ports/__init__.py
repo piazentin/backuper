@@ -8,6 +8,7 @@ from pathlib import Path
 from backuper.models import (
     AnalyzedFileEntry,
     BackedUpFileEntry,
+    BackupAnalysisSummary,
     FileEntry,
     PutResult,
 )
@@ -68,8 +69,26 @@ class BackupDatabase(ABC):
 
 class AnalysisReporter(ABC):
     @abstractmethod
+    def report_analysis_start(self) -> None:
+        """Exactly once per backup run: before the analysis leg starts."""
+
+    @abstractmethod
     def report(self, entry: AnalyzedFileEntry) -> None:
         pass
+
+    @abstractmethod
+    def report_analysis_summary(self, summary: BackupAnalysisSummary) -> None:
+        """Exactly once per backup run: after the analysis leg, before file progress."""
+
+    @abstractmethod
+    def report_file_progress(self, file_index: int, total_files: int) -> None:
+        """Backup-leg progress for non-directory files in walk order.
+
+        ``file_index`` is 0-based. ``total_files`` equals
+        ``BackupAnalysisSummary.num_files`` for this run. Controllers throttle
+        calls (e.g. about once per 1% of files); implementations may no-op some
+        invocations.
+        """
 
 
 class FileStore(ABC):

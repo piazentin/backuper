@@ -1,1 +1,1 @@
-"""Standalone CSV manifest migration (Phase 4.1)."""
+"""Standalone CSV manifest migration for legacy backup trees."""

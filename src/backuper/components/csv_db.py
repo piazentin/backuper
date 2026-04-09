@@ -240,7 +240,13 @@ class CsvBackupDatabase(BackupDatabase):
 
     async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
         version_obj = self._csv_db.get_version_by_name(version)
-        stored_files = self._csv_db.get_files_for_version(version_obj)
+        stored_files: list[_StoredFile] = []
+        dir_entries: list[_DirEntry] = []
+        for obj in self._csv_db.get_fs_objects_for_version(version_obj):
+            if isinstance(obj, _StoredFile):
+                stored_files.append(obj)
+            else:
+                dir_entries.append(obj)
 
         for stored_file in stored_files:
             path = Path(stored_file.restore_path)
@@ -256,8 +262,7 @@ class CsvBackupDatabase(BackupDatabase):
                 is_compressed=stored_file.is_compressed,
             )
 
-        stored_dirs = self._csv_db.get_dirs_for_version(version_obj)
-        for dir_entry in stored_dirs:
+        for dir_entry in dir_entries:
             path = Path(dir_entry.name)
             yield FileEntry(
                 path=path, relative_path=path, size=0, mtime=0.0, is_directory=True

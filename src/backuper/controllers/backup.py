@@ -1,11 +1,11 @@
-from collections.abc import Callable
+from collections.abc import AsyncIterator
 from pathlib import Path
 from uuid import uuid4
 
 from backuper.models import (
     AnalyzedFileEntry,
     BackedUpFileEntry,
-    BackupAnalysisSummary,
+    BackupAnalysisSummaryAccumulator,
     VersionAlreadyExistsError,
 )
 from backuper.ports import (
@@ -17,20 +17,17 @@ from backuper.ports import (
 )
 
 
-async def _analyze_path(
-    path: Path,
+async def _iterate_analyzed_entries(
+    source: Path,
     *,
     file_reader: FileReader,
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
-    reporter: AnalysisReporter,
-) -> None:
-    """Analyze a path and emit analyzed file entries through ``reporter``."""
-    file_entries = file_reader.read_directory(path)
+) -> AsyncIterator[AnalyzedFileEntry]:
+    file_entries = file_reader.read_directory(source)
     analyzed_entries = analyzer.analyze_stream(file_entries, db)
-
     async for entry in analyzed_entries:
-        reporter.report(entry)
+        yield entry
 
 
 async def new_backup(
@@ -41,8 +38,7 @@ async def new_backup(
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
     filestore: FileStore,
-    on_analysis_summary: Callable[[BackupAnalysisSummary], None] | None = None,
-    on_file_progress: Callable[[int, int], None] | None = None,
+    reporter: AnalysisReporter,
 ) -> None:
     versions = await db.list_versions()
     if version not in versions:
@@ -54,8 +50,7 @@ async def new_backup(
         analyzer=analyzer,
         db=db,
         filestore=filestore,
-        on_analysis_summary=on_analysis_summary,
-        on_file_progress=on_file_progress,
+        reporter=reporter,
     )
 
 
@@ -67,8 +62,7 @@ async def add_version(
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
     filestore: FileStore,
-    on_analysis_summary: Callable[[BackupAnalysisSummary], None] | None = None,
-    on_file_progress: Callable[[int, int], None] | None = None,
+    reporter: AnalysisReporter,
 ) -> None:
     versions = await db.list_versions()
     if version in versions:
@@ -81,34 +75,8 @@ async def add_version(
         analyzer=analyzer,
         db=db,
         filestore=filestore,
-        on_analysis_summary=on_analysis_summary,
-        on_file_progress=on_file_progress,
+        reporter=reporter,
     )
-
-
-def _backup_analysis_summary(
-    analyzed: list[AnalyzedFileEntry], version: str
-) -> BackupAnalysisSummary:
-    file_entries = [e for e in analyzed if not e.source_file.is_directory]
-    return BackupAnalysisSummary(
-        version_name=version,
-        num_directories=sum(1 for e in analyzed if e.source_file.is_directory),
-        num_files=len(file_entries),
-        total_file_size=sum(e.source_file.size for e in file_entries),
-        files_to_backup=sum(1 for e in file_entries if not e.already_backed_up),
-    )
-
-
-async def _collect_analyzed_entries(
-    source: Path,
-    *,
-    file_reader: FileReader,
-    analyzer: BackupAnalyzer,
-    db: BackupDatabase,
-) -> list[AnalyzedFileEntry]:
-    file_entries = file_reader.read_directory(source)
-    analyzed_entries = analyzer.analyze_stream(file_entries, db)
-    return [entry async for entry in analyzed_entries]
 
 
 async def _run_backup_stream(
@@ -119,23 +87,35 @@ async def _run_backup_stream(
     analyzer: BackupAnalyzer,
     db: BackupDatabase,
     filestore: FileStore,
-    on_analysis_summary: Callable[[BackupAnalysisSummary], None] | None = None,
-    on_file_progress: Callable[[int, int], None] | None = None,
+    reporter: AnalysisReporter,
 ) -> None:
-    analyzed_list = await _collect_analyzed_entries(
-        source, file_reader=file_reader, analyzer=analyzer, db=db
-    )
-    if on_analysis_summary is not None:
-        on_analysis_summary(_backup_analysis_summary(analyzed_list, version))
+    # Stream analysis in walk order: accumulate counts and buffer entries, then
+    # report_analysis_summary once before the backup leg. File progress uses
+    # total_files == summary.num_files (0-based indices for non-directories).
+    acc = BackupAnalysisSummaryAccumulator()
+    analyzed_in_order: list[AnalyzedFileEntry] = []
+    reporter.report_analysis_start()
 
-    total_files = sum(1 for e in analyzed_list if not e.source_file.is_directory)
-    one_percent = int(max(1, total_files / 100))
+    async for entry in _iterate_analyzed_entries(
+        source, file_reader=file_reader, analyzer=analyzer, db=db
+    ):
+        acc.consume(entry)
+        reporter.report(entry)
+        analyzed_in_order.append(entry)
+
+    summary = acc.to_summary(version)
+    reporter.report_analysis_summary(summary)
+
+    total_files = summary.num_files
+    # ~1% cadence: use ceil(total_files/100) so totals like 101–199 do not floor to 1
+    # (which would report every file). Integer ceil: (n + 99) // 100.
+    progress_step = max(1, (total_files + 99) // 100)
 
     file_idx = 0
-    for entry in analyzed_list:
+    for entry in analyzed_in_order:
         if not entry.source_file.is_directory:
-            if on_file_progress is not None and file_idx % one_percent == 0:
-                on_file_progress(file_idx, total_files)
+            if file_idx % progress_step == 0:
+                reporter.report_file_progress(file_idx, total_files)
             file_idx += 1
         backup_entry = await _to_backed_up_entry(entry, db=db, filestore=filestore)
         await db.add_file(version, backup_entry)

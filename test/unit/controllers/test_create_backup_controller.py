@@ -7,9 +7,10 @@ from backuper.components.backup_analyzer import BackupAnalyzerImpl
 from backuper.components.csv_db import CsvBackupDatabase, CsvDb
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
+from backuper.components.reporter import NoOpAnalysisReporter
 from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import (
-    _analyze_path,
+    _iterate_analyzed_entries,
     add_version,
     new_backup,
 )
@@ -55,6 +56,7 @@ async def test_create_backup_writes_data_store_and_metadata(tmp_path: Path) -> N
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
+        reporter=NoOpAnalysisReporter(),
     )
 
     backed_up_entries = []
@@ -101,6 +103,7 @@ async def test_add_version_raises_when_version_already_exists(tmp_path: Path) ->
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
+        reporter=NoOpAnalysisReporter(),
     )
     with pytest.raises(
         VersionAlreadyExistsError,
@@ -113,6 +116,7 @@ async def test_add_version_raises_when_version_already_exists(tmp_path: Path) ->
             analyzer=BackupAnalyzerImpl(),
             db=db,
             filestore=filestore,
+            reporter=NoOpAnalysisReporter(),
         )
 
 
@@ -166,22 +170,51 @@ class _DbStub(BackupDatabase):
 
 class _CollectingReporter(AnalysisReporter):
     def __init__(self) -> None:
-        self.entries = []
+        self.entries: list[AnalyzedFileEntry] = []
 
     def report(self, entry: AnalyzedFileEntry) -> None:
         self.entries.append(entry)
 
+    def report_analysis_start(self) -> None:
+        pass
+
+    def report_analysis_summary(self, summary: BackupAnalysisSummary) -> None:
+        pass
+
+    def report_file_progress(self, file_index: int, total_files: int) -> None:
+        pass
+
+
+class _RecordingBackupReporter(AnalysisReporter):
+    def __init__(self) -> None:
+        self.entries: list[AnalyzedFileEntry] = []
+        self.started = False
+        self.summaries: list[BackupAnalysisSummary] = []
+        self.progress: list[tuple[int, int]] = []
+
+    def report_analysis_start(self) -> None:
+        self.started = True
+
+    def report(self, entry: AnalyzedFileEntry) -> None:
+        self.entries.append(entry)
+
+    def report_analysis_summary(self, summary: BackupAnalysisSummary) -> None:
+        self.summaries.append(summary)
+
+    def report_file_progress(self, file_index: int, total_files: int) -> None:
+        self.progress.append((file_index, total_files))
+
 
 @pytest.mark.asyncio
-async def test_analyze_path_reports_structured_entries(tmp_path: Path) -> None:
+async def test_iterate_analyzed_entries_yields_analyzed_entries(tmp_path: Path) -> None:
     reporter = _CollectingReporter()
-    await _analyze_path(
+    async for entry in _iterate_analyzed_entries(
         tmp_path,
         file_reader=_ReaderStub(),
         analyzer=_AnalyzerStub(),
         db=_DbStub(),
-        reporter=reporter,
-    )
+    ):
+        reporter.report(entry)
 
     assert len(reporter.entries) == 1
     reported = reporter.entries[0]
@@ -191,7 +224,7 @@ async def test_analyze_path_reports_structured_entries(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_new_backup_with_callbacks_reports_summary_and_progress(
+async def test_new_backup_with_reporter_reports_summary_and_progress(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "source"
@@ -210,8 +243,7 @@ async def test_new_backup_with_callbacks_reports_summary_and_progress(
         )
     )
 
-    summaries: list[BackupAnalysisSummary] = []
-    progress: list[tuple[int, int]] = []
+    recording = _RecordingBackupReporter()
 
     await new_backup(
         source,
@@ -220,14 +252,57 @@ async def test_new_backup_with_callbacks_reports_summary_and_progress(
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
-        on_analysis_summary=summaries.append,
-        on_file_progress=lambda i, t: progress.append((i, t)),
+        reporter=recording,
     )
 
-    assert len(summaries) == 1
-    s = summaries[0]
+    assert recording.started is True
+    assert len(recording.entries) == 2
+    assert {e.source_file.relative_path for e in recording.entries} == {
+        Path("a.txt"),
+        Path("b.txt"),
+    }
+    assert len(recording.summaries) == 1
+    s = recording.summaries[0]
     assert s.version_name == version
     assert s.num_files == 2
     assert s.files_to_backup == 2
     assert s.total_file_size == 9
-    assert progress == [(0, 2), (1, 2)]
+    assert recording.progress == [(0, 2), (1, 2)]
+
+
+@pytest.mark.asyncio
+async def test_backup_progress_throttled_when_just_over_hundred_files(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    for i in range(101):
+        (source / f"f{i:03d}.txt").write_bytes(b"x")
+
+    backup_root = tmp_path / "backup"
+    version = "v101"
+
+    db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(backup_root))))
+    filestore = LocalFileStore(
+        FilestoreConfig(
+            backup_dir=str(backup_root),
+            zip_enabled=False,
+        )
+    )
+    recording = _RecordingBackupReporter()
+
+    await new_backup(
+        source,
+        version,
+        file_reader=LocalFileReader(),
+        analyzer=BackupAnalyzerImpl(),
+        db=db,
+        filestore=filestore,
+        reporter=recording,
+    )
+
+    assert recording.summaries[0].num_files == 101
+    # progress_step = ceil(101/100) == 2 → indices 0, 2, …, 100 → 51 reports
+    assert len(recording.progress) == 51
+    assert recording.progress[0] == (0, 101)
+    assert recording.progress[-1] == (100, 101)

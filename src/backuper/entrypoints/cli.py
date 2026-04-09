@@ -17,11 +17,12 @@ from backuper.components.csv_db import (
 )
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
+from backuper.components.reporter import StdoutAnalysisReporter
 from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import add_version, new_backup
 from backuper.controllers.restore import run_restore_flow
 from backuper.controllers.verify_integrity import run_verify_integrity_flow
-from backuper.models import BackupAnalysisSummary, CliUsageError
+from backuper.models import CliUsageError
 
 
 def _csv_db(backup_root: Path) -> CsvDb:
@@ -47,23 +48,6 @@ def _present_verify_integrity_stdout(errors: list[str], *, json_output: bool) ->
         print("No errors found!")
 
 
-def _print_backup_analysis_summary(summary: BackupAnalysisSummary) -> None:
-    print("Running analysis... This may take a while.")
-    title_str = f"+++++ BACKUP ANALYSIS RESULT FOR VERSION {summary.version_name} +++++"
-    print(title_str)
-    print(f"Number of directories: {summary.num_directories}")
-    print(f"Number of files: {summary.num_files}")
-    print(f"Total size of files: {summary.total_file_size}")
-    print(f"Files to backup: {summary.files_to_backup}")
-    print("+" * len(title_str))
-
-
-def _print_backup_file_progress(file_index: int, total_files: int) -> None:
-    if total_files == 0:
-        return
-    print(f"Processed {format((file_index / total_files), '.0%')} of files...")
-
-
 def run_new(command: NewCommand) -> None:
     source = Path(command.source)
     destination = Path(command.location)
@@ -81,8 +65,7 @@ def run_new(command: NewCommand) -> None:
             analyzer=BackupAnalyzerImpl(),
             db=CsvBackupDatabase(_csv_db(destination), index_status=print),
             filestore=_local_filestore(destination),
-            on_analysis_summary=_print_backup_analysis_summary,
-            on_file_progress=_print_backup_file_progress,
+            reporter=StdoutAnalysisReporter(),
         )
     )
 
@@ -104,8 +87,7 @@ def run_update(command: UpdateCommand) -> None:
             analyzer=BackupAnalyzerImpl(),
             db=CsvBackupDatabase(_csv_db(destination), index_status=print),
             filestore=_local_filestore(destination),
-            on_analysis_summary=_print_backup_analysis_summary,
-            on_file_progress=_print_backup_file_progress,
+            reporter=StdoutAnalysisReporter(),
         )
     )
 
