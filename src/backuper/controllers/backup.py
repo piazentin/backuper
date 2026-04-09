@@ -107,12 +107,14 @@ async def _run_backup_stream(
     reporter.report_analysis_summary(summary)
 
     total_files = summary.num_files
-    one_percent = int(max(1, total_files / 100))
+    # ~1% cadence: use ceil(total_files/100) so totals like 101–199 do not floor to 1
+    # (which would report every file). Integer ceil: (n + 99) // 100.
+    progress_step = max(1, (total_files + 99) // 100)
 
     file_idx = 0
     for entry in analyzed_in_order:
         if not entry.source_file.is_directory:
-            if file_idx % one_percent == 0:
+            if file_idx % progress_step == 0:
                 reporter.report_file_progress(file_idx, total_files)
             file_idx += 1
         backup_entry = await _to_backed_up_entry(entry, db=db, filestore=filestore)

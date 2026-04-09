@@ -268,3 +268,41 @@ async def test_new_backup_with_reporter_reports_summary_and_progress(
     assert s.files_to_backup == 2
     assert s.total_file_size == 9
     assert recording.progress == [(0, 2), (1, 2)]
+
+
+@pytest.mark.asyncio
+async def test_backup_progress_throttled_when_just_over_hundred_files(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    for i in range(101):
+        (source / f"f{i:03d}.txt").write_bytes(b"x")
+
+    backup_root = tmp_path / "backup"
+    version = "v101"
+
+    db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(backup_root))))
+    filestore = LocalFileStore(
+        FilestoreConfig(
+            backup_dir=str(backup_root),
+            zip_enabled=False,
+        )
+    )
+    recording = _RecordingBackupReporter()
+
+    await new_backup(
+        source,
+        version,
+        file_reader=LocalFileReader(),
+        analyzer=BackupAnalyzerImpl(),
+        db=db,
+        filestore=filestore,
+        reporter=recording,
+    )
+
+    assert recording.summaries[0].num_files == 101
+    # progress_step = ceil(101/100) == 2 → indices 0, 2, …, 100 → 51 reports
+    assert len(recording.progress) == 51
+    assert recording.progress[0] == (0, 101)
+    assert recording.progress[-1] == (100, 101)
