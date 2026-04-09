@@ -28,6 +28,45 @@ def test_stdout_analysis_reporter_prints_expected_message(capsys) -> None:
     )
 
 
+def test_stdout_analysis_reporter_prints_new_directory(capsys) -> None:
+    reporter = StdoutAnalysisReporter()
+    entry = AnalyzedFileEntry(
+        source_file=FileEntry(
+            path=Path("/src/subdir"),
+            relative_path=Path("subdir"),
+            size=0,
+            mtime=100.0,
+            is_directory=True,
+        ),
+        hash="",
+        already_backed_up=False,
+        backup_id=None,
+    )
+    reporter.report(entry)
+    assert capsys.readouterr().out == "New directory: subdir\n"
+
+
+def test_stdout_analysis_reporter_prints_backed_up_directory(capsys) -> None:
+    reporter = StdoutAnalysisReporter()
+    entry = AnalyzedFileEntry(
+        source_file=FileEntry(
+            path=Path("/src/subdir"),
+            relative_path=Path("subdir"),
+            size=0,
+            mtime=100.0,
+            is_directory=True,
+        ),
+        hash="",
+        already_backed_up=True,
+        backup_id=UUID("12345678-1234-5678-1234-567812345678"),
+    )
+    reporter.report(entry)
+    assert (
+        capsys.readouterr().out
+        == "Already backed up directory: subdir (Backup ID: 12345678-1234-5678-1234-567812345678)\n"
+    )
+
+
 def test_stdout_analysis_reporter_prints_analysis_summary(capsys) -> None:
     reporter = StdoutAnalysisReporter()
     summary = BackupAnalysisSummary(
