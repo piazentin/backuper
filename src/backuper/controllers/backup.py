@@ -94,6 +94,7 @@ async def _run_backup_stream(
     # total_files == summary.num_files (0-based indices for non-directories).
     acc = BackupAnalysisSummaryAccumulator()
     analyzed_in_order: list[AnalyzedFileEntry] = []
+    reporter.report_analysis_start()
 
     async for entry in _iterate_analyzed_entries(
         source, file_reader=file_reader, analyzer=analyzer, db=db

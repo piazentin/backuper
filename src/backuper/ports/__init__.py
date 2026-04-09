@@ -69,6 +69,10 @@ class BackupDatabase(ABC):
 
 class AnalysisReporter(ABC):
     @abstractmethod
+    def report_analysis_start(self) -> None:
+        """Exactly once per backup run: before the analysis leg starts."""
+
+    @abstractmethod
     def report(self, entry: AnalyzedFileEntry) -> None:
         pass
 

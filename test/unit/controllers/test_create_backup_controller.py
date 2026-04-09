@@ -175,6 +175,9 @@ class _CollectingReporter(AnalysisReporter):
     def report(self, entry: AnalyzedFileEntry) -> None:
         self.entries.append(entry)
 
+    def report_analysis_start(self) -> None:
+        pass
+
     def report_analysis_summary(self, summary: BackupAnalysisSummary) -> None:
         pass
 
@@ -185,8 +188,12 @@ class _CollectingReporter(AnalysisReporter):
 class _RecordingBackupReporter(AnalysisReporter):
     def __init__(self) -> None:
         self.entries: list[AnalyzedFileEntry] = []
+        self.started = False
         self.summaries: list[BackupAnalysisSummary] = []
         self.progress: list[tuple[int, int]] = []
+
+    def report_analysis_start(self) -> None:
+        self.started = True
 
     def report(self, entry: AnalyzedFileEntry) -> None:
         self.entries.append(entry)
@@ -199,7 +206,7 @@ class _RecordingBackupReporter(AnalysisReporter):
 
 
 @pytest.mark.asyncio
-async def test_iterate_analyzed_entries_reports_via_reporter(tmp_path: Path) -> None:
+async def test_iterate_analyzed_entries_yields_analyzed_entries(tmp_path: Path) -> None:
     reporter = _CollectingReporter()
     async for entry in _iterate_analyzed_entries(
         tmp_path,
@@ -248,6 +255,7 @@ async def test_new_backup_with_reporter_reports_summary_and_progress(
         reporter=recording,
     )
 
+    assert recording.started is True
     assert len(recording.entries) == 2
     assert {e.source_file.relative_path for e in recording.entries} == {
         Path("a.txt"),

@@ -41,12 +41,17 @@ def test_stdout_analysis_reporter_prints_analysis_summary(capsys) -> None:
     reporter.report_analysis_summary(summary)
 
     out = capsys.readouterr().out
-    assert "Running analysis... This may take a while." in out
     assert "+++++ BACKUP ANALYSIS RESULT FOR VERSION v9 +++++" in out
     assert "Number of directories: 1" in out
     assert "Number of files: 2" in out
     assert "Total size of files: 42" in out
     assert "Files to backup: 1" in out
+
+
+def test_stdout_analysis_reporter_prints_analysis_start(capsys) -> None:
+    reporter = StdoutAnalysisReporter()
+    reporter.report_analysis_start()
+    assert capsys.readouterr().out == "Running analysis... This may take a while.\n"
 
 
 def test_stdout_analysis_reporter_prints_file_progress(capsys) -> None:

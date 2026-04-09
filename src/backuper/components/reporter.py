@@ -5,6 +5,9 @@ from backuper.ports import AnalysisReporter
 class NoOpAnalysisReporter(AnalysisReporter):
     """Silent reporter for tests and non-interactive callers."""
 
+    def report_analysis_start(self) -> None:
+        pass
+
     def report(self, entry: AnalyzedFileEntry) -> None:
         pass
 
@@ -16,13 +19,15 @@ class NoOpAnalysisReporter(AnalysisReporter):
 
 
 class StdoutAnalysisReporter(AnalysisReporter):
+    def report_analysis_start(self) -> None:
+        print("Running analysis... This may take a while.")
+
     def report(self, entry: AnalyzedFileEntry) -> None:
         status = "Already backed up" if entry.already_backed_up else "New file"
         backup_id = f" (Backup ID: {entry.backup_id})" if entry.backup_id else ""
         print(f"{status}: {entry.source_file.relative_path}{backup_id}")
 
     def report_analysis_summary(self, summary: BackupAnalysisSummary) -> None:
-        print("Running analysis... This may take a while.")
         title_str = (
             f"+++++ BACKUP ANALYSIS RESULT FOR VERSION {summary.version_name} +++++"
         )
