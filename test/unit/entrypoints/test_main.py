@@ -1,4 +1,4 @@
-"""Tests for `backuper.entrypoints.main` dispatch and `main()` exit behavior."""
+"""Tests for `backuper.entrypoints.cli.main` dispatch and exit behavior."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from backuper.commands import (
     UpdateCommand,
     VerifyIntegrityCommand,
 )
-from backuper.entrypoints import main as main_mod
+from backuper.entrypoints.cli import main as main_mod
 from backuper.models import CliUsageError, UnreachableCommandError
 
 

@@ -1,6 +1,6 @@
-"""Compatibility module for CLI command runners."""
+"""CLI delivery package."""
 
-from backuper.entrypoints.cli_runner import (
+from backuper.entrypoints.cli.runner import (
     run_new,
     run_restore,
     run_update,
