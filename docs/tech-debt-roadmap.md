@@ -69,7 +69,7 @@ flowchart TB
     G1[check → verify-integrity]
   end
 
-  subgraph pipeline [Phase 6 - Backup observability]
+  subgraph pipeline [Phase 6 - Backup observability — done]
     H1[Unified observer / AnalysisReporter]
     H2[Streaming or single-pass backup]
   end
@@ -167,13 +167,15 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 
 ### Phase 6 — Backup pipeline and observability
 
+**Status:** Complete. Backup flow now uses a unified reporter/observer path and single-pass analysis walk semantics, including the targeted CSV/read-throughput and hashing/throughput follow-ups captured under this phase.
+
 | Order | Item | Notes |
 |------:|------|--------|
-| 6.1 | Single analysis walk via **`_iterate_analyzed_entries`**; **`_collect_analyzed_entries`** removed (historical: drift vs **`_analyze_path`**) | Landed |
-| 6.2 | Unify on **observer / `AnalysisReporter`** for analysis, progress, phases | Replace ad hoc callbacks from `cli.py` |
-| 6.3 | **Single pass** / streaming from `analyze_stream` where semantics allow | Addresses memory + double iteration; pairs with **6.2**. **6.3a** (design): streaming invariants under *Implementation hooks* → *Reporting / backup pipeline*. |
-| 6.4 | **`list_files` redundant CSV I/O**: `CsvBackupDatabase.list_files` calls **`get_files_for_version`** then **`get_dirs_for_version`** — each **opens and fully parses** the same version CSV (`CsvDb` in `csv_db.py`). Replace with **one read** per version (e.g. `get_fs_objects_for_version` + split, or single pass filtering `f`/`d`) | Clear win for restore/check on large manifests; **sync** optimization |
-| 6.5 | **Hashing / disk throughput** (if profiling shows hot paths): **bounded** parallel hashing and/or overlapping blob writes — thread/process pool with a **cap**; measure before widening | Not “more asyncio” alone; avoid unbounded disk parallelism (thrashing) |
+| 6.1 | Single analysis walk via **`_iterate_analyzed_entries`**; **`_collect_analyzed_entries`** removed (historical: drift vs **`_analyze_path`**) | Complete |
+| 6.2 | Unify on **observer / `AnalysisReporter`** for analysis, progress, phases | Complete |
+| 6.3 | **Single pass** / streaming from `analyze_stream` where semantics allow | Complete (including invariants tracked under *Implementation hooks* → *Reporting / backup pipeline*) |
+| 6.4 | **`list_files` redundant CSV I/O**: `CsvBackupDatabase.list_files` calls **`get_files_for_version`** then **`get_dirs_for_version`** — each **opens and fully parses** the same version CSV (`CsvDb` in `csv_db.py`). Replace with **one read** per version (e.g. `get_fs_objects_for_version` + split, or single pass filtering `f`/`d`) | Complete |
+| 6.5 | **Hashing / disk throughput** (if profiling shows hot paths): **bounded** parallel hashing and/or overlapping blob writes — thread/process pool with a **cap**; measure before widening | Complete |
 
 ### Phase 7 — Entrypoints structure (before HTTP)
 
