@@ -119,7 +119,7 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 
 ### Phase 1 — Foundations (safety, correctness, noise reduction)
 
-**Status:** Complete. Top-level handling lives on **`main()`** in [`src/backuper/entrypoints/main.py`](../src/backuper/entrypoints/main.py) (`run_with_args` keeps parse+dispatch only—no outer try/except, for tests and direct callers); restore skips missing hashes with warnings; **`VersionNotFoundError`**; grammar fixes; streaming types removed and **`ZIPFILE_EXT`** canonical in filestore; **`backuper`** logger, **`-q` / `--quiet`**, and **`check --json`**.
+**Status:** Complete. Top-level handling lives on **`main()`** in [`src/backuper/entrypoints/cli/main.py`](../src/backuper/entrypoints/cli/main.py) (`run_with_args` keeps parse+dispatch only—no outer try/except, for tests and direct callers); restore skips missing hashes with warnings; **`VersionNotFoundError`**; grammar fixes; streaming types removed and **`ZIPFILE_EXT`** canonical in filestore; **`backuper`** logger, **`-q` / `--quiet`**, and **`check --json`**.
 
 | Order | Item | Notes |
 |------:|------|--------|
@@ -295,14 +295,14 @@ Detail preserved from earlier working notes—**not** extra scope by default; us
 
 ### Multi-UX / HTTP (**J** / Phase 10)
 
-- **Already aligned:** controllers use injected ports; **`entrypoints/cli.py`** is one composition root; HTTP would be **another** root wiring the same components—**intentional duplication of wiring**, not a layer violation.
+- **Already aligned:** controllers use injected ports; **`entrypoints/cli/runner.py`** is one composition root; HTTP would be **another** root wiring the same components—**intentional duplication of wiring**, not a layer violation.
 - **Lower / indirect:** **`commands.py`** DTOs stay use-case-shaped; HTTP maps JSON → same types unless some fields become CLI-only (then split transport vs use-case input). **`main.py`** stays CLI dispatch only—not structural debt if HTTP stays separate. **`csv_db` ↔ `filestore`** coupling is maintainability debt, not HTTP-only.
 
 ### Async facades, blocking I/O, and throughput (**L** / Phases 6 & 10)
 
 Validated against the current tree (see code references below).
 
-**Context.** The CLI uses **`asyncio.run()`** (`entrypoints/cli.py`). Controllers and ports use **`async`/`AsyncIterator`**, but most expensive work is still **blocking**: filesystem and CSV I/O, **synchronous hashing**, and a **fully synchronous `FileStore`** (`put`, `read_blob`, …). Adding `async` without changing what runs or how it overlaps does **not** improve throughput or responsiveness for this **single-process CLI**.
+**Context.** The CLI uses **`asyncio.run()`** (`entrypoints/cli/runner.py`). Controllers and ports use **`async`/`AsyncIterator`**, but most expensive work is still **blocking**: filesystem and CSV I/O, **synchronous hashing**, and a **fully synchronous `FileStore`** (`put`, `read_blob`, …). Adding `async` without changing what runs or how it overlaps does **not** improve throughput or responsiveness for this **single-process CLI**.
 
 **1. Async facades over blocking I/O**
 
@@ -357,7 +357,7 @@ Validated against the current tree (see code references below).
 
 **Code references**
 
-- `entrypoints/cli.py` — `asyncio.run`
+- `entrypoints/cli/runner.py` — `asyncio.run`
 - `controllers/backup.py` — `_iterate_analyzed_entries`, `_run_backup_stream`, `_to_backed_up_entry`
 - `components/csv_db.py` — `CsvDb`, `CsvBackupDatabase.list_files`, `get_files_for_version`, `get_dirs_for_version`, `get_fs_objects_for_version`
 - `components/filestore.py` — synchronous `LocalFileStore`
