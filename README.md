@@ -88,6 +88,8 @@ Use `--db-dir` / `--data-dir` if your layout uses different names than `db` / `d
 
 Run migration only during a **quiet window** (no concurrent `backuper` commands against the same tree).
 
+**Concurrency:** in general, use a **single writer** per backup root for `new`, `update`, and migration. Version manifests are append-only CSV files without multi-process coordination; the filestore deduplicates identical content hashes on disk but does not make parallel backup jobs safe. See **Concurrency and single-writer expectations** in **[AGENTS.md](AGENTS.md)**.
+
 ## Development
 
 - **Environment:** `make sync` or `uv sync --group dev` (app plus pytest, Ruff, import-linter).

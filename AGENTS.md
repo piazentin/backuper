@@ -41,6 +41,12 @@ Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run
 - The on-disk layout and CSV/database rows are defined by the implementation. Integration tests under [`test/integration/`](test/integration/) assert expected layouts and rows; see e.g. [`test/integration/test_new_integration.py`](test/integration/test_new_integration.py).
 - **Most recent version:** [`CsvDb.get_most_recent_version`](src/backuper/components/csv_db.py) chooses the version whose **name** is the lexicographic maximum among CSV basenames (string order, not numeric or mtime)—see that method’s docstring and [`test/unit/components/test_csv_db.py`](test/unit/components/test_csv_db.py).
 
+### Concurrency and single-writer expectations
+
+- **Single active writer per backup tree.** Run only one of `new`, `update`, or CSV migration against the same backup root at a time. The tool does not coordinate multiple processes; overlapping writers can interleave CSV appends or leave the manifest inconsistent with what was written under `data/`.
+- **Version CSVs** ([`CsvDb.insert_dir`](src/backuper/components/csv_db.py) / [`insert_file`](src/backuper/components/csv_db.py)) append rows to the per-version manifest file. There is no cross-process locking or transactional merge—correctness assumes a single writer extending each manifest sequentially.
+- **Blob storage** ([`LocalFileStore.put`](src/backuper/components/filestore.py)): content-addressed blobs are published via [`_publish_staged_blob_if_absent`](src/backuper/components/filestore.py). If the destination path already exists (for example another writer finished first for the same hash), the staged copy is removed and the existing blob is kept. That only deduplicates identical-hash content on disk; it does not make concurrent `new`/`update` runs safe. Treat parallel backup jobs against the same tree as unsupported.
+
 ## Formatting and lint
 
 - **Ruff** (format + lint) and **import-linter**: `make lint` / `make lint-fix` (see [README.md](README.md)). **Import-linter** contracts in [`pyproject.toml`](pyproject.toml) include: controllers do not import `components` or each other; `utils`, `models`, and `ports` do not import `components`; and a **layers** rule that `backuper.ports` may depend on `backuper.models` only (not the reverse).
