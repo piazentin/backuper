@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from pathlib import Path
 
 from backuper.models import BackedUpFileEntry, FileEntry
@@ -25,9 +25,11 @@ class MockBackupDatabase(BackupDatabase):
     async def get_version_by_name(self, name: str) -> str:
         return name
 
-    async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
+    async def list_files(self, version: str) -> AsyncGenerator[FileEntry, None]:
         # Not used in tests
-        pass
+        if False:  # pragma: no cover
+            _p = Path()
+            yield FileEntry(path=_p, relative_path=_p, size=0, mtime=0.0)
 
     async def create_version(self, version: str) -> None:
         # Not used in tests

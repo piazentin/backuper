@@ -36,6 +36,7 @@ test-coverage:
 lint:
 	$(UV) run ruff format --check .
 	$(UV) run ruff check .
+	$(UV) run mypy -p backuper --explicit-package-bases
 	$(UV) run lint-imports
 
 lint-fix:

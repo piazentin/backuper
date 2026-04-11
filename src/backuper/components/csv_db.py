@@ -3,10 +3,10 @@ from __future__ import annotations
 import csv
 import os
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
+from typing import Union, cast
 from uuid import UUID
 
 from backuper.config import CsvDbConfig
@@ -101,7 +101,7 @@ class CsvDb:
         self.db_dir = os.path.join(self._config.backup_dir, self._config.backup_db_dir)
         os.makedirs(self.db_dir, exist_ok=True)
 
-    def _csv_path_from_name(self, name: str) -> os.PathLike:
+    def _csv_path_from_name(self, name: str) -> str:
         return os.path.join(self.db_dir, name + self._config.csv_file_extension)
 
     def get_all_versions(self) -> list[_Version]:
@@ -162,7 +162,7 @@ class CsvDb:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, encoding="utf-8") as file:
             return [
-                _csvrow_to_model(row)
+                cast(_DirEntry, _csvrow_to_model(row))
                 for row in csv.reader(file, delimiter=",", quotechar='"')
                 if row[0] == "d"
             ]
@@ -174,7 +174,7 @@ class CsvDb:
 
         with open(version_file, encoding="utf-8") as file:
             return [
-                _csvrow_to_model(row)
+                cast(_StoredFile, _csvrow_to_model(row))
                 for row in csv.reader(file, delimiter=",", quotechar='"')
                 if row[0] == "f"
             ]
@@ -249,7 +249,7 @@ class CsvBackupDatabase(BackupDatabase):
     async def get_version_by_name(self, name: str) -> str:
         return self._csv_db.get_version_by_name(name).name
 
-    async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
+    async def list_files(self, version: str) -> AsyncGenerator[FileEntry, None]:
         version_obj = self._csv_db.get_version_by_name(version)
         stored_files: list[_StoredFile] = []
         dir_entries: list[_DirEntry] = []

@@ -1,5 +1,5 @@
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from pathlib import Path
 
 from backuper.models import FileEntry
@@ -7,7 +7,7 @@ from backuper.ports import FileReader
 
 
 class LocalFileReader(FileReader):
-    async def read_directory(self, path: Path) -> AsyncIterator[FileEntry]:
+    async def read_directory(self, path: Path) -> AsyncGenerator[FileEntry, None]:
         for root, dirs, files in os.walk(path):
             root_path = Path(root)
 
