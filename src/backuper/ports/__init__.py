@@ -25,6 +25,7 @@ class BackupAnalyzer(ABC):
     async def analyze_stream(
         self, entries: AsyncIterator[FileEntry], backup_database: BackupDatabase
     ) -> AsyncIterator[AnalyzedFileEntry]:
+        """Yield analyzed entries; metadata/hash ties use the first list element."""
         pass
 
 

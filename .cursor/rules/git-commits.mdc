@@ -1,0 +1,13 @@
+---
+description: User must explicitly approve before git commits
+alwaysApply: true
+---
+
+# Git commits
+
+Do **not** run `git commit` unless the user **explicitly** asks to commit in the same turn (e.g. “commit this”, “commit with message …”, or clear approval after you propose a commit).
+
+- **Default:** summarize changes, suggest a commit message if helpful, and **stop**—let the user commit locally or tell you to commit.
+- **Staging:** avoid `git add` + `git commit` in one shot without approval; if you stage files, do it only when the user asked for that step or for a commit they approved.
+
+This does not forbid read-only git commands (`git status`, `git diff`, `git log`, branch listing, etc.).

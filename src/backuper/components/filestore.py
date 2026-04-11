@@ -88,6 +88,12 @@ class LocalFileStore(FileStore):
     def _publish_staged_blob_if_absent(
         self, staged_blob_path: Path, content_address_path: Path
     ) -> None:
+        """Move ``staged_blob_path`` to ``content_address_path`` if the latter is absent.
+
+        If the content-addressed path already exists, remove the staged file instead.
+        This supports duplicate-hash deduplication when two writers race; it does not
+        replace a single-writer assumption for CSV manifests. See AGENTS.md.
+        """
         content_address_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Publish staged content once under the content-addressed path.

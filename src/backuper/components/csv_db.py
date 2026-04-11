@@ -125,6 +125,17 @@ class CsvDb:
         return None
 
     def get_most_recent_version(self) -> _Version | None:
+        """Pick the version whose ``name`` is greatest by lexicographic (string) order.
+
+        Each backup version is a CSV file named ``{name}{extension}`` under the DB
+        directory; there is no separate timestamp column. "Most recent" is therefore
+        defined as the **maximum** ``version.name`` in ordinary string sorting—not
+        numeric order, not filesystem mtime. For example, ``\"v10\"`` sorts *before*
+        ``\"v2\"``, so ``\"v2\"`` would be returned when both exist.
+
+        Returns ``None`` when there are no version CSV files (dotfiles such as
+        AppleDouble ``._*.csv`` sidecars are ignored by :meth:`get_all_versions`).
+        """
         versions = sorted(
             self.get_all_versions(), key=lambda version: version.name, reverse=True
         )

@@ -78,10 +78,13 @@ flowchart TB
     J1[CLI package + create_backup_database; http/ reserved]
   end
 
-  subgraph polish [Ongoing / parallel]
+  subgraph semantics [Phase 8 - Semantics and documentation — done]
     I1[Version ordering semantics]
     I2[Analyzer multi-match]
     I3[Concurrency documentation]
+  end
+
+  subgraph polish [Ongoing / parallel]
     K1[CI matrix + coverage + typing]
   end
 
@@ -108,7 +111,7 @@ flowchart TB
 - **H2** (streaming) overlaps **H1** (observer); doing both in one effort avoids double refactors of `_run_backup_stream`.
 - **L** (single-pass **`list_files`**, redundant I/O) is a **quick sync win** and can land before or alongside **H2**; it does not depend on an async strategy.
 - **Multi-UX** items (async in `run_restore_flow`, injectable config vs globals, HTTP error mapping) **activate when HTTP is real**; contract **E** and domain errors **B** reduce pain first. **CLI** blocking behavior is a separate concern from **Phase 10** (*When HTTP / second composition root exists*—event-loop fairness under HTTP).
-- **I*** (version order, analyzer, concurrency) are mostly parallel documentation or small hardening—schedule anytime after Phase 1.
+- **I*** (version order, analyzer, concurrency) shipped as **Phase 8** (documentation and tests; no lock file).
 - **`CsvDb` + `CsvBackupDatabase` (F′)** — **Phase 7.1** is **`create_backup_database`** in [`src/backuper/entrypoints/wiring.py`](../src/backuper/entrypoints/wiring.py); the CLI composition root ([`entrypoints/cli/runner.py`](../src/backuper/entrypoints/cli/runner.py)) uses it so production does not hand-roll **`CsvBackupDatabase(CsvDb(...))`**. Some tests still construct adapters directly for isolation. **Merge** into one class remains a fallback if the port/adapter split is pure ceremony; if merged, revisit after **D**/**E** so imports and tests move once.
 
 ---
@@ -189,11 +192,13 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 
 ### Phase 8 — Semantics and documentation
 
+**Status:** Complete. **`get_most_recent_version`** documents and tests **lexicographic** “most recent” by version name (string order); **`BackupAnalyzerImpl` / port** document **first match wins** when multiple stored rows match metadata or hash, with unit tests; **concurrency** is documented (**single writer** per backup tree, append-only CSV manifests, **`LocalFileStore`** publish-if-absent for duplicate hash)—**no** cross-process lock file in this phase.
+
 | Order | Item | Notes |
 |------:|------|--------|
-| 8.1 | **`get_most_recent_version`**: document lexicographic semantics or switch to mtime / explicit order | Behavior or docs |
-| 8.2 | **Analyzer**: document or harden “first match wins” when multiple stored files match | |
-| 8.3 | **Concurrency**: document single-writer expectation or add locking | Filestore staging handles some races; CSV append / multi-writer unclear |
+| 8.1 | **`get_most_recent_version`**: document lexicographic semantics or switch to mtime / explicit order | **Complete** — lexicographic semantics documented (`CsvDb` / `AGENTS.md`) and covered by [`test/unit/components/test_csv_db.py`](../test/unit/components/test_csv_db.py) |
+| 8.2 | **Analyzer**: document or harden “first match wins” when multiple stored files match | **Complete** — port + impl docstrings; tests in [`test/unit/components/test_backup_analyzer.py`](../test/unit/components/test_backup_analyzer.py) |
+| 8.3 | **Concurrency**: document single-writer expectation or add locking | **Complete** — documented in [`AGENTS.md`](../AGENTS.md) / [`README.md`](../README.md); [`LocalFileStore._publish_staged_blob_if_absent`](../src/backuper/components/filestore.py) docstring; filestore race covered by existing unit test |
 
 ### Phase 9 — CI and static quality
 
