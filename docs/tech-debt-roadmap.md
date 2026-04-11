@@ -32,7 +32,7 @@ Short index of files in this folder: [docs/README.md](README.md).
 | H | **Backup pipeline** | Streaming vs full list; unified `AnalysisReporter` / observer |
 | I | **Semantics & docs** | Version ordering; analyzer multi-match; concurrency / single-writer |
 | J | **Entrypoints & multi-UX** | **`entrypoints/cli/`** + **`wiring.py`** shipped; **`entrypoints/http/`** reserved; async/blocking policy when HTTP exists |
-| K | **CI & typing** | Python matrix; optional mypy/pyright; coverage thresholds in CI |
+| K | **CI & typing** | Python matrix; **mypy** in **`make lint`**; coverage thresholds in CI |
 | **L** | **Throughput & blocking I/O** | Single-pass CSV reads; optional bounded parallel hashing / pipelining (profiled); distinguish CLI vs HTTP async policy |
 
 ---
@@ -84,7 +84,7 @@ flowchart TB
     I3[Concurrency documentation]
   end
 
-  subgraph polish [Ongoing / parallel]
+  subgraph polish [Phase 9 - CI and static quality — done]
     K1[CI matrix + coverage + typing]
   end
 
@@ -202,11 +202,13 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 
 ### Phase 9 — CI and static quality
 
+**Status:** Complete. **Lint** and **test** run on a **Python 3.11 / 3.12 / 3.13** matrix in CI; a dedicated **coverage** job runs [`make test-coverage`](../Makefile) with **`COVERAGE_FAIL_UNDER`** (default **90**); **`make lint`** includes **mypy** on **`backuper`** alongside Ruff and import-linter—see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), [`Makefile`](../Makefile), and [`AGENTS.md`](../AGENTS.md).
+
 | Order | Item | Notes |
 |------:|------|--------|
-| 9.1 | **Python version matrix** in CI | Beyond 3.11-only |
-| 9.2 | **Coverage thresholds** in CI (align with `make test-coverage`) | **Complete** — `make test-coverage` uses `--cov-fail-under` via **`COVERAGE_FAIL_UNDER`** (default **90**); CI runs [`make test-coverage`](../Makefile); see [`AGENTS.md`](../AGENTS.md) |
-| 9.3 | **mypy or pyright** in `make lint` | When team commits to typing discipline |
+| 9.1 | **Python version matrix** in CI | **Complete** — matrix **3.11**, **3.12**, **3.13** for **lint** and **test** jobs; **`uv sync --group dev --python`** matches the matrix Python ([`ci.yml`](../.github/workflows/ci.yml)) |
+| 9.2 | **Coverage thresholds** in CI (align with `make test-coverage`) | **Complete** — `make test-coverage` uses `--cov-fail-under` via **`COVERAGE_FAIL_UNDER`** (default **90**); CI **coverage** job runs [`make test-coverage`](../Makefile); see [`AGENTS.md`](../AGENTS.md) |
+| 9.3 | **mypy or pyright** in `make lint` | **Complete** — **`mypy -p backuper --explicit-package-bases`** in **`make lint`** ([`Makefile`](../Makefile)); **`[tool.mypy]`** in [`pyproject.toml`](../pyproject.toml) |
 
 ### Phase 10 — When HTTP / second composition root exists
 
