@@ -26,10 +26,10 @@ class MockBackupDatabase(BackupDatabase):
         return name
 
     async def list_files(self, version: str) -> AsyncGenerator[FileEntry, None]:
-        # Not used in tests
-        if False:  # pragma: no cover
+        if False:  # pragma: no cover — async generator typing stub
             _p = Path()
             yield FileEntry(path=_p, relative_path=_p, size=0, mtime=0.0)
+        raise NotImplementedError("MockBackupDatabase.list_files is not used in tests")
 
     async def create_version(self, version: str) -> None:
         # Not used in tests
