@@ -39,6 +39,7 @@ Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run
 ## On-disk and CSV contract
 
 - The on-disk layout and CSV/database rows are defined by the implementation. Integration tests under [`test/integration/`](test/integration/) assert expected layouts and rows; see e.g. [`test/integration/test_new_integration.py`](test/integration/test_new_integration.py).
+- **Most recent version:** [`CsvDb.get_most_recent_version`](src/backuper/components/csv_db.py) chooses the version whose **name** is the lexicographic maximum among CSV basenames (string order, not numeric or mtime)—see that method’s docstring and [`test/unit/components/test_csv_db.py`](test/unit/components/test_csv_db.py).
 
 ## Formatting and lint
 
