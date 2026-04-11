@@ -16,8 +16,16 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 ## Additional documentation
 
-- **[Tech debt roadmap](docs/tech-debt-roadmap.md)** — phased backlog for refactors and technical debt (also indexed under [docs/README.md](docs/README.md)).
 - **CSV migration (operators):** legacy version manifests must be migrated with **`uv run python -m scripts.migrate_version_csv`** before using the current runtime on an existing backup tree; see **[`docs/csv-migration-contract.md`](docs/csv-migration-contract.md)**.
+
+## Future HTTP / second composition root
+
+There is no HTTP server in this repository yet. When a second composition root is added (for example under `src/backuper/entrypoints/http/`), use the following conventions:
+
+- **Parallel composition roots:** Add the new entrypoint beside the CLI under `src/backuper/entrypoints/` (today: [`entrypoints/cli/`](src/backuper/entrypoints/cli/)). Reuse [`create_backup_database`](src/backuper/entrypoints/wiring.py) (or extend shared wiring in the same module) and call **controllers** with injected ports—do not duplicate ad hoc construction such as `CsvBackupDatabase(CsvDb(...))`.
+- **Blocking I/O vs `async`:** The CLI uses `asyncio.run()` while much of the work remains **blocking** (disk I/O, synchronous hashing, synchronous `FileStore`). Adding `async` alone does not improve throughput or responsiveness. For HTTP, adopt an explicit policy: keep **blocking** port implementations if that matches reality, and offload long synchronous work with **`asyncio.to_thread`**, a dedicated executor, or bounded pools so the event loop stays fair.
+- **Config at composition:** Prefer injecting options (for example zip behavior) at the composition root rather than relying only on module-level defaults in [`config.py`](src/backuper/config.py). The existing [`FilestoreConfig`](src/backuper/config.py) and the CLI runner passing `zip_enabled` illustrate that direction.
+- **Errors for HTTP:** Map domain failures and [`UserFacingError`](src/backuper/models/__init__.py) subclasses to **stable machine-readable codes** and HTTP status codes in the HTTP adapter, consistent with the CLI’s typed error surface.
 
 ## Command naming rubric
 
