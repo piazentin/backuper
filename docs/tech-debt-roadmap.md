@@ -205,7 +205,7 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 | Order | Item | Notes |
 |------:|------|--------|
 | 9.1 | **Python version matrix** in CI | Beyond 3.11-only |
-| 9.2 | **Coverage thresholds** in CI (align with `make test-coverage`) | |
+| 9.2 | **Coverage thresholds** in CI (align with `make test-coverage`) | **Complete** — `make test-coverage` uses `--cov-fail-under` via **`COVERAGE_FAIL_UNDER`** (default **90**); CI runs [`make test-coverage`](../Makefile); see [`AGENTS.md`](../AGENTS.md) |
 | 9.3 | **mypy or pyright** in `make lint` | When team commits to typing discipline |
 
 ### Phase 10 — When HTTP / second composition root exists
