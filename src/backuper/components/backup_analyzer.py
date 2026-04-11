@@ -12,7 +12,11 @@ class BackupAnalyzerImpl(BackupAnalyzer):
     async def analyze_stream(
         self, file_stream: AsyncIterator[FileEntry], db: BackupDatabase
     ) -> AsyncIterator[AnalyzedFileEntry]:
-        """Analyze a stream of files and determine which need to be backed up"""
+        """Analyze a stream of files and determine which need to be backed up.
+
+        When multiple stored rows match the same metadata or content hash, the
+        first row in the list returned by the database is used.
+        """
 
         async for file_entry in file_stream:
             already_backed_up = False

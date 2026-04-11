@@ -135,3 +135,92 @@ async def test_backup_analyzer():
     assert starry_night_entry.already_backed_up is False
     assert starry_night_entry.backup_id is None
     assert starry_night_entry.hash == "07c8762861e8f1927708408702b1fd747032f050"
+
+
+@pytest.mark.asyncio
+async def test_analyze_stream_metadata_tie_uses_first_match():
+    """When several CSV rows match path/size/mtime, the analyzer uses the first."""
+    test_dir = Path("test/resources/bkp_test_sources_new")
+    file_entry = FileEntry(
+        path=test_dir / "LICENSE",
+        relative_path=Path("LICENSE"),
+        size=1072,
+        mtime=1234567890.0,
+        is_directory=False,
+    )
+    first_id = UUID("11111111-1111-1111-1111-111111111111")
+    second_id = UUID("22222222-2222-2222-2222-222222222222")
+    mock_db = MockBackupDatabase(
+        files_by_metadata={
+            ("LICENSE", 1072, 1234567890.0): [
+                BackedUpFileEntry(
+                    source_file=file_entry,
+                    backup_id=first_id,
+                    stored_location="/stored/a",
+                    is_compressed=False,
+                    hash="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                ),
+                BackedUpFileEntry(
+                    source_file=file_entry,
+                    backup_id=second_id,
+                    stored_location="/stored/b",
+                    is_compressed=False,
+                    hash="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                ),
+            ]
+        },
+    )
+    analyzer = BackupAnalyzerImpl()
+    results = [
+        entry
+        async for entry in analyzer.analyze_stream(async_iter([file_entry]), mock_db)
+    ]
+    assert len(results) == 1
+    assert results[0].already_backed_up is True
+    assert results[0].backup_id == first_id
+    assert results[0].hash == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+
+@pytest.mark.asyncio
+async def test_analyze_stream_hash_tie_uses_first_match():
+    """When several rows share the same content hash, the analyzer uses the first."""
+    test_dir = Path("test/resources/bkp_test_sources_new")
+    file_entry = FileEntry(
+        path=test_dir / "text_file1.txt",
+        relative_path=Path("text_file1.txt"),
+        size=217,
+        mtime=1234567890.0,
+        is_directory=False,
+    )
+    known_hash = "fef9161f9f9a492dba2b1357298f17897849fefc"
+    first_id = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+    second_id = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+    mock_db = MockBackupDatabase(
+        files_by_hash={
+            known_hash: [
+                BackedUpFileEntry(
+                    source_file=file_entry,
+                    backup_id=first_id,
+                    stored_location="/stored/x",
+                    is_compressed=False,
+                    hash=known_hash,
+                ),
+                BackedUpFileEntry(
+                    source_file=file_entry,
+                    backup_id=second_id,
+                    stored_location="/stored/y",
+                    is_compressed=False,
+                    hash=known_hash,
+                ),
+            ]
+        },
+    )
+    analyzer = BackupAnalyzerImpl()
+    results = [
+        entry
+        async for entry in analyzer.analyze_stream(async_iter([file_entry]), mock_db)
+    ]
+    assert len(results) == 1
+    assert results[0].already_backed_up is True
+    assert results[0].backup_id == first_id
+    assert results[0].hash == known_hash

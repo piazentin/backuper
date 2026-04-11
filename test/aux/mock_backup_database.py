@@ -10,7 +10,9 @@ class MockBackupDatabase(BackupDatabase):
 
     def __init__(
         self,
-        files_by_metadata: dict[tuple[str, int, float], BackedUpFileEntry] = None,
+        files_by_metadata: dict[
+            tuple[str, int, float], BackedUpFileEntry | list[BackedUpFileEntry]
+        ] = None,
         files_by_hash: dict[str, list[BackedUpFileEntry]] = None,
     ):
         self.files_by_metadata = files_by_metadata or {}
@@ -42,4 +44,8 @@ class MockBackupDatabase(BackupDatabase):
     ) -> list[BackedUpFileEntry]:
         key = (str(relative_path), size, mtime)
         result = self.files_by_metadata.get(key)
-        return [result] if result else []
+        if not result:
+            return []
+        if isinstance(result, list):
+            return result
+        return [result]
