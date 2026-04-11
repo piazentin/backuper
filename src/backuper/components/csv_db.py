@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import csv
+import logging
 import os
 import uuid
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator, Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Union, cast
@@ -18,6 +19,8 @@ from backuper.models import (
 )
 from backuper.ports import BackupDatabase
 from backuper.utils.paths import normalize_path
+
+_logger = logging.getLogger(__name__)
 
 _StoredLocation = str
 
@@ -84,6 +87,18 @@ def _csvrow_to_model(row) -> _FileSystemObject:
             f"(only the first 7 fields are used when more are present), got {len(row)}"
         )
     raise MalformedBackupCsvError(f"Unknown CSV row type: {kind!r}")
+
+
+def _iter_nonempty_version_csv_rows(file, *, version_name: str) -> Iterator[list[str]]:
+    """Yield CSV rows; log a warning and skip rows that parse as empty."""
+    for row in csv.reader(file, delimiter=",", quotechar='"'):
+        if not row:
+            _logger.warning(
+                "Skipping empty row in version CSV (version name %r)",
+                version_name,
+            )
+            continue
+        yield row
 
 
 def _model_to_csvrow(model: _FileSystemObject) -> str:
@@ -155,7 +170,9 @@ class CsvDb:
         with open(version_file, encoding="utf-8") as file:
             return [
                 _csvrow_to_model(row)
-                for row in csv.reader(file, delimiter=",", quotechar='"')
+                for row in _iter_nonempty_version_csv_rows(
+                    file, version_name=version.name
+                )
             ]
 
     def get_dirs_for_version(self, version: _Version) -> list[_DirEntry]:
@@ -163,7 +180,9 @@ class CsvDb:
         with open(version_file, encoding="utf-8") as file:
             return [
                 cast(_DirEntry, _csvrow_to_model(row))
-                for row in csv.reader(file, delimiter=",", quotechar='"')
+                for row in _iter_nonempty_version_csv_rows(
+                    file, version_name=version.name
+                )
                 if row[0] == "d"
             ]
 
@@ -175,7 +194,9 @@ class CsvDb:
         with open(version_file, encoding="utf-8") as file:
             return [
                 cast(_StoredFile, _csvrow_to_model(row))
-                for row in csv.reader(file, delimiter=",", quotechar='"')
+                for row in _iter_nonempty_version_csv_rows(
+                    file, version_name=version.name
+                )
                 if row[0] == "f"
             ]
 
