@@ -12,11 +12,12 @@ class MockBackupDatabase(BackupDatabase):
         self,
         files_by_metadata: dict[
             tuple[str, int, float], BackedUpFileEntry | list[BackedUpFileEntry]
-        ] = None,
-        files_by_hash: dict[str, list[BackedUpFileEntry]] = None,
+        ]
+        | None = None,
+        files_by_hash: dict[str, list[BackedUpFileEntry]] | None = None,
     ):
-        self.files_by_metadata = files_by_metadata or {}
-        self.files_by_hash = files_by_hash or {}
+        self.files_by_metadata = {} if files_by_metadata is None else files_by_metadata
+        self.files_by_hash = {} if files_by_hash is None else files_by_hash
 
     async def list_versions(self) -> list[str]:
         return ["test_version"]
