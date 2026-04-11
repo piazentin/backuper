@@ -183,7 +183,7 @@ class CsvDb:
                 for row in _iter_nonempty_version_csv_rows(
                     file, version_name=version.name
                 )
-                if row[0] == "d"
+                if row and row[0] == "d"
             ]
 
     def get_files_for_version(self, version: _Version) -> list[_StoredFile]:
@@ -197,7 +197,7 @@ class CsvDb:
                 for row in _iter_nonempty_version_csv_rows(
                     file, version_name=version.name
                 )
-                if row[0] == "f"
+                if row and row[0] == "f"
             ]
 
     def insert_dir(self, version: _Version, dir: _DirEntry) -> None:

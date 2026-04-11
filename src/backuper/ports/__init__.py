@@ -17,10 +17,10 @@ from backuper.models import (
 class FileReader(ABC):
     @abstractmethod
     async def read_directory(self, path: Path) -> AsyncGenerator[FileEntry, None]:
+        raise NotImplementedError
         if False:  # pragma: no cover — async generator typing stub
             _p = Path()
             yield FileEntry(path=_p, relative_path=_p, size=0, mtime=0.0)
-        raise NotImplementedError
 
 
 class BackupAnalyzer(ABC):
@@ -29,11 +29,11 @@ class BackupAnalyzer(ABC):
         self, entries: AsyncIterator[FileEntry], backup_database: BackupDatabase
     ) -> AsyncGenerator[AnalyzedFileEntry, None]:
         """Yield analyzed entries; metadata/hash ties use the first list element."""
+        raise NotImplementedError
         if False:  # pragma: no cover — async generator typing stub
             _p = Path()
             _fe = FileEntry(path=_p, relative_path=_p, size=0, mtime=0.0)
             yield AnalyzedFileEntry(source_file=_fe)
-        raise NotImplementedError
 
 
 class BackupDatabase(ABC):
@@ -50,10 +50,10 @@ class BackupDatabase(ABC):
     @abstractmethod
     async def list_files(self, version: str) -> AsyncGenerator[FileEntry, None]:
         """List all files in a specific backup version"""
+        raise NotImplementedError
         if False:  # pragma: no cover — async generator typing stub
             _p = Path()
             yield FileEntry(path=_p, relative_path=_p, size=0, mtime=0.0)
-        raise NotImplementedError
 
     @abstractmethod
     async def create_version(self, version: str) -> None:
