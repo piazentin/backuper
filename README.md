@@ -9,7 +9,6 @@ The CLI runs [`src/backuper`](src/backuper): entrypoints are the composition roo
 ## Documentation
 
 - **[docs/README.md](docs/README.md)** — index of project docs beyond the README.
-- **[docs/tech-debt-roadmap.md](docs/tech-debt-roadmap.md)** — phased technical-debt backlog (dependencies, phases, risks).
 
 ## Install and run
 
