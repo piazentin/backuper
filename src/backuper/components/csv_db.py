@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import csv
+import logging
 import os
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
+from typing import Union, cast
 from uuid import UUID
 
 from backuper.config import CsvDbConfig
@@ -18,6 +19,8 @@ from backuper.models import (
 )
 from backuper.ports import BackupDatabase
 from backuper.utils.paths import normalize_path
+
+_logger = logging.getLogger(__name__)
 
 _StoredLocation = str
 
@@ -86,6 +89,18 @@ def _csvrow_to_model(row) -> _FileSystemObject:
     raise MalformedBackupCsvError(f"Unknown CSV row type: {kind!r}")
 
 
+def _iter_nonempty_version_csv_rows(file, *, version_name: str) -> Iterator[list[str]]:
+    """Yield CSV rows; log a warning and skip rows that parse as empty."""
+    for row in csv.reader(file, delimiter=",", quotechar='"'):
+        if not row:
+            _logger.warning(
+                "Skipping empty row in version CSV (version name %r)",
+                version_name,
+            )
+            continue
+        yield row
+
+
 def _model_to_csvrow(model: _FileSystemObject) -> str:
     if isinstance(model, _DirEntry):
         return f'"d","{model.normalized_path()}",""\n'
@@ -101,7 +116,7 @@ class CsvDb:
         self.db_dir = os.path.join(self._config.backup_dir, self._config.backup_db_dir)
         os.makedirs(self.db_dir, exist_ok=True)
 
-    def _csv_path_from_name(self, name: str) -> os.PathLike:
+    def _csv_path_from_name(self, name: str) -> str:
         return os.path.join(self.db_dir, name + self._config.csv_file_extension)
 
     def get_all_versions(self) -> list[_Version]:
@@ -155,16 +170,20 @@ class CsvDb:
         with open(version_file, encoding="utf-8") as file:
             return [
                 _csvrow_to_model(row)
-                for row in csv.reader(file, delimiter=",", quotechar='"')
+                for row in _iter_nonempty_version_csv_rows(
+                    file, version_name=version.name
+                )
             ]
 
     def get_dirs_for_version(self, version: _Version) -> list[_DirEntry]:
         version_file = self._csv_path_from_name(version.name)
         with open(version_file, encoding="utf-8") as file:
             return [
-                _csvrow_to_model(row)
-                for row in csv.reader(file, delimiter=",", quotechar='"')
-                if row[0] == "d"
+                cast(_DirEntry, _csvrow_to_model(row))
+                for row in _iter_nonempty_version_csv_rows(
+                    file, version_name=version.name
+                )
+                if row and row[0] == "d"
             ]
 
     def get_files_for_version(self, version: _Version) -> list[_StoredFile]:
@@ -174,9 +193,11 @@ class CsvDb:
 
         with open(version_file, encoding="utf-8") as file:
             return [
-                _csvrow_to_model(row)
-                for row in csv.reader(file, delimiter=",", quotechar='"')
-                if row[0] == "f"
+                cast(_StoredFile, _csvrow_to_model(row))
+                for row in _iter_nonempty_version_csv_rows(
+                    file, version_name=version.name
+                )
+                if row and row[0] == "f"
             ]
 
     def insert_dir(self, version: _Version, dir: _DirEntry) -> None:
@@ -249,7 +270,7 @@ class CsvBackupDatabase(BackupDatabase):
     async def get_version_by_name(self, name: str) -> str:
         return self._csv_db.get_version_by_name(name).name
 
-    async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
+    async def list_files(self, version: str) -> AsyncGenerator[FileEntry, None]:
         version_obj = self._csv_db.get_version_by_name(version)
         stored_files: list[_StoredFile] = []
         dir_entries: list[_DirEntry] = []

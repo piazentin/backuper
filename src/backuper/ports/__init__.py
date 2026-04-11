@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from pathlib import Path
 
 from backuper.models import (
@@ -16,17 +16,24 @@ from backuper.models import (
 
 class FileReader(ABC):
     @abstractmethod
-    async def read_directory(self, path: Path) -> AsyncIterator[FileEntry]:
-        pass
+    async def read_directory(self, path: Path) -> AsyncGenerator[FileEntry, None]:
+        raise NotImplementedError
+        if False:  # pragma: no cover — async generator typing stub
+            _p = Path()
+            yield FileEntry(path=_p, relative_path=_p, size=0, mtime=0.0)
 
 
 class BackupAnalyzer(ABC):
     @abstractmethod
     async def analyze_stream(
         self, entries: AsyncIterator[FileEntry], backup_database: BackupDatabase
-    ) -> AsyncIterator[AnalyzedFileEntry]:
+    ) -> AsyncGenerator[AnalyzedFileEntry, None]:
         """Yield analyzed entries; metadata/hash ties use the first list element."""
-        pass
+        raise NotImplementedError
+        if False:  # pragma: no cover — async generator typing stub
+            _p = Path()
+            _fe = FileEntry(path=_p, relative_path=_p, size=0, mtime=0.0)
+            yield AnalyzedFileEntry(source_file=_fe)
 
 
 class BackupDatabase(ABC):
@@ -41,9 +48,12 @@ class BackupDatabase(ABC):
         pass
 
     @abstractmethod
-    async def list_files(self, version: str) -> AsyncIterator[FileEntry]:
+    async def list_files(self, version: str) -> AsyncGenerator[FileEntry, None]:
         """List all files in a specific backup version"""
-        pass
+        raise NotImplementedError
+        if False:  # pragma: no cover — async generator typing stub
+            _p = Path()
+            yield FileEntry(path=_p, relative_path=_p, size=0, mtime=0.0)
 
     @abstractmethod
     async def create_version(self, version: str) -> None:

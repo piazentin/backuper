@@ -1,5 +1,8 @@
 UV ?= uv
 
+# Minimum line coverage for `make test-coverage` (pytest-cov `--cov-fail-under`). Override locally or in CI, e.g. `COVERAGE_FAIL_UNDER=85 make test-coverage`.
+COVERAGE_FAIL_UNDER ?= 90
+
 # Extra goals after `backup` are forwarded to the CLI, e.g.
 #   make backup update ../source /path/to/backup-root
 # Paths with spaces are not supported (Make splits on whitespace).
@@ -28,11 +31,12 @@ test:
 	$(UV) run python -m pytest test/unit test/integration test/scripts
 
 test-coverage:
-	$(UV) run python -m pytest test/unit test/integration test/scripts --cov=. --cov-report=term-missing
+	$(UV) run python -m pytest test/unit test/integration test/scripts --cov=. --cov-report=term-missing --cov-fail-under=$(COVERAGE_FAIL_UNDER)
 
 lint:
 	$(UV) run ruff format --check .
 	$(UV) run ruff check .
+	$(UV) run mypy -p backuper --explicit-package-bases
 	$(UV) run lint-imports
 
 lint-fix:

@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 
 from backuper.models import AnalyzedFileEntry, FileEntry
 from backuper.ports import BackupAnalyzer, BackupDatabase
@@ -11,7 +11,7 @@ class BackupAnalyzerImpl(BackupAnalyzer):
 
     async def analyze_stream(
         self, file_stream: AsyncIterator[FileEntry], db: BackupDatabase
-    ) -> AsyncIterator[AnalyzedFileEntry]:
+    ) -> AsyncGenerator[AnalyzedFileEntry, None]:
         """Analyze a stream of files and determine which need to be backed up.
 
         When multiple stored rows match the same metadata or content hash, the

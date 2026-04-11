@@ -32,7 +32,7 @@ This file is the canonical agent and contributor map for this repository; prefer
 - **`make unit`** — `pytest test/unit` (isolated tests: entrypoints, controllers, components) under `uv run`.
 - **`make integration`** — `pytest test/integration` (on-disk layout, CSV rows, CLI-style flows).
 - **`make test`** — `pytest test/unit test/integration test/scripts` (includes migration script tests under [`test/scripts/`](test/scripts/)).
-- **`make test-coverage`** — same scope as `make test` with coverage (`--cov=.`).
+- **`make test-coverage`** — same scope as `make test` with coverage (`--cov=.`) and a line-coverage floor via **`COVERAGE_FAIL_UNDER`** (default **90**; pytest `--cov-fail-under`). CI also runs this target as a separate **coverage** job (in parallel with the version-matrix **lint** / **test** jobs, not gated on them).
 
 Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run python -m pytest test/unit/...`, `test/integration/...`, or `test/scripts/...`.
 
