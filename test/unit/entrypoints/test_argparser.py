@@ -1,4 +1,4 @@
-"""Tests for `backuper.entrypoints.argparser.parse`."""
+"""Tests for `backuper.entrypoints.cli.argparser.parse`."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from backuper.commands import (
     UpdateCommand,
     VerifyIntegrityCommand,
 )
-from backuper.entrypoints import argparser
+from backuper.entrypoints.cli import argparser
 
 
 def test_parse_new_command() -> None:

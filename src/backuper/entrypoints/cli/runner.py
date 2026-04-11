@@ -11,22 +11,15 @@ from backuper.commands import (
     VerifyIntegrityCommand,
 )
 from backuper.components.backup_analyzer import BackupAnalyzerImpl
-from backuper.components.csv_db import (
-    CsvBackupDatabase,
-    CsvDb,
-)
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
 from backuper.components.reporter import StdoutAnalysisReporter
-from backuper.config import CsvDbConfig, FilestoreConfig
+from backuper.config import FilestoreConfig
 from backuper.controllers.backup import add_version, new_backup
 from backuper.controllers.restore import run_restore_flow
 from backuper.controllers.verify_integrity import run_verify_integrity_flow
+from backuper.entrypoints.wiring import create_backup_database
 from backuper.models import CliUsageError
-
-
-def _csv_db(backup_root: Path) -> CsvDb:
-    return CsvDb(CsvDbConfig(backup_dir=str(backup_root)))
 
 
 def _local_filestore(backup_root: Path) -> LocalFileStore:
@@ -63,7 +56,7 @@ def run_new(command: NewCommand) -> None:
             command.version,
             file_reader=LocalFileReader(),
             analyzer=BackupAnalyzerImpl(),
-            db=CsvBackupDatabase(_csv_db(destination), index_status=print),
+            db=create_backup_database(destination, index_status=print),
             filestore=_local_filestore(destination),
             reporter=StdoutAnalysisReporter(),
         )
@@ -85,7 +78,7 @@ def run_update(command: UpdateCommand) -> None:
             command.version,
             file_reader=LocalFileReader(),
             analyzer=BackupAnalyzerImpl(),
-            db=CsvBackupDatabase(_csv_db(destination), index_status=print),
+            db=create_backup_database(destination, index_status=print),
             filestore=_local_filestore(destination),
             reporter=StdoutAnalysisReporter(),
         )
@@ -100,7 +93,7 @@ def run_verify_integrity(command: VerifyIntegrityCommand) -> list[str]:
     errors = asyncio.run(
         run_verify_integrity_flow(
             command,
-            db=CsvBackupDatabase(_csv_db(destination)),
+            db=create_backup_database(destination),
             filestore=_local_filestore(destination),
         )
     )
@@ -125,7 +118,7 @@ def run_restore(command: RestoreCommand) -> None:
     asyncio.run(
         run_restore_flow(
             command,
-            db=CsvBackupDatabase(_csv_db(source)),
+            db=create_backup_database(source),
             filestore=_local_filestore(source),
             on_restore_file=lambda relative_path: print(
                 f"Restoring {relative_path} to {command.destination}"

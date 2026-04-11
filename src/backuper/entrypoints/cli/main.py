@@ -7,8 +7,8 @@ from backuper.commands import (
     UpdateCommand,
     VerifyIntegrityCommand,
 )
-from backuper.entrypoints import argparser as parser
-from backuper.entrypoints.cli import (
+from backuper.entrypoints.cli import argparser as parser
+from backuper.entrypoints.cli.runner import (
     run_new,
     run_restore,
     run_update,

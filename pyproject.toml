@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 
 [project.scripts]
-backuper = "backuper.entrypoints.main:main"
+backuper = "backuper.entrypoints.cli.main:main"
 
 [dependency-groups]
 dev = [

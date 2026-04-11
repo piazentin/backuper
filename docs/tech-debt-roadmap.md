@@ -27,11 +27,11 @@ Short index of files in this folder: [docs/README.md](README.md).
 | D | **Layering** | `csv_db` ↔ `filestore` decoupling; shared helpers or ports |
 | E | **Contract architecture** | Split `interfaces/` → `models/` + `ports/`; import-linter + `AGENTS.md` |
 | F | **CSV lifecycle** | **Standalone migration script** (required for legacy trees) + **runtime** `_csvrow_to_model` accepts canonical rows only |
-| **F′** | **CSV adapter composition** | `CsvDb` + `CsvBackupDatabase` double construction at call sites; factory (preferred) or single-class merge |
+| **F′** | **CSV adapter composition** | CLI uses **`create_backup_database`**; some tests still construct **`CsvBackupDatabase`** directly; merge remains a fallback |
 | G | **CLI product** | `check` → `verify-integrity` (single integrity command) |
 | H | **Backup pipeline** | Streaming vs full list; unified `AnalysisReporter` / observer |
 | I | **Semantics & docs** | Version ordering; analyzer multi-match; concurrency / single-writer |
-| J | **Entrypoints & multi-UX** | `entrypoints/cli/`, reserved `http/`, optional `wiring.py`; async/blocking policy when HTTP exists |
+| J | **Entrypoints & multi-UX** | **`entrypoints/cli/`** + **`wiring.py`** shipped; **`entrypoints/http/`** reserved; async/blocking policy when HTTP exists |
 | K | **CI & typing** | Python matrix; optional mypy/pyright; coverage thresholds in CI |
 | **L** | **Throughput & blocking I/O** | Single-pass CSV reads; optional bounded parallel hashing / pipelining (profiled); distinguish CLI vs HTTP async policy |
 
@@ -65,17 +65,17 @@ flowchart TB
     F2[Runtime `_csvrow_to_model` — canonical file rows only]
   end
 
-  subgraph cli [Phase 5 - CLI]
+  subgraph cli [Phase 5 - CLI — done]
     G1[check → verify-integrity]
   end
 
-  subgraph pipeline [Phase 6 - Backup observability]
+  subgraph pipeline [Phase 6 - Backup observability — done]
     H1[Unified observer / AnalysisReporter]
     H2[Streaming or single-pass backup]
   end
 
-  subgraph entry [Phase 7 - Entrypoints]
-    J1[cli + http + wiring incl. CSV BackupDatabase factory]
+  subgraph entry [Phase 7 - Entrypoints — done]
+    J1[CLI package + create_backup_database; http/ reserved]
   end
 
   subgraph polish [Ongoing / parallel]
@@ -103,13 +103,13 @@ flowchart TB
 
 **Narrative dependencies (not all drawn as edges):**
 
-- **Diagram gaps:** Workstream **L** (throughput, redundant CSV reads) has **no node** in the chart; see **6.4**–**6.5** and **Implementation hooks (L)**. Phase **1.6** (logging / `--quiet` / `check --json`) shipped with Phase 1 and is not drawn separately.
+- **Diagram gaps:** Workstream **L** (throughput, redundant CSV reads) has **no node** in the chart; see **6.4**–**6.5** and **Implementation hooks (L)**. Phase **1.6** (logging / `--quiet` / **`verify-integrity --json`**) shipped with Phase 1 (integrity command name **`check`** until Phase **5** rename) and is not drawn separately.
 - **F2** (runtime canonical-only) is paired with **F1** (migration for existing trees): operators run **`scripts.migrate_version_csv`** before using current **`backuper`** on legacy manifests. **E1 → F2** is an ordering preference (cleaner types before shrinking `_csvrow_to_model`).
 - **H2** (streaming) overlaps **H1** (observer); doing both in one effort avoids double refactors of `_run_backup_stream`.
 - **L** (single-pass **`list_files`**, redundant I/O) is a **quick sync win** and can land before or alongside **H2**; it does not depend on an async strategy.
 - **Multi-UX** items (async in `run_restore_flow`, injectable config vs globals, HTTP error mapping) **activate when HTTP is real**; contract **E** and domain errors **B** reduce pain first. **CLI** blocking behavior is a separate concern from **Phase 10** (*When HTTP / second composition root exists*—event-loop fairness under HTTP).
 - **I*** (version order, analyzer, concurrency) are mostly parallel documentation or small hardening—schedule anytime after Phase 1.
-- **`CsvDb` + `CsvBackupDatabase` (F′)** — Implement **Phase 7.1** via **`wiring.py`** (or equivalent): one construction path for production code, tests using helpers or the same factory. **Merge** into one class remains a fallback if the port/adapter split is pure ceremony; if merged, revisit after **D**/**E** so imports and tests move once.
+- **`CsvDb` + `CsvBackupDatabase` (F′)** — **Phase 7.1** is **`create_backup_database`** in [`src/backuper/entrypoints/wiring.py`](../src/backuper/entrypoints/wiring.py); the CLI composition root ([`entrypoints/cli/runner.py`](../src/backuper/entrypoints/cli/runner.py)) uses it so production does not hand-roll **`CsvBackupDatabase(CsvDb(...))`**. Some tests still construct adapters directly for isolation. **Merge** into one class remains a fallback if the port/adapter split is pure ceremony; if merged, revisit after **D**/**E** so imports and tests move once.
 
 ---
 
@@ -119,7 +119,7 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 
 ### Phase 1 — Foundations (safety, correctness, noise reduction)
 
-**Status:** Complete. Top-level handling lives on **`main()`** in [`src/backuper/entrypoints/main.py`](../src/backuper/entrypoints/main.py) (`run_with_args` keeps parse+dispatch only—no outer try/except, for tests and direct callers); restore skips missing hashes with warnings; **`VersionNotFoundError`**; grammar fixes; streaming types removed and **`ZIPFILE_EXT`** canonical in filestore; **`backuper`** logger, **`-q` / `--quiet`**, and **`check --json`**.
+**Status:** Complete. Top-level handling lives on **`main()`** in [`src/backuper/entrypoints/cli/main.py`](../src/backuper/entrypoints/cli/main.py) (`run_with_args` keeps parse+dispatch only—no outer try/except, for tests and direct callers); restore skips missing hashes with warnings; **`VersionNotFoundError`**; grammar fixes; streaming types removed and **`ZIPFILE_EXT`** canonical in filestore; **`backuper`** logger, **`-q` / `--quiet`**, and **`verify-integrity --json`** (integrity command was **`check`** until Phase **5** rename).
 
 | Order | Item | Notes |
 |------:|------|--------|
@@ -128,7 +128,7 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 | 1.3 | Replace `RuntimeError` in `CsvDb.get_version_by_name` with **`VersionNotFoundError`**; narrow controller mapping | Sets pattern for Phase 3 and HTTP |
 | 1.4 | Fix “does not exists” and similar copy; adjust tests | Mechanical |
 | 1.5 | Remove **dead surface**: `BackupChunk` / `BackupStreamProcessor` / `BackupWriter`; **`ZIPFILE_EXT`** vs inlined `.zip` in filestore | Reduces migration load for **E** |
-| 1.6 | **`print`**-only CLI reduced: **structured logging**, **`--quiet`**, **`check --json`** | Broader migration of backup progress to logging remains Phase 6 |
+| 1.6 | **`print`**-only CLI reduced: **structured logging**, **`--quiet`**, **`verify-integrity --json`** | Broader migration of backup progress to logging remains Phase 6 |
 
 ### Phase 2 — Layering
 
@@ -167,21 +167,25 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 
 ### Phase 6 — Backup pipeline and observability
 
+**Status:** Complete. Backup flow now uses a unified reporter/observer path and single-pass analysis walk semantics, including the targeted CSV/read-throughput and hashing/throughput follow-ups captured under this phase.
+
 | Order | Item | Notes |
 |------:|------|--------|
-| 6.1 | Single analysis walk via **`_iterate_analyzed_entries`**; **`_collect_analyzed_entries`** removed (historical: drift vs **`_analyze_path`**) | Landed |
-| 6.2 | Unify on **observer / `AnalysisReporter`** for analysis, progress, phases | Replace ad hoc callbacks from `cli.py` |
-| 6.3 | **Single pass** / streaming from `analyze_stream` where semantics allow | Addresses memory + double iteration; pairs with **6.2**. **6.3a** (design): streaming invariants under *Implementation hooks* → *Reporting / backup pipeline*. |
-| 6.4 | **`list_files` redundant CSV I/O**: `CsvBackupDatabase.list_files` calls **`get_files_for_version`** then **`get_dirs_for_version`** — each **opens and fully parses** the same version CSV (`CsvDb` in `csv_db.py`). Replace with **one read** per version (e.g. `get_fs_objects_for_version` + split, or single pass filtering `f`/`d`) | Clear win for restore/check on large manifests; **sync** optimization |
-| 6.5 | **Hashing / disk throughput** (if profiling shows hot paths): **bounded** parallel hashing and/or overlapping blob writes — thread/process pool with a **cap**; measure before widening | Not “more asyncio” alone; avoid unbounded disk parallelism (thrashing) |
+| 6.1 | Single analysis walk via **`_iterate_analyzed_entries`**; **`_collect_analyzed_entries`** removed (historical: drift vs **`_analyze_path`**) | Complete |
+| 6.2 | Unify on **observer / `AnalysisReporter`** for analysis, progress, phases | Complete |
+| 6.3 | **Single pass** / streaming from `analyze_stream` where semantics allow | Complete (including invariants tracked under *Implementation hooks* → *Reporting / backup pipeline*) |
+| 6.4 | **`list_files` redundant CSV I/O**: `CsvBackupDatabase.list_files` calls **`get_files_for_version`** then **`get_dirs_for_version`** — each **opens and fully parses** the same version CSV (`CsvDb` in `csv_db.py`). Replace with **one read** per version (e.g. `get_fs_objects_for_version` + split, or single pass filtering `f`/`d`) | Complete |
+| 6.5 | **Hashing / disk throughput** (if profiling shows hot paths): **bounded** parallel hashing and/or overlapping blob writes — thread/process pool with a **cap**; measure before widening | Complete |
 
 ### Phase 7 — Entrypoints structure (before HTTP)
 
+**Status:** Complete for the **CLI** composition root and **shared wiring**. **[`entrypoints/cli/`](../src/backuper/entrypoints/cli/)** holds **`main`**, **`argparser`**, and **`runner`** (dispatch + stdout UX); **[`entrypoints/wiring.py`](../src/backuper/entrypoints/wiring.py)** exposes **`create_backup_database`**, used by **`runner`** for **`BackupDatabase`** construction. **`entrypoints/http/`** is not present yet—reserved for a future ASGI entrypoint; **7.3** applies when that lands.
+
 | Order | Item | Notes |
 |------:|------|--------|
-| 7.1 | **`CsvDb` + `CsvBackupDatabase`**: **`CsvBackupDatabase`** is the **`BackupDatabase`** port over **`CsvDb`** (paths, versions, row models); split can stay valid (**storage vs port**). Composition-root **factory** returning **`BackupDatabase`**; treat **`CsvDb`** as private; tests use factory or helpers | Merge into one class only if the boundary no longer helps |
-| 7.2 | **`entrypoints/cli/`** (main, argparser, stdout adapter); reserve **`entrypoints/http/`** (e.g. lightweight ASGI such as **Starlette**, TBD); optional **`wiring.py`** hosting shared construction | Keeps `python -m backuper` on CLI; **7.1** fits naturally here |
-| 7.3 | Enforce convention: HTTP uses **controllers + wiring**, not `run_new` / `run_check` | Review + docs; import-linter optional |
+| 7.1 | **`CsvDb` + `CsvBackupDatabase`**: **`CsvBackupDatabase`** is the **`BackupDatabase`** port over **`CsvDb`** (paths, versions, row models); split can stay valid (**storage vs port**). Composition-root **factory** returning **`BackupDatabase`**; treat **`CsvDb`** as private; tests use factory or helpers | **Complete** — **`create_backup_database`** in **`wiring.py`**; CLI uses it; some tests still build **`CsvBackupDatabase`** directly |
+| 7.2 | **`entrypoints/cli/`** (main, argparser, stdout adapter); reserve **`entrypoints/http/`** (e.g. lightweight ASGI such as **Starlette**, TBD); optional **`wiring.py`** hosting shared construction | **Complete** for CLI + **`wiring.py`**; **`http/`** directory reserved, not implemented |
+| 7.3 | Enforce convention: HTTP uses **controllers + wiring**, not `run_new` / `run_verify_integrity` | Deferred until **`entrypoints/http/`** exists; review + docs; import-linter optional |
 
 ### Phase 8 — Semantics and documentation
 
@@ -254,7 +258,7 @@ Phases are **sequential recommendations**; within a phase, items can often run i
 | G1 | `check` → `verify-integrity` |
 | H1 | Unified observer / AnalysisReporter |
 | H2 | Streaming or single-pass backup |
-| J1 | `cli` + `http` + wiring incl. CSV BackupDatabase factory |
+| J1 | CLI entrypoints + **`create_backup_database`**; **`http/`** reserved |
 | J2 | Async offload + structured errors for HTTP |
 | I1 | Version ordering semantics |
 | I2 | Analyzer multi-match |
@@ -293,14 +297,14 @@ Detail preserved from earlier working notes—**not** extra scope by default; us
 
 ### Multi-UX / HTTP (**J** / Phase 10)
 
-- **Already aligned:** controllers use injected ports; **`entrypoints/cli.py`** is one composition root; HTTP would be **another** root wiring the same components—**intentional duplication of wiring**, not a layer violation.
+- **Already aligned:** controllers use injected ports; **`entrypoints/cli/runner.py`** is one composition root and uses **`create_backup_database`** from **`wiring.py`**; HTTP would be **another** root and should reuse the same factory for **`BackupDatabase`**—**parallel composition roots**, not a layer violation.
 - **Lower / indirect:** **`commands.py`** DTOs stay use-case-shaped; HTTP maps JSON → same types unless some fields become CLI-only (then split transport vs use-case input). **`main.py`** stays CLI dispatch only—not structural debt if HTTP stays separate. **`csv_db` ↔ `filestore`** coupling is maintainability debt, not HTTP-only.
 
 ### Async facades, blocking I/O, and throughput (**L** / Phases 6 & 10)
 
 Validated against the current tree (see code references below).
 
-**Context.** The CLI uses **`asyncio.run()`** (`entrypoints/cli.py`). Controllers and ports use **`async`/`AsyncIterator`**, but most expensive work is still **blocking**: filesystem and CSV I/O, **synchronous hashing**, and a **fully synchronous `FileStore`** (`put`, `read_blob`, …). Adding `async` without changing what runs or how it overlaps does **not** improve throughput or responsiveness for this **single-process CLI**.
+**Context.** The CLI uses **`asyncio.run()`** (`entrypoints/cli/runner.py`). Controllers and ports use **`async`/`AsyncIterator`**, but most expensive work is still **blocking**: filesystem and CSV I/O, **synchronous hashing**, and a **fully synchronous `FileStore`** (`put`, `read_blob`, …). Adding `async` without changing what runs or how it overlaps does **not** improve throughput or responsiveness for this **single-process CLI**.
 
 **1. Async facades over blocking I/O**
 
@@ -355,7 +359,7 @@ Validated against the current tree (see code references below).
 
 **Code references**
 
-- `entrypoints/cli.py` — `asyncio.run`
+- `entrypoints/cli/runner.py` — `asyncio.run`
 - `controllers/backup.py` — `_iterate_analyzed_entries`, `_run_backup_stream`, `_to_backed_up_entry`
 - `components/csv_db.py` — `CsvDb`, `CsvBackupDatabase.list_files`, `get_files_for_version`, `get_dirs_for_version`, `get_fs_objects_for_version`
 - `components/filestore.py` — synchronous `LocalFileStore`
@@ -372,7 +376,7 @@ Validated against the current tree (see code references below).
 - **Using the runtime on an unmigrated backup tree** — Legacy manifests will not parse; run **`scripts.migrate_version_csv`** first (see [`docs/csv-migration-contract.md`](csv-migration-contract.md)).
 - **HTTP (10) before domain errors and structured failures (1, 3)** — Adapters re-map stringly `ValueError` repeatedly.
 - **Streaming (H2) without observer unification (H1)** — Two disruptive changes to the same hot path.
-- **HTTP or a second entrypoint before CSV factory (7.1)** — Risk duplicating `CsvBackupDatabase(CsvDb(...))` wiring; do **7.1** before or with the first non-CLI composition root.
+- **HTTP without reusing wiring (7.1)** — **`create_backup_database`** exists for the CLI; a second composition root should call the same factory (or extend **`wiring.py`**) instead of duplicating **`CsvBackupDatabase(CsvDb(...))`** construction.
 - **“More asyncio” without strategy** — Wrapping blocking I/O in `async def` without **`to_thread`**, overlap, or removing redundant reads (**6.4**) adds complexity without guaranteed gains; profile first (**6.5**).
 
 ---
