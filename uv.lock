@@ -6,6 +6,9 @@ requires-python = ">=3.11"
 name = "backuper"
 version = "0.3"
 source = { editable = "." }
+dependencies = [
+    { name = "pathspec" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -18,6 +21,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "pathspec", specifier = ">=0.12.1" }]
 
 [package.metadata.requires-dev]
 dev = [
