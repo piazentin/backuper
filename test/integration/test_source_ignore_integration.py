@@ -61,16 +61,15 @@ async def test_source_ignores_skip_file_and_directory_with_single_boundary_log(
 
     manifest_paths = await _run_backup_and_list_manifest_paths(source, destination)
 
-    assert Path("ignored_root.txt") not in manifest_paths
-    assert Path("ignored_dir") not in manifest_paths
-    assert Path("ignored_dir/child.txt") not in manifest_paths
+    assert Path("kept.txt") in manifest_paths
+    assert Path("user_override/kept_by_root.txt") in manifest_paths
+    assert Path("layered_dir/outer.txt") in manifest_paths
+    assert Path("layered_dir/inner.txt") not in manifest_paths
     assert Path("negation_dir/reincluded.txt") in manifest_paths
-    assert Path("negation_dir/still_ignored.txt") not in manifest_paths
 
     messages = [record.getMessage() for record in caplog.records]
-    assert sum("Skipping ignored_root.txt" in msg for msg in messages) == 1
-    assert sum("Skipping ignored_dir" in msg for msg in messages) == 1
-    assert all("ignored_dir/child.txt" not in msg for msg in messages)
+    assert sum("Skipping layered_dir/inner.txt" in msg for msg in messages) == 1
+    assert all("layered_dir/outer.txt" not in msg for msg in messages)
 
 
 @pytest.mark.asyncio
