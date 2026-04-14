@@ -31,6 +31,12 @@ explicit_package_bases = true
 mypy_path = ["src"]
 packages = ["backuper"]
 
+[tool.pytest.ini_options]
+filterwarnings = [
+  "error::DeprecationWarning",
+  "error::PendingDeprecationWarning",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/backuper"]
 
