@@ -13,6 +13,7 @@ from backuper.commands import (
 from backuper.components.backup_analyzer import BackupAnalyzerImpl
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
+from backuper.components.path_ignore import GitIgnorePathFilter
 from backuper.components.reporter import StdoutAnalysisReporter
 from backuper.config import FilestoreConfig
 from backuper.controllers.backup import add_version, new_backup
@@ -54,7 +55,7 @@ def run_new(command: NewCommand) -> None:
         new_backup(
             source,
             command.version,
-            file_reader=LocalFileReader(),
+            file_reader=LocalFileReader(path_filter=GitIgnorePathFilter()),
             analyzer=BackupAnalyzerImpl(),
             db=create_backup_database(destination, index_status=print),
             filestore=_local_filestore(destination),
@@ -76,7 +77,7 @@ def run_update(command: UpdateCommand) -> None:
         add_version(
             source,
             command.version,
-            file_reader=LocalFileReader(),
+            file_reader=LocalFileReader(path_filter=GitIgnorePathFilter()),
             analyzer=BackupAnalyzerImpl(),
             db=create_backup_database(destination, index_status=print),
             filestore=_local_filestore(destination),

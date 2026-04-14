@@ -7,6 +7,7 @@ from backuper.components.backup_analyzer import BackupAnalyzerImpl
 from backuper.components.csv_db import CsvBackupDatabase, CsvDb
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
+from backuper.components.path_ignore import NullPathFilter
 from backuper.components.reporter import NoOpAnalysisReporter
 from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import (
@@ -52,7 +53,7 @@ async def test_create_backup_writes_data_store_and_metadata(tmp_path: Path) -> N
     await new_backup(
         source,
         version,
-        file_reader=LocalFileReader(),
+        file_reader=LocalFileReader(path_filter=NullPathFilter()),
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
@@ -99,7 +100,7 @@ async def test_add_version_raises_when_version_already_exists(tmp_path: Path) ->
     await new_backup(
         source,
         version,
-        file_reader=LocalFileReader(),
+        file_reader=LocalFileReader(path_filter=NullPathFilter()),
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
@@ -112,7 +113,7 @@ async def test_add_version_raises_when_version_already_exists(tmp_path: Path) ->
         await add_version(
             source,
             version,
-            file_reader=LocalFileReader(),
+            file_reader=LocalFileReader(path_filter=NullPathFilter()),
             analyzer=BackupAnalyzerImpl(),
             db=db,
             filestore=filestore,
@@ -248,7 +249,7 @@ async def test_new_backup_with_reporter_reports_summary_and_progress(
     await new_backup(
         source,
         version,
-        file_reader=LocalFileReader(),
+        file_reader=LocalFileReader(path_filter=NullPathFilter()),
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
@@ -294,7 +295,7 @@ async def test_backup_progress_throttled_when_just_over_hundred_files(
     await new_backup(
         source,
         version,
-        file_reader=LocalFileReader(),
+        file_reader=LocalFileReader(path_filter=NullPathFilter()),
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,

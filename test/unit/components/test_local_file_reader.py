@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 from backuper.components.file_reader import LocalFileReader
+from backuper.models import FileEntry
+from backuper.ports import PathFilter
 
 
 @pytest.mark.asyncio
@@ -39,3 +41,50 @@ async def test_local_file_reader():
         assert entry.is_directory == expected["is_directory"]
         assert entry.path == test_dir / relative_path
         assert entry.mtime > 0
+
+
+class _SelectivePathFilter(PathFilter):
+    def __init__(self) -> None:
+        self.prepared_roots: list[Path] = []
+
+    def prepare_walk_directory(self, walk_root: Path, *, source_root: Path) -> None:
+        self.prepared_roots.append(walk_root)
+
+    def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
+        return str(entry.relative_path) not in {
+            "skip.txt",
+            "ignored_dir",
+            "ignored_dir/child.txt",
+        }
+
+    def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
+        return str(entry.relative_path) == "ignored_dir"
+
+
+@pytest.mark.asyncio
+async def test_local_file_reader_applies_filter_with_safe_pruning_and_skip_logs(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+):
+    # Arrange
+    (tmp_path / "keep_dir").mkdir()
+    (tmp_path / "ignored_dir").mkdir()
+    (tmp_path / "keep_dir" / "keep.txt").write_text("keep", encoding="utf-8")
+    (tmp_path / "skip.txt").write_text("skip", encoding="utf-8")
+    (tmp_path / "ignored_dir" / "child.txt").write_text("ignored", encoding="utf-8")
+    path_filter = _SelectivePathFilter()
+    reader = LocalFileReader(path_filter=path_filter)
+    caplog.set_level("INFO")
+
+    # Act
+    entries = []
+    async for entry in reader.read_directory(tmp_path):
+        entries.append(str(entry.relative_path))
+
+    # Assert
+    assert sorted(entries) == ["keep_dir", "keep_dir/keep.txt"]
+    assert tmp_path in path_filter.prepared_roots
+    assert (tmp_path / "ignored_dir") not in path_filter.prepared_roots
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("Skipping ignored_dir (" in message for message in messages)
+    assert any("Skipping skip.txt (" in message for message in messages)
+    assert all("ignored_dir/child.txt" not in message for message in messages)
