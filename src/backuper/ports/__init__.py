@@ -34,6 +34,10 @@ class PathFilter(ABC):
         """Return True when an entry should be included in traversal/output."""
         pass
 
+    def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
+        """Return True when a rejected directory can be pruned from traversal."""
+        return False
+
 
 class BackupAnalyzer(ABC):
     @abstractmethod

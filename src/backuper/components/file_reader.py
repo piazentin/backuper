@@ -31,7 +31,7 @@ class LocalFileReader(FileReader):
                         dir_entry.relative_path,
                         self._skip_reason(),
                     )
-                    if self._can_prune_subtree(dir_entry, source_root=path):
+                    if self._path_filter.can_prune_subtree(dir_entry, source_root=path):
                         pruned_dir_names.add(dir_name)
                     continue
                 retained_dirs.append(dir_name)
@@ -80,12 +80,6 @@ class LocalFileReader(FileReader):
             mtime=os.path.getmtime(file_path),
             is_directory=False,
         )
-
-    def _can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
-        can_prune = getattr(self._path_filter, "can_prune_subtree", None)
-        if callable(can_prune):
-            return bool(can_prune(entry, source_root=source_root))
-        return False
 
     def _skip_reason(self) -> str:
         return f"excluded by {self._path_filter.__class__.__name__}"

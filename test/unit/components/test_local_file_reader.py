@@ -16,12 +16,12 @@ async def test_local_file_reader():
     reader = LocalFileReader()
 
     expected_files = {
-        "LICENSE": {"size": 1072, "is_directory": False},
-        "text_file1.txt": {"size": 217, "is_directory": False},
-        "text_file1 copy.txt": {"size": 217, "is_directory": False},
-        "subdir": {"size": 0, "is_directory": True},
-        "subdir/starry_night.png": {"size": 6466030, "is_directory": False},
-        "subdir/empty dir": {"size": 0, "is_directory": True},
+        Path("LICENSE"): {"size": 1072, "is_directory": False},
+        Path("text_file1.txt"): {"size": 217, "is_directory": False},
+        Path("text_file1 copy.txt"): {"size": 217, "is_directory": False},
+        Path("subdir"): {"size": 0, "is_directory": True},
+        Path("subdir/starry_night.png"): {"size": 6466030, "is_directory": False},
+        Path("subdir/empty dir"): {"size": 0, "is_directory": True},
     }
 
     # Act
@@ -33,7 +33,7 @@ async def test_local_file_reader():
     assert len(entries) == len(expected_files)
 
     for entry in entries:
-        relative_path = str(entry.relative_path)
+        relative_path = entry.relative_path
         assert relative_path in expected_files
 
         expected = expected_files[relative_path]
@@ -51,14 +51,14 @@ class _SelectivePathFilter(PathFilter):
         self.prepared_roots.append(walk_root)
 
     def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
-        return str(entry.relative_path) not in {
-            "skip.txt",
-            "ignored_dir",
-            "ignored_dir/child.txt",
+        return entry.relative_path not in {
+            Path("skip.txt"),
+            Path("ignored_dir"),
+            Path("ignored_dir/child.txt"),
         }
 
     def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
-        return str(entry.relative_path) == "ignored_dir"
+        return entry.relative_path == Path("ignored_dir")
 
 
 @pytest.mark.asyncio
@@ -78,10 +78,10 @@ async def test_local_file_reader_applies_filter_with_safe_pruning_and_skip_logs(
     # Act
     entries = []
     async for entry in reader.read_directory(tmp_path):
-        entries.append(str(entry.relative_path))
+        entries.append(entry.relative_path)
 
     # Assert
-    assert sorted(entries) == ["keep_dir", "keep_dir/keep.txt"]
+    assert sorted(entries) == [Path("keep_dir"), Path("keep_dir/keep.txt")]
     assert tmp_path in path_filter.prepared_roots
     assert (tmp_path / "ignored_dir") not in path_filter.prepared_roots
     messages = [record.getMessage() for record in caplog.records]

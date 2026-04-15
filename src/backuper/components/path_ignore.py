@@ -150,7 +150,7 @@ def _pattern_matches_path(
     """Match a relative path; directories also try a trailing-slash variant."""
     relative_posix_path = relative_path.as_posix()
     if source_root == Path("."):
-        relative_posix_path = relative_posix_path.lstrip("./")
+        relative_posix_path = relative_posix_path.removeprefix("./")
     if pattern.match_file(relative_posix_path):
         return True
     if is_directory:
