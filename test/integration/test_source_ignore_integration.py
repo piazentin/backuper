@@ -16,6 +16,17 @@ from backuper.controllers.backup import new_backup
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _IGNORE_FIXTURE = _REPO_ROOT / "test" / "resources" / "bkp_test_sources_ignore_rules"
+_EXPECTED_PHASE1_MANIFEST_PATHS = {
+    Path(".gitignore"),
+    Path("kept.txt"),
+    Path("layered_dir"),
+    Path("user_override/kept_by_root.txt"),
+    Path("user_override"),
+    Path("layered_dir/.backupignore"),
+    Path("layered_dir/outer.txt"),
+    Path("negation_dir"),
+    Path("negation_dir/reincluded.txt"),
+}
 
 
 def _copy_ignore_fixture(tmp_path: Path) -> Path:
@@ -49,6 +60,35 @@ async def _run_backup_and_list_manifest_paths(
     async for item in db.list_files("ignore-testing"):
         manifest_paths.add(item.relative_path)
     return manifest_paths
+
+
+@pytest.mark.asyncio
+async def test_source_ignore_phase2_p21_keeps_phase1_inclusion_set(
+    tmp_path: Path,
+) -> None:
+    source = _copy_ignore_fixture(tmp_path)
+    destination = tmp_path / "backup"
+
+    manifest_paths = await _run_backup_and_list_manifest_paths(source, destination)
+
+    assert manifest_paths == _EXPECTED_PHASE1_MANIFEST_PATHS
+
+
+@pytest.mark.asyncio
+async def test_source_ignore_phase2_p22_negation_keeps_descent_for_reinclusion(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    source = _copy_ignore_fixture(tmp_path)
+    destination = tmp_path / "backup"
+    caplog.set_level("INFO", logger="backuper.components.file_reader")
+
+    manifest_paths = await _run_backup_and_list_manifest_paths(source, destination)
+
+    assert Path("negation_dir/reincluded.txt") in manifest_paths
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert all("Skipping negation_dir" not in msg for msg in messages)
+    assert all("Skipping negation_dir/reincluded.txt" not in msg for msg in messages)
 
 
 @pytest.mark.asyncio
