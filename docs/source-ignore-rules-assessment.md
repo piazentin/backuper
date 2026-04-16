@@ -128,7 +128,7 @@ Phases are ordered for **risk reduction**: ship path ignores first, then perform
 - **Fixtures (design-time)**: list named scenarios you will need in Phase 1 (see [Per-phase validation and testing](#per-phase-validation-and-testing)) and add **empty fixture dirs / README stubs** under **`test/resources/`** (on-disk trees), not under `test/aux/`—so Phase 1 is not blocked on assets.
 - **No production code yet** → no `make test` gate for Phase 0 itself; optional scratch spike stays off `main` or is deleted after merge.
 
-### Phase 1 — Path-only ignores (correctness first)
+### Phase 1 — Path-only ignores (correctness first) [COMPLETED]
 
 - Add a **`PathFilter` port** (name to be chosen) with a single method such as `def allows(self, entry: FileEntry, *, source_root: Path) -> bool:` (sync is fine; heavy work is already on disk in the reader).
 - Implement **loader**: discover ignore files while walking; cache compiled `pathspec` matchers per anchor directory.
