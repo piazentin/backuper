@@ -18,31 +18,28 @@ class LocalFileReader(FileReader):
         for root, dirs, files in os.walk(path, followlinks=False):
             root_path = Path(root)
             self._path_filter.prepare_walk_directory(root_path, source_root=path)
-            pruned_dir_names: set[str] = set()
-
-            retained_dirs: list[str] = []
+            walkable_dirs: list[str] = []
             for dir_name in dirs:
                 dir_entry = self._build_directory_entry(
                     source_root=path, root_path=root_path, dir_name=dir_name
                 )
-                if not self._path_filter.allows(dir_entry, source_root=path):
+                should_yield = self._path_filter.allows(dir_entry, source_root=path)
+                should_prune = False
+                if not should_yield:
                     self._logger.info(
                         "Skipping %s (%s)",
                         dir_entry.relative_path,
                         self._skip_reason(),
                     )
-                    if self._path_filter.can_prune_subtree(dir_entry, source_root=path):
-                        pruned_dir_names.add(dir_name)
-                    continue
-                retained_dirs.append(dir_name)
-                yield dir_entry
+                    should_prune = self._path_filter.can_prune_subtree(
+                        dir_entry, source_root=path
+                    )
+                if not should_prune:
+                    walkable_dirs.append(dir_name)
+                if should_yield:
+                    yield dir_entry
 
-            if pruned_dir_names:
-                dirs[:] = [
-                    name for name in retained_dirs if name not in pruned_dir_names
-                ]
-            else:
-                dirs[:] = retained_dirs
+            dirs[:] = walkable_dirs
 
             for file in files:
                 file_entry = self._build_file_entry(
