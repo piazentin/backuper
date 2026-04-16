@@ -108,6 +108,21 @@ class _NonPruningExcludedDirectoryFilter(PathFilter):
         return False
 
 
+class _IgnoreSubtreeFilter(PathFilter):
+    def __init__(self, *, prune: bool) -> None:
+        self._prune = prune
+
+    def prepare_walk_directory(self, walk_root: Path, *, source_root: Path) -> None:
+        return None
+
+    def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
+        parts = entry.relative_path.parts
+        return not parts or parts[0] != "ignored_dir"
+
+    def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
+        return self._prune and entry.relative_path == Path("ignored_dir")
+
+
 @pytest.mark.asyncio
 async def test_local_file_reader_traverses_excluded_non_prunable_directory(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
@@ -130,6 +145,43 @@ async def test_local_file_reader_traverses_excluded_non_prunable_directory(
     assert (tmp_path / "ignored_dir") in path_filter.prepared_roots
     messages = [record.getMessage() for record in caplog.records]
     assert any("Skipping ignored_dir (" in message for message in messages)
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+async def test_local_file_reader_walk_metrics_show_pruning_reduces_visited_nodes(
+    tmp_path: Path,
+):
+    # Arrange
+    ignored_dir = tmp_path / "ignored_dir"
+    ignored_dir.mkdir()
+    for index in range(200):
+        (ignored_dir / f"child_{index}.txt").write_text("ignored", encoding="utf-8")
+    (tmp_path / "keep.txt").write_text("keep", encoding="utf-8")
+
+    pruning_reader = LocalFileReader(
+        path_filter=_IgnoreSubtreeFilter(prune=True),
+        collect_walk_metrics=True,
+    )
+    non_pruning_reader = LocalFileReader(
+        path_filter=_IgnoreSubtreeFilter(prune=False),
+        collect_walk_metrics=True,
+    )
+
+    # Act
+    async for _ in pruning_reader.read_directory(tmp_path):
+        pass
+    async for _ in non_pruning_reader.read_directory(tmp_path):
+        pass
+
+    # Assert
+    pruning_metrics = pruning_reader.get_last_walk_metrics()
+    non_pruning_metrics = non_pruning_reader.get_last_walk_metrics()
+    assert pruning_metrics is not None
+    assert non_pruning_metrics is not None
+    assert pruning_metrics.visited_entries < non_pruning_metrics.visited_entries
+    assert pruning_metrics.pruned_directories == 1
+    assert non_pruning_metrics.pruned_directories == 0
 
 
 @pytest.mark.asyncio

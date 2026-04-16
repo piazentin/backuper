@@ -36,6 +36,9 @@ filterwarnings = [
   "error::DeprecationWarning",
   "error::PendingDeprecationWarning",
 ]
+markers = [
+  "slow: optional longer-running tests",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/backuper"]
