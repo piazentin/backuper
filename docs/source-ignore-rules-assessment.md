@@ -144,10 +144,12 @@ Phases are ordered for **risk reduction**: ship path ignores first, then perform
 - **Observability**: at least one integration or unit test uses **logging capture** (`caplog` at INFO) to assert **subtree skip ⇒ single INFO** for the directory boundary and **file skip ⇒ one INFO** per file when descent is not suppressed.
 - **Scenario matrix** (minimum): nested ignore file; two filenames merged in one dir; precedence **nested > root > (stub user if wired early)**; at least one **negation** case; symlinked dir **not** followed; UTF-8 + `#` comment line + blank line handling.
 
-### Phase 2 — `os.walk` pruning and performance guardrails
+### Phase 2 — `os.walk` pruning and performance guardrails [COMPLETED]
 
 - Prune `dirs` when entire subtrees are excluded **without** breaking negation semantics.
 - Add lightweight timing logs or counters (files examined vs skipped) behind DEBUG or dedicated verbose flags if useful.
+  - **Implemented** via optional `LocalFileReader` walk metrics (`visited_directories`, `visited_files`, `skipped_entries`, `pruned_directories`) exposed through `get_last_walk_metrics()`.
+  - **Guardrail test**: optional `slow`-marked unit test asserts visited-node reduction from pruning using metrics (counter-based, no wall-clock threshold).
 
 **Exit criteria**: documented performance expectations; no correctness regressions in integration tests (add cases with negation if supported).
 
@@ -247,7 +249,7 @@ Phases are ordered for **risk reduction**: ship path ignores first, then perform
 | --- | --- | --- |
 | P2.1 | Integration | Same inclusion set / CSV as Phase 1 for identical fixtures (pruning is optimization-only) |
 | P2.2 | Integration | Negation case that **must** descend still finds re-included file |
-| P2.3 | Optional marked | Visited-node count drops for large ignored subtree (counter hook), no wall-clock threshold |
+| P2.3 | Optional marked | Visited-node count drops for large ignored subtree (counter hook), no wall-clock threshold (**implemented**) |
 
 ### Phase 3 — user config catalog
 

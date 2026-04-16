@@ -46,9 +46,11 @@ async def test_local_file_reader():
 class _SelectivePathFilter(PathFilter):
     def __init__(self) -> None:
         self.prepared_roots: list[Path] = []
+        self.source_roots: list[Path] = []
 
     def prepare_walk_directory(self, walk_root: Path, *, source_root: Path) -> None:
         self.prepared_roots.append(walk_root)
+        self.source_roots.append(source_root)
 
     def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
         return entry.relative_path not in {
@@ -93,15 +95,32 @@ async def test_local_file_reader_applies_filter_with_safe_pruning_and_skip_logs(
 class _NonPruningExcludedDirectoryFilter(PathFilter):
     def __init__(self) -> None:
         self.prepared_roots: list[Path] = []
+        self.source_roots: list[Path] = []
 
     def prepare_walk_directory(self, walk_root: Path, *, source_root: Path) -> None:
         self.prepared_roots.append(walk_root)
+        self.source_roots.append(source_root)
 
     def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
         return entry.relative_path != Path("ignored_dir")
 
     def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
         return False
+
+
+class _IgnoreSubtreeFilter(PathFilter):
+    def __init__(self, *, prune: bool) -> None:
+        self._prune = prune
+
+    def prepare_walk_directory(self, walk_root: Path, *, source_root: Path) -> None:
+        return None
+
+    def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
+        parts = entry.relative_path.parts
+        return not parts or parts[0] != "ignored_dir"
+
+    def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
+        return self._prune and entry.relative_path == Path("ignored_dir")
 
 
 @pytest.mark.asyncio
@@ -129,6 +148,43 @@ async def test_local_file_reader_traverses_excluded_non_prunable_directory(
 
 
 @pytest.mark.asyncio
+@pytest.mark.slow
+async def test_local_file_reader_walk_metrics_show_pruning_reduces_visited_nodes(
+    tmp_path: Path,
+):
+    # Arrange
+    ignored_dir = tmp_path / "ignored_dir"
+    ignored_dir.mkdir()
+    for index in range(200):
+        (ignored_dir / f"child_{index}.txt").write_text("ignored", encoding="utf-8")
+    (tmp_path / "keep.txt").write_text("keep", encoding="utf-8")
+
+    pruning_reader = LocalFileReader(
+        path_filter=_IgnoreSubtreeFilter(prune=True),
+        collect_walk_metrics=True,
+    )
+    non_pruning_reader = LocalFileReader(
+        path_filter=_IgnoreSubtreeFilter(prune=False),
+        collect_walk_metrics=True,
+    )
+
+    # Act
+    async for _ in pruning_reader.read_directory(tmp_path):
+        pass
+    async for _ in non_pruning_reader.read_directory(tmp_path):
+        pass
+
+    # Assert
+    pruning_metrics = pruning_reader.get_last_walk_metrics()
+    non_pruning_metrics = non_pruning_reader.get_last_walk_metrics()
+    assert pruning_metrics is not None
+    assert non_pruning_metrics is not None
+    assert pruning_metrics.visited_entries < non_pruning_metrics.visited_entries
+    assert pruning_metrics.pruned_directories == 1
+    assert non_pruning_metrics.pruned_directories == 0
+
+
+@pytest.mark.asyncio
 async def test_local_file_reader_handles_dot_source_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -146,3 +202,27 @@ async def test_local_file_reader_handles_dot_source_root(
     # Assert
     assert Path("subdir") in entries
     assert Path("subdir/child.txt") in entries
+
+
+@pytest.mark.asyncio
+async def test_local_file_reader_passes_normalized_roots_to_filter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # Arrange
+    (tmp_path / "subdir").mkdir()
+    (tmp_path / "subdir" / "child.txt").write_text("child", encoding="utf-8")
+    path_filter = _SelectivePathFilter()
+    reader = LocalFileReader(path_filter=path_filter)
+    monkeypatch.chdir(tmp_path)
+
+    # Act
+    async for _ in reader.read_directory(Path(".")):
+        pass
+
+    # Assert
+    normalized_root = tmp_path.absolute()
+    assert normalized_root in path_filter.prepared_roots
+    assert path_filter.source_roots
+    assert all(
+        source_root == normalized_root for source_root in path_filter.source_roots
+    )
