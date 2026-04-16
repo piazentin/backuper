@@ -126,3 +126,23 @@ async def test_local_file_reader_traverses_excluded_non_prunable_directory(
     assert (tmp_path / "ignored_dir") in path_filter.prepared_roots
     messages = [record.getMessage() for record in caplog.records]
     assert any("Skipping ignored_dir (" in message for message in messages)
+
+
+@pytest.mark.asyncio
+async def test_local_file_reader_handles_dot_source_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # Arrange
+    (tmp_path / "subdir").mkdir()
+    (tmp_path / "subdir" / "child.txt").write_text("child", encoding="utf-8")
+    reader = LocalFileReader()
+    monkeypatch.chdir(tmp_path)
+
+    # Act
+    entries = []
+    async for entry in reader.read_directory(Path(".")):
+        entries.append(entry.relative_path)
+
+    # Assert
+    assert Path("subdir") in entries
+    assert Path("subdir/child.txt") in entries
