@@ -74,3 +74,33 @@ def test_ignore_files_support_bom_comments_blank_lines_and_crlf(tmp_path: Path) 
         path_filter.allows(_entry(source_root, "kept.txt"), source_root=source_root)
         is True
     )
+
+
+def test_ignore_line_with_leading_space_hash_is_not_comment(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    (source_root / ".gitignore").write_text(" #literal-hash.txt\n", encoding="utf-8")
+
+    path_filter = GitIgnorePathFilter()
+    path_filter.prepare_walk_directory(source_root, source_root=source_root)
+
+    assert (
+        path_filter.allows(
+            _entry(source_root, " #literal-hash.txt"), source_root=source_root
+        )
+        is False
+    )
+
+
+def test_ignore_file_blank_whitespace_only_line_is_ignored(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    (source_root / ".gitignore").write_text("   \n\t\nignored.txt\n", encoding="utf-8")
+
+    path_filter = GitIgnorePathFilter()
+    path_filter.prepare_walk_directory(source_root, source_root=source_root)
+
+    assert (
+        path_filter.allows(_entry(source_root, "ignored.txt"), source_root=source_root)
+        is False
+    )

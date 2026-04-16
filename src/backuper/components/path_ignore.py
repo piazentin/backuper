@@ -110,8 +110,9 @@ def _anchor_chain(*, source_root: Path, walk_directory: Path) -> tuple[Path, ...
 def _compile_patterns(lines: Sequence[str]) -> tuple[GitIgnoreSpecPattern, ...]:
     patterns: list[GitIgnoreSpecPattern] = []
     for raw_line in lines:
-        stripped = raw_line.strip()
-        if not stripped or stripped.startswith("#"):
+        if raw_line.strip() == "":
+            continue
+        if raw_line.startswith("#"):
             continue
         compiled = GitIgnoreSpecPattern(raw_line)
         if compiled.include is not None:
