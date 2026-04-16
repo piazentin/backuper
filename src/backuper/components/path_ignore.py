@@ -64,6 +64,35 @@ class GitIgnorePathFilter(PathFilter):
         )
         return not is_ignored
 
+    def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
+        if not entry.is_directory:
+            return False
+
+        normalized_source_root = _normalize_path(source_root)
+        normalized_entry_path = _normalize_path(entry.path)
+        parent_layers = self._layers_for_directory(
+            normalized_entry_path.parent, source_root=normalized_source_root
+        )
+        entry_relative_path = _entry_relative_path(
+            entry=entry,
+            normalized_entry_path=normalized_entry_path,
+            normalized_source_root=normalized_source_root,
+        )
+        if not _resolve_last_match(
+            relative_path=entry_relative_path,
+            is_directory=True,
+            layers=parent_layers,
+            source_root=normalized_source_root,
+        ):
+            return False
+        if _layers_may_reinclude_descendant(
+            layers=parent_layers,
+            directory_relative_path=entry_relative_path,
+            source_root=normalized_source_root,
+        ):
+            return False
+        return True
+
     def _layers_for_directory(
         self, walk_directory: Path, *, source_root: Path
     ) -> tuple[_PatternLayer, ...]:
@@ -148,6 +177,86 @@ def _compile_patterns(lines: Sequence[str]) -> tuple[GitIgnoreSpecPattern, ...]:
         if compiled.include is not None:
             patterns.append(compiled)
     return tuple(patterns)
+
+
+def _layers_may_reinclude_descendant(
+    *,
+    layers: tuple[_PatternLayer, ...],
+    directory_relative_path: Path,
+    source_root: Path,
+) -> bool:
+    """Conservatively detect whether descendants might be re-included."""
+    for layer in layers:
+        for pattern in layer.patterns:
+            if pattern.include is not False:
+                continue
+            if _negation_pattern_may_match_descendant(
+                pattern=pattern,
+                directory_relative_path=directory_relative_path,
+                source_root=source_root,
+            ):
+                return True
+    return False
+
+
+def _negation_pattern_may_match_descendant(
+    *,
+    pattern: GitIgnoreSpecPattern,
+    directory_relative_path: Path,
+    source_root: Path,
+) -> bool:
+    pattern_text = getattr(pattern, "pattern", "")
+    if not isinstance(pattern_text, str):
+        return True
+
+    if _negation_text_targets_subtree(
+        pattern_text=pattern_text,
+        directory_relative_path=directory_relative_path,
+    ):
+        return True
+
+    candidate_bases = _candidate_descendant_match_bases(directory_relative_path)
+    for base in candidate_bases:
+        if _pattern_matches_path(
+            pattern=pattern,
+            relative_path=base,
+            is_directory=False,
+            source_root=source_root,
+        ):
+            return True
+    return False
+
+
+def _negation_text_targets_subtree(
+    *, pattern_text: str, directory_relative_path: Path
+) -> bool:
+    """Conservative textual pre-check before pattern probes."""
+    normalized_pattern = pattern_text.removeprefix("!").strip()
+    if normalized_pattern.startswith("\\!"):
+        normalized_pattern = normalized_pattern[1:]
+    normalized_pattern = normalized_pattern.lstrip("/")
+    directory_posix = directory_relative_path.as_posix().strip("/")
+
+    if normalized_pattern in {"", "."}:
+        return False
+    if directory_posix in {"", "."}:
+        return True
+    if normalized_pattern.startswith(f"{directory_posix}/"):
+        return True
+    if "/" not in normalized_pattern:
+        return True
+    if any(token in normalized_pattern for token in ("**", "*", "?")):
+        return True
+    return False
+
+
+def _candidate_descendant_match_bases(
+    directory_relative_path: Path,
+) -> tuple[Path, ...]:
+    posix = directory_relative_path.as_posix().strip("/")
+    if posix in {"", "."}:
+        return (Path("x"), Path("x/y"))
+    return (Path(f"{posix}/x"), Path(f"{posix}/x/y"))
 
 
 def _resolve_last_match(

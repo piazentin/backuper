@@ -130,3 +130,37 @@ def test_gitignore_allows_with_relative_source_root_and_absolute_entry_path(
         )
         is False
     )
+
+
+def test_gitignore_can_prune_subtree_without_matching_negation(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    (source_root / ".gitignore").write_text("build/\n", encoding="utf-8")
+    build_dir = source_root / "build"
+    build_dir.mkdir()
+
+    path_filter = GitIgnorePathFilter()
+    path_filter.prepare_walk_directory(source_root, source_root=source_root)
+    build_entry = _entry(source_root, "build", is_directory=True)
+
+    assert path_filter.allows(build_entry, source_root=source_root) is False
+    assert path_filter.can_prune_subtree(build_entry, source_root=source_root) is True
+
+
+def test_gitignore_does_not_prune_when_negation_may_reinclude_descendant(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    (source_root / ".gitignore").write_text(
+        "build/\n!build/keep.txt\n", encoding="utf-8"
+    )
+    build_dir = source_root / "build"
+    build_dir.mkdir()
+
+    path_filter = GitIgnorePathFilter()
+    path_filter.prepare_walk_directory(source_root, source_root=source_root)
+    build_entry = _entry(source_root, "build", is_directory=True)
+
+    assert path_filter.allows(build_entry, source_root=source_root) is False
+    assert path_filter.can_prune_subtree(build_entry, source_root=source_root) is False
