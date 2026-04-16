@@ -104,3 +104,29 @@ def test_ignore_file_blank_whitespace_only_line_is_ignored(tmp_path: Path) -> No
         path_filter.allows(_entry(source_root, "ignored.txt"), source_root=source_root)
         is False
     )
+
+
+def test_gitignore_allows_with_relative_source_root_and_absolute_entry_path(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    (source_root / ".gitignore").write_text("ignored.txt\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    path_filter = GitIgnorePathFilter()
+    path_filter.prepare_walk_directory(source_root, source_root=Path("source"))
+
+    assert (
+        path_filter.allows(
+            FileEntry(
+                path=(source_root / "ignored.txt"),
+                relative_path=Path("ignored.txt"),
+                size=0,
+                mtime=0.0,
+                is_directory=False,
+            ),
+            source_root=Path("source"),
+        )
+        is False
+    )

@@ -18,7 +18,10 @@ class LocalFileReader(FileReader):
         normalized_source_root = path.absolute()
         for root, dirs, files in os.walk(path, followlinks=False):
             root_path = Path(root)
-            self._path_filter.prepare_walk_directory(root_path, source_root=path)
+            normalized_walk_root = root_path.absolute()
+            self._path_filter.prepare_walk_directory(
+                normalized_walk_root, source_root=normalized_source_root
+            )
             walkable_dirs: list[str] = []
             for dir_name in dirs:
                 dir_entry = self._build_directory_entry(
@@ -26,7 +29,9 @@ class LocalFileReader(FileReader):
                     root_path=root_path,
                     dir_name=dir_name,
                 )
-                should_yield = self._path_filter.allows(dir_entry, source_root=path)
+                should_yield = self._path_filter.allows(
+                    dir_entry, source_root=normalized_source_root
+                )
                 should_prune = False
                 if not should_yield:
                     self._logger.info(
@@ -35,7 +40,7 @@ class LocalFileReader(FileReader):
                         self._skip_reason(),
                     )
                     should_prune = self._path_filter.can_prune_subtree(
-                        dir_entry, source_root=path
+                        dir_entry, source_root=normalized_source_root
                     )
                 if not should_prune:
                     walkable_dirs.append(dir_name)
@@ -50,7 +55,9 @@ class LocalFileReader(FileReader):
                     root_path=root_path,
                     file_name=file,
                 )
-                if not self._path_filter.allows(file_entry, source_root=path):
+                if not self._path_filter.allows(
+                    file_entry, source_root=normalized_source_root
+                ):
                     self._logger.info(
                         "Skipping %s (%s)",
                         file_entry.relative_path,

@@ -46,9 +46,11 @@ async def test_local_file_reader():
 class _SelectivePathFilter(PathFilter):
     def __init__(self) -> None:
         self.prepared_roots: list[Path] = []
+        self.source_roots: list[Path] = []
 
     def prepare_walk_directory(self, walk_root: Path, *, source_root: Path) -> None:
         self.prepared_roots.append(walk_root)
+        self.source_roots.append(source_root)
 
     def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
         return entry.relative_path not in {
@@ -93,9 +95,11 @@ async def test_local_file_reader_applies_filter_with_safe_pruning_and_skip_logs(
 class _NonPruningExcludedDirectoryFilter(PathFilter):
     def __init__(self) -> None:
         self.prepared_roots: list[Path] = []
+        self.source_roots: list[Path] = []
 
     def prepare_walk_directory(self, walk_root: Path, *, source_root: Path) -> None:
         self.prepared_roots.append(walk_root)
+        self.source_roots.append(source_root)
 
     def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
         return entry.relative_path != Path("ignored_dir")
@@ -146,3 +150,27 @@ async def test_local_file_reader_handles_dot_source_root(
     # Assert
     assert Path("subdir") in entries
     assert Path("subdir/child.txt") in entries
+
+
+@pytest.mark.asyncio
+async def test_local_file_reader_passes_normalized_roots_to_filter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # Arrange
+    (tmp_path / "subdir").mkdir()
+    (tmp_path / "subdir" / "child.txt").write_text("child", encoding="utf-8")
+    path_filter = _SelectivePathFilter()
+    reader = LocalFileReader(path_filter=path_filter)
+    monkeypatch.chdir(tmp_path)
+
+    # Act
+    async for _ in reader.read_directory(Path(".")):
+        pass
+
+    # Assert
+    normalized_root = tmp_path.absolute()
+    assert normalized_root in path_filter.prepared_roots
+    assert path_filter.source_roots
+    assert all(
+        source_root == normalized_root for source_root in path_filter.source_roots
+    )

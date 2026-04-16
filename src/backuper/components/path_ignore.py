@@ -40,17 +40,27 @@ class GitIgnorePathFilter(PathFilter):
         ] = {}
 
     def prepare_walk_directory(self, walk_root: Path, *, source_root: Path) -> None:
-        self._layers_for_directory(walk_root, source_root=source_root)
+        normalized_source_root = _normalize_path(source_root)
+        normalized_walk_root = _normalize_path(walk_root)
+        self._layers_for_directory(
+            normalized_walk_root, source_root=normalized_source_root
+        )
 
     def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
-        parent = entry.path.parent
-        layers = self._layers_for_directory(parent, source_root=source_root)
-        entry_relative_path = entry.path.relative_to(source_root)
+        normalized_source_root = _normalize_path(source_root)
+        normalized_entry_path = _normalize_path(entry.path)
+        parent = normalized_entry_path.parent
+        layers = self._layers_for_directory(parent, source_root=normalized_source_root)
+        entry_relative_path = _entry_relative_path(
+            entry=entry,
+            normalized_entry_path=normalized_entry_path,
+            normalized_source_root=normalized_source_root,
+        )
         is_ignored = _resolve_last_match(
             relative_path=entry_relative_path,
             is_directory=entry.is_directory,
             layers=layers,
-            source_root=source_root,
+            source_root=normalized_source_root,
         )
         return not is_ignored
 
@@ -63,11 +73,14 @@ class GitIgnorePathFilter(PathFilter):
         user patterns, then ignore files discovered from source root down to the
         walk directory (per-anchor filename order). The resulting tuple is cached.
         """
-        if walk_directory in self._directory_layers:
-            return self._directory_layers[walk_directory]
+        normalized_source_root = _normalize_path(source_root)
+        normalized_walk_directory = _normalize_path(walk_directory)
+
+        if normalized_walk_directory in self._directory_layers:
+            return self._directory_layers[normalized_walk_directory]
 
         anchor_chain = _anchor_chain(
-            source_root=source_root, walk_directory=walk_directory
+            source_root=normalized_source_root, walk_directory=normalized_walk_directory
         )
         layers: list[_PatternLayer] = [self._user_layer]
         for anchor in anchor_chain:
@@ -77,7 +90,7 @@ class GitIgnorePathFilter(PathFilter):
                 if patterns:
                     layers.append(_PatternLayer(patterns=patterns))
         built = tuple(layers)
-        self._directory_layers[walk_directory] = built
+        self._directory_layers[normalized_walk_directory] = built
         return built
 
     def _patterns_for_ignore_file(
@@ -98,13 +111,30 @@ class GitIgnorePathFilter(PathFilter):
 
 def _anchor_chain(*, source_root: Path, walk_directory: Path) -> tuple[Path, ...]:
     """Return root-to-leaf anchors that can contribute ignore files."""
-    relative = walk_directory.relative_to(source_root)
-    anchors = [source_root]
-    current = source_root
+    normalized_source_root = _normalize_path(source_root)
+    normalized_walk_directory = _normalize_path(walk_directory)
+    relative = normalized_walk_directory.relative_to(normalized_source_root)
+    anchors = [normalized_source_root]
+    current = normalized_source_root
     for segment in relative.parts:
         current = current / segment
         anchors.append(current)
     return tuple(anchors)
+
+
+def _normalize_path(path: Path) -> Path:
+    return path.absolute()
+
+
+def _entry_relative_path(
+    *,
+    entry: FileEntry,
+    normalized_entry_path: Path,
+    normalized_source_root: Path,
+) -> Path:
+    if not entry.relative_path.is_absolute():
+        return entry.relative_path
+    return normalized_entry_path.relative_to(normalized_source_root)
 
 
 def _compile_patterns(lines: Sequence[str]) -> tuple[GitIgnoreSpecPattern, ...]:
