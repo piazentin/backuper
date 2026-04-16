@@ -22,6 +22,7 @@ from backuper.components.csv_db import (
 )
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
+from backuper.components.path_ignore import GitIgnorePathFilter
 from backuper.components.reporter import NoOpAnalysisReporter
 from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import new_backup
@@ -93,7 +94,7 @@ async def test_new_backup_integration_zip_disabled(
     await new_backup(
         new_source_path,
         "testing",
-        file_reader=LocalFileReader(),
+        file_reader=LocalFileReader(path_filter=GitIgnorePathFilter()),
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=LocalFileStore(
@@ -127,7 +128,7 @@ async def test_new_backup_integration_zip_enabled(
     await new_backup(
         new_source_path,
         "testing",
-        file_reader=LocalFileReader(),
+        file_reader=LocalFileReader(path_filter=GitIgnorePathFilter()),
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=LocalFileStore(

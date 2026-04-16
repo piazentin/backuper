@@ -1,5 +1,5 @@
 ---
-description: Plans and TODOs must end with validated, commit-ready work
+description: Plans and TODOs require incremental validation plus final green checks
 alwaysApply: true
 ---
 
@@ -7,9 +7,10 @@ alwaysApply: true
 
 When you use a **plan** or **tracked TODO list** for multi-step work in this repository:
 
-1. **Definition of done:** Do not mark the work (or the last open TODO) **completed** until the tree is **commit-ready**: `make lint` and `make test` both succeed. Use the Makefile targets (see the validation-commands rule); do not substitute raw `pytest` / `ruff` unless the user asked for those commands explicitly.
-2. **Scope:** If the user agreed to a narrower scope (e.g. unit tests only), use `make unit` instead of `make test` and state that scope when closing TODOs. Otherwise default to **`make test`**.
-3. **Failures:** If checks fail, keep TODOs **in progress** (or add a TODO to fix failures) until green. Do not describe the outcome as finished or “ready to commit” while checks are red.
-4. **Honesty:** Only mark a TODO completed after you have **run** the agreed checks in this session (or the user confirms CI green). Do not mark validation TODOs complete on intent alone.
+1. **Incremental validation by default:** Validate each meaningful TODO/work slice as you go (not only at the end). Prefer the smallest relevant Make target for that slice (for example `make unit` for unit-only changes, `make integration` for integration-only changes) so failures are found early.
+2. **Definition of done (final gate):** Do not mark the whole plan (or last open TODO) **completed** until the tree is **commit-ready** and final checks pass: `make lint` and `make test` by default. Use Makefile targets (see the validation-commands rule); do not substitute raw `pytest` / `ruff` unless the user asked for those commands explicitly.
+3. **Scope agreements:** If the user explicitly agrees to narrower final scope (e.g. unit-only), use that scope (`make unit` instead of `make test`) and state that scope clearly when closing TODOs.
+4. **Failures:** If any incremental or final checks fail, keep affected TODOs **in progress** (or add a TODO to fix failures) until green. Do not describe the outcome as finished or “ready to commit” while checks are red.
+5. **Honesty:** Only mark a TODO completed after you have **run** the agreed checks in this session (or the user confirms CI green). Do not mark validation TODOs complete on intent alone.
 
 This rule does not override the git-commits rule: still do not `git commit` without explicit user approval.

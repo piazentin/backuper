@@ -1,0 +1,6 @@
+ignored_root.txt
+ignored_dir/
+negation_dir/*
+!negation_dir/reincluded.txt
+!user_override/**
+!layered_dir/**

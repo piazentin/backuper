@@ -22,6 +22,7 @@ from backuper.components.csv_db import (
 )
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
+from backuper.components.path_ignore import GitIgnorePathFilter
 from backuper.components.reporter import NoOpAnalysisReporter
 from backuper.config import CsvDbConfig, FilestoreConfig
 from backuper.controllers.backup import add_version, new_backup
@@ -108,7 +109,7 @@ async def test_update_backup_integration_zip_disabled(
     await new_backup(
         new_src,
         "test_new",
-        file_reader=LocalFileReader(),
+        file_reader=LocalFileReader(path_filter=GitIgnorePathFilter()),
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
@@ -117,7 +118,7 @@ async def test_update_backup_integration_zip_disabled(
     await add_version(
         upd_src,
         "test_update",
-        file_reader=LocalFileReader(),
+        file_reader=LocalFileReader(path_filter=GitIgnorePathFilter()),
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
@@ -153,7 +154,7 @@ async def test_update_backup_integration_zip_enabled(
     await new_backup(
         new_src,
         "test_new",
-        file_reader=LocalFileReader(),
+        file_reader=LocalFileReader(path_filter=GitIgnorePathFilter()),
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,
@@ -162,7 +163,7 @@ async def test_update_backup_integration_zip_enabled(
     await add_version(
         upd_src,
         "test_update",
-        file_reader=LocalFileReader(),
+        file_reader=LocalFileReader(path_filter=GitIgnorePathFilter()),
         analyzer=BackupAnalyzerImpl(),
         db=db,
         filestore=filestore,

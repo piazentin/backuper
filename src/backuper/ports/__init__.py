@@ -23,6 +23,22 @@ class FileReader(ABC):
             yield FileEntry(path=_p, relative_path=_p, size=0, mtime=0.0)
 
 
+class PathFilter(ABC):
+    @abstractmethod
+    def prepare_walk_directory(self, walk_root: Path, *, source_root: Path) -> None:
+        """Prepare state for evaluating entries discovered in ``walk_root``."""
+        pass
+
+    @abstractmethod
+    def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
+        """Return True when an entry should be included in traversal/output."""
+        pass
+
+    def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
+        """Return True when a rejected directory can be pruned from traversal."""
+        return False
+
+
 class BackupAnalyzer(ABC):
     @abstractmethod
     async def analyze_stream(
