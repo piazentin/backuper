@@ -19,6 +19,7 @@ from backuper.config import FilestoreConfig
 from backuper.controllers.backup import add_version, new_backup
 from backuper.controllers.restore import run_restore_flow
 from backuper.controllers.verify_integrity import run_verify_integrity_flow
+from backuper.entrypoints.cli.user_ignore_patterns import build_user_ignore_patterns
 from backuper.entrypoints.wiring import create_backup_database
 from backuper.models import CliUsageError
 
@@ -50,12 +51,18 @@ def run_new(command: NewCommand) -> None:
     if destination.exists():
         raise CliUsageError(f"destination path {command.location} already exists")
 
+    user_patterns = build_user_ignore_patterns(
+        ignore_patterns=command.ignore_patterns,
+        ignore_files=command.ignore_files,
+    )
     print(f"Creating new backup from {command.source} into {command.location}")
     asyncio.run(
         new_backup(
             source,
             command.version,
-            file_reader=LocalFileReader(path_filter=GitIgnorePathFilter()),
+            file_reader=LocalFileReader(
+                path_filter=GitIgnorePathFilter(user_patterns=user_patterns)
+            ),
             analyzer=BackupAnalyzerImpl(),
             db=create_backup_database(destination, index_status=print),
             filestore=_local_filestore(destination),
@@ -72,12 +79,18 @@ def run_update(command: UpdateCommand) -> None:
     if not destination.exists():
         raise CliUsageError(f"destination path {command.location} does not exist")
 
+    user_patterns = build_user_ignore_patterns(
+        ignore_patterns=command.ignore_patterns,
+        ignore_files=command.ignore_files,
+    )
     print(f"Updating backup at {command.location} with new version {command.version}")
     asyncio.run(
         add_version(
             source,
             command.version,
-            file_reader=LocalFileReader(path_filter=GitIgnorePathFilter()),
+            file_reader=LocalFileReader(
+                path_filter=GitIgnorePathFilter(user_patterns=user_patterns)
+            ),
             analyzer=BackupAnalyzerImpl(),
             db=create_backup_database(destination, index_status=print),
             filestore=_local_filestore(destination),

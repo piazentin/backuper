@@ -31,6 +31,45 @@ def test_run_update_raises_when_destination_missing(tmp_path: Path) -> None:
         run_update(cmd)
 
 
+def test_run_new_raises_when_ignore_file_missing(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "f.txt").write_text("x", encoding="utf-8")
+    dst = tmp_path / "backup"
+    missing = tmp_path / "missing.ignore"
+    cmd = NewCommand(
+        "v1",
+        str(src),
+        str(dst),
+        ignore_files=(str(missing),),
+    )
+    with pytest.raises(
+        CliUsageError,
+        match=r'ignore file ".*missing\.ignore" is missing or not a regular file',
+    ):
+        run_new(cmd)
+
+
+def test_run_update_raises_when_ignore_file_missing(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "f.txt").write_text("x", encoding="utf-8")
+    backup = tmp_path / "backup"
+    backup.mkdir()
+    missing = tmp_path / "missing.ignore"
+    cmd = UpdateCommand(
+        "v2",
+        str(src),
+        str(backup),
+        ignore_files=(str(missing),),
+    )
+    with pytest.raises(
+        CliUsageError,
+        match=r'ignore file ".*missing\.ignore" is missing or not a regular file',
+    ):
+        run_update(cmd)
+
+
 def test_run_update_raises_when_version_already_in_database(tmp_path: Path) -> None:
     src = tmp_path / "src"
     src.mkdir()
