@@ -8,6 +8,7 @@ from pathspec.patterns.gitwildmatch import GitIgnoreSpecPattern
 
 from backuper.models import FileEntry
 from backuper.ports import PathFilter
+from backuper.utils.gitignore_lines import iter_gitignore_pattern_lines
 
 IGNORE_FILE_NAMES: tuple[str, str] = (".backupignore", ".gitignore")
 
@@ -131,8 +132,8 @@ class GitIgnorePathFilter(PathFilter):
         if not ignore_file.is_file():
             patterns: tuple[GitIgnoreSpecPattern, ...] = ()
         else:
-            lines = ignore_file.read_text(encoding="utf-8-sig").splitlines()
-            patterns = _compile_patterns(lines)
+            text = ignore_file.read_text(encoding="utf-8-sig")
+            patterns = _compile_patterns(text.splitlines())
 
         self._ignore_file_pattern_cache[ignore_file] = patterns
         return patterns
@@ -168,11 +169,7 @@ def _entry_relative_path(
 
 def _compile_patterns(lines: Sequence[str]) -> tuple[GitIgnoreSpecPattern, ...]:
     patterns: list[GitIgnoreSpecPattern] = []
-    for raw_line in lines:
-        if raw_line.strip() == "":
-            continue
-        if raw_line.startswith("#"):
-            continue
+    for raw_line in iter_gitignore_pattern_lines(lines):
         compiled = GitIgnoreSpecPattern(raw_line)
         if compiled.include is not None:
             patterns.append(compiled)
