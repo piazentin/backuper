@@ -47,6 +47,29 @@ def with_version_arg(parser: argparse.ArgumentParser):
     )
 
 
+def with_user_ignore_args(parser: argparse.ArgumentParser) -> None:
+    """Repeatable flags; merge order is all patterns (argv order), then each file."""
+    parser.add_argument(
+        "--ignore-pattern",
+        action="append",
+        dest="ignore_patterns",
+        default=None,
+        metavar="PATTERN",
+        help="Extra gitignore-style line to apply under tree rules (repeatable).\n"
+        "Merged in argv order before any --ignore-file lines.",
+    )
+    parser.add_argument(
+        "--ignore-file",
+        action="append",
+        dest="ignore_files",
+        default=None,
+        metavar="PATH",
+        help="UTF-8 file of gitignore-style lines (repeatable).\n"
+        "Relative paths resolve against the current working directory.\n"
+        "Merged after all --ignore-pattern values, in argv order per file.",
+    )
+
+
 def with_verify_integrity_version_arg(parser: argparse.ArgumentParser):
     parser.add_argument(
         *VERSION_ARG_ALIASES,
@@ -73,11 +96,14 @@ def configure_new_parser(parser: argparse.ArgumentParser):
             version=ns.version,
             source=ns.source,
             location=ns.location,
+            ignore_patterns=tuple(ns.ignore_patterns or ()),
+            ignore_files=tuple(ns.ignore_files or ()),
         )
 
     with_source_arg(parser)
     with_location_arg(parser)
     with_version_arg(parser)
+    with_user_ignore_args(parser)
     parser.set_defaults(func=to_command)
 
 
@@ -87,11 +113,14 @@ def configure_update_parser(parser: argparse.ArgumentParser):
             version=ns.version,
             source=ns.source,
             location=ns.location,
+            ignore_patterns=tuple(ns.ignore_patterns or ()),
+            ignore_files=tuple(ns.ignore_files or ()),
         )
 
     with_source_arg(parser)
     with_location_arg(parser)
     with_version_arg(parser)
+    with_user_ignore_args(parser)
     parser.set_defaults(func=to_command)
 
 

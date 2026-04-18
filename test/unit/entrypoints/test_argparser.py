@@ -21,6 +21,8 @@ def test_parse_new_command() -> None:
     assert cmd.source == "/path/src"
     assert cmd.location == "/path/dst"
     assert cmd.version == "my-version"
+    assert cmd.ignore_patterns == ()
+    assert cmd.ignore_files == ()
 
 
 def test_parse_update_command() -> None:
@@ -30,6 +32,63 @@ def test_parse_update_command() -> None:
     assert cmd.source == "/path/src"
     assert cmd.location == "/path/bkp"
     assert cmd.version == "weekly"
+    assert cmd.ignore_patterns == ()
+    assert cmd.ignore_files == ()
+
+
+def test_parse_new_ignore_pattern_order() -> None:
+    cmd, quiet = argparser.parse(
+        [
+            "new",
+            "/src",
+            "/dst",
+            "--ignore-pattern",
+            "a/**",
+            "--ignore-pattern",
+            "b",
+        ]
+    )
+    assert isinstance(cmd, NewCommand)
+    assert quiet is False
+    assert cmd.ignore_patterns == ("a/**", "b")
+    assert cmd.ignore_files == ()
+
+
+def test_parse_update_ignore_file_order() -> None:
+    cmd, quiet = argparser.parse(
+        [
+            "update",
+            "/src",
+            "/dst",
+            "--ignore-file",
+            "one.gitignore",
+            "--ignore-file",
+            "two.gitignore",
+        ]
+    )
+    assert isinstance(cmd, UpdateCommand)
+    assert quiet is False
+    assert cmd.ignore_patterns == ()
+    assert cmd.ignore_files == ("one.gitignore", "two.gitignore")
+
+
+def test_parse_new_ignore_pattern_and_file_together() -> None:
+    cmd, quiet = argparser.parse(
+        [
+            "new",
+            "/src",
+            "/dst",
+            "--ignore-pattern",
+            "*.log",
+            "--ignore-file",
+            "extra.ignore",
+            "--ignore-pattern",
+            "tmp/",
+        ]
+    )
+    assert isinstance(cmd, NewCommand)
+    assert cmd.ignore_patterns == ("*.log", "tmp/")
+    assert cmd.ignore_files == ("extra.ignore",)
 
 
 def test_parse_verify_integrity_all_versions() -> None:
