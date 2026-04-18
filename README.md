@@ -57,6 +57,13 @@ Optional flags:
 - **Before the subcommand:** `-q` / `--quiet` — less informational logging (stderr).
 - **`verify-integrity` only:** `--json` — print one JSON object on stdout: `{"errors": ["…", …]}` (empty list when there are no issues). Suppresses the usual per-line messages and the `No errors found!` line.
 
+**`new` and `update` only — extra ignore rules (without editing the source tree):**
+
+- **`--ignore-pattern` `PATTERN`** (repeatable): one gitignore-style line per flag. All pattern flags are merged **in argv order**, then any `--ignore-file` content (see below).
+- **`--ignore-file` `PATH`** (repeatable): UTF-8 file with gitignore-style lines (blank lines and `#` comments skipped, same as on-disk ignore files). **`PATH`** is resolved against the **current working directory** if relative. Files are read **in argv order**; lines from each file are appended after every `--ignore-pattern` line.
+
+Together these form the **user** rule layer: **lower precedence** than `.gitignore` / `.backupignore` in the source tree, so tree rules can still override or narrow what you pass here. Full stack and roadmap: **[docs/source-ignore-rules-assessment.md](docs/source-ignore-rules-assessment.md)**.
+
 `verify-integrity` is a fast integrity/existence pass over backup metadata and stored blobs.
 
 Restore (backup root, then destination; version with `-v` / `--version` / `-n` / `--name`):
