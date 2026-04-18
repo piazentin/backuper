@@ -11,11 +11,15 @@ ifneq ($(strip $(BACKUPER_PASS_ARGS)),)
 $(eval $(BACKUPER_PASS_ARGS):;@:)
 endif
 
-.PHONY: sync setup install unit integration test test-coverage lint lint-fix format lint-imports backup
+.PHONY: sync setup install unit integration test test-coverage lint lint-fix format lint-imports backup init-git-hooks
 
 # Install project + dev dependencies from uv.lock
 sync setup install:
 	$(UV) sync --group dev
+
+# Point this repo at tracked hooks under .githooks/ (blocks commits on main).
+init-git-hooks:
+	git config core.hooksPath "$(CURDIR)/.githooks"
 
 # Sync dev env then run the CLI (same as: uv sync --group dev && uv run backuper …)
 backup:

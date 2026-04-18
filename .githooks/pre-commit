@@ -1,0 +1,12 @@
+#!/bin/sh
+# Block commits on main (see AGENTS.md — run `make init-git-hooks` once per clone).
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
+
+if [ "$branch" = "main" ]; then
+	echo "Refusing commit: branch is 'main'." >&2
+	echo "Create or switch to another branch, e.g.: git switch -c feat/your-topic" >&2
+	exit 1
+fi
+
+exit 0

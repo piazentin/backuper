@@ -5,5 +5,6 @@ Project documentation that supplements **[README.md](../README.md)** (install, u
 | Document | Description |
 |----------|-------------|
 | [csv-migration-contract.md](csv-migration-contract.md) | Required migration path for legacy version CSVs; canonical row contract for the runtime; migration script semantics (dry-run, apply, rollback artifacts) |
+| [source-ignore-rules-assessment.md](source-ignore-rules-assessment.md) | Source-tree ignore semantics (layering, pruning), phased roadmap, and how CLI user ignores relate to on-disk rules |
 
 Add new top-level docs here and link them from this table.

@@ -33,6 +33,8 @@ A practical place to enforce ignores is **inside or immediately around** this wa
 - **Directory pruning**: when a directory is ignored (and not re-included by negated patterns), Git still *conceptually* skips the subtree; `os.walk` can drop names from `dirs` to avoid descending—**only** if the matcher can prove the entire subtree is excluded. That is an optimization; correctness can start with “filter each yielded path” even if it is slower on huge trees.
 - **Analyzer / controller**: keeping matching in `FileReader` (or a dedicated filter in front of the analyzer stream) preserves the layering rule in **controllers** vs **components** described in `AGENTS.md`: introduce a **`ports.PathFilter`** (name illustrative) implemented in `components/`, constructed in the CLI wiring, optionally composed with `LocalFileReader`.
 
+**Implemented:** `LocalFileReader` uses `GitIgnorePathFilter`, which includes a **user** pattern list from the CLI on `new` / `update` (`--ignore-pattern`, `--ignore-file`; merge order and errors in `backuper.entrypoints.cli.user_ignore_patterns`). See Phase 3 below.
+
 ## Semantics: how stacking should work
 
 ### Path relativity (Git-compatible mental model)
@@ -117,7 +119,7 @@ Phases are ordered for **risk reduction**: ship path ignores first, then perform
 ### Phase 0 — Decisions and specification freeze
 
 - Confirm [Locked decisions](#locked-decisions-summary) against implementation spikes (pathspec, `os.walk` behavior).
-- Write a short **user-facing** section for `README.md` later (not required in this design doc).
+- **User-facing `README.md`:** install/usage and `new` / `update` ignore flags are documented there; deeper semantics stay in this doc.
 - Define **default filenames** list in one constant (for example `(".gitignore", ".backupignore")`) with optional user override in config/CLI when you add that surface.
 
 **Exit criteria**: agreed semantics document + example fixtures for tests.
@@ -159,17 +161,18 @@ Phases are ordered for **risk reduction**: ship path ignores first, then perform
 - **New tests**: cases where pruning **must not** apply (negation could un-ignore under a path that looked ignorable from the parent); cases where pruning **must** apply (pure subtree ignore).
 - **Optional**: large synthetic tree test behind a **pytest marker** (e.g. `slow`) or local-only script documented in test module docstring—avoid flaking CI on timing assertions; prefer **counters** (“visited file count”) as hard assertions.
 
-### Phase 3 — User configuration source
+### Phase 3 — User configuration source [COMPLETED]
 
-- Extend configuration (mechanism TBD: CLI flags, env, or config file) to accept **inline patterns** and/or **paths to extra pattern files**, merged as the lowest-precedence layer per your policy.
-- Ensure deterministic ordering and stable error messages.
+- **Shipped mechanism:** `new` and `update` only — repeatable **`--ignore-pattern`** (one gitignore-style line per invocation) and **`--ignore-file`** (UTF-8 path; relative paths resolve against **process cwd**). No env or global config file in this phase.
+- **Merge order (single user layer):** all `--ignore-pattern` values in **argv order**, then each `--ignore-file` in **argv order**, with each file contributing filtered lines in file order (same blank/`#` rules as on-disk ignore files). This tuple is the lowest-precedence layer vs tree ignore files (see [Layer ordering](#layer-ordering-precedence)).
+- **Errors:** missing or non-regular-file `--ignore-file` paths, and pattern lines that fail compilation after filtering, raise **`CliUsageError`** with stable message shapes (CLI usage surface; tests lock the strings).
 
 **Exit criteria**: users can ignore build artifacts globally without touching the source tree.
 
 **Validation**
 
-- **Integration**: user rules **lose** vs nested tree rules on conflict; user rules **win** vs nothing when no tree rule applies; malformed user input → stable **`UserFacingError`** / CLI usage surface (match existing CLI test style).
-- **Unit**: argument parsing / config merge order (pure functions) with no disk I/O where possible.
+- **Integration**: user rules **lose** vs nested tree rules on conflict; user rules **win** vs nothing when no tree rule applies; malformed user input → stable **`CliUsageError`** (see `test/integration/test_cli_user_ignore_integration.py`, `test/integration/test_update_errors.py`).
+- **Unit**: argument parsing, merge order, and last-match semantics within the user layer (`test/unit/entrypoints/test_argparser.py`, `test/unit/entrypoints/test_user_ignore_patterns.py`).
 - **Automated**: `make lint`; `make test`.
 
 ### Phase 4 — Predicate rules (size / mtime) behind a feature flag
@@ -257,7 +260,7 @@ Phases are ordered for **risk reduction**: ship path ignores first, then perform
 | --- | --- | --- |
 | P3.1 | Integration | User ignore + tree ignore combined per precedence |
 | P3.2 | Unit/CLI test | Invalid config path / invalid pattern file → stable error |
-| P3.3 | Integration | Deterministic ordering: snapshot of “effective” debug output or sorted diagnostic list if exposed |
+| P3.3 | Unit | Deterministic merge order and **last-match** outcome within the user layer (two `--ignore-file` orderings; argv patterns before file lines); see `test/unit/entrypoints/test_user_ignore_patterns.py` |
 
 ### Phase 4 — predicates catalog
 

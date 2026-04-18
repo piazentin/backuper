@@ -59,6 +59,11 @@ Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run
 
 - **Ruff** (format + lint) and **import-linter**: `make lint` / `make lint-fix` (see [README.md](README.md)). **Import-linter** contracts in [`pyproject.toml`](pyproject.toml) include: controllers do not import `components` or each other; `utils`, `models`, and `ports` do not import `components`; and a **layers** rule that `backuper.ports` may depend on `backuper.models` only (not the reverse).
 
+## Git hooks
+
+- Hooks live under [`.githooks/`](.githooks/). After cloning, run **`make init-git-hooks`** once in this repository so Git uses them (`core.hooksPath` is set to the absolute path of `.githooks` here).
+- The **`pre-commit`** hook **refuses commits on branch `main`**; use a topic branch for local commits (this complements branch protection on the remote).
+
 ## Pull requests
 
 - Always read and follow [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) before opening a PR.
