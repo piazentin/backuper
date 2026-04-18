@@ -5,6 +5,8 @@ alwaysApply: true
 
 # Git commits
 
+Do **not** run `git commit` on branch **`main`**; follow [git-no-commit-on-main.mdc](git-no-commit-on-main.mdc).
+
 Do **not** run `git commit` unless the user **explicitly** asks to commit in the same turn (e.g. “commit this”, “commit with message …”, or clear approval after you propose a commit).
 
 - **Default:** summarize changes, suggest a commit message if helpful, and **stop**—let the user commit locally or tell you to commit.

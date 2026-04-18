@@ -1,0 +1,13 @@
+---
+description: Do not create commits on branch main — use a feature branch
+alwaysApply: true
+---
+
+# No commits on `main`
+
+- **Never** run `git commit` while the current branch is **`main`**. If the user asks to commit and you are on `main`, **switch or create** a topic branch first (for example `git switch -c feat/short-description`), then stage and commit there.
+- **Before** any `git commit`, confirm the branch with `git branch --show-current` or `git status -sb`; if it shows `main`, stop and use another branch.
+- Do **not** use `git commit --no-verify` (or other flags) to bypass the repository’s **`pre-commit`** hook that blocks commits on `main`.
+- Read-only git commands on `main` (`git status`, `git diff`, `git log`, `git pull`, etc.) are fine.
+
+This complements [git-commits.mdc](git-commits.mdc) (user approval to commit at all).
