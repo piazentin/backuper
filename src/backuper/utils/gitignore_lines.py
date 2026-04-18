@@ -9,8 +9,10 @@ def iter_gitignore_pattern_lines(lines: Iterable[str]) -> Iterator[str]:
     Matches tree ignore files (``.gitignore`` / ``.backupignore``):
 
     - Blank lines (whitespace-only) are dropped.
-    - Lines whose first character is ``#`` are comments; a leading space means the
-      line is *not* treated as a comment (e.g. a pattern matching a literal ``#``).
+    - Lines whose first character is ``#`` are comments. If the first character is
+      anything else (including whitespace), the line is kept as pattern text; a
+      literal ``#`` in a path is expressed via pathspec/gitignore escaping (e.g.
+      ``\\#``), not by indenting the line.
     """
     for raw_line in lines:
         if raw_line.strip() == "":
