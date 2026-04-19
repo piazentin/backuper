@@ -92,6 +92,37 @@ async def test_source_ignore_phase2_p22_negation_keeps_descent_for_reinclusion(
 
 
 @pytest.mark.asyncio
+async def test_source_ignore_skip_logs_user_and_tree_reasons_in_caplog(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Full backup path: skip lines distinguish CLI user patterns vs tree ignore files."""
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "by_user.txt").write_text("u", encoding="utf-8")
+    (source / "by_tree.txt").write_text("t", encoding="utf-8")
+    (source / "kept.txt").write_text("k", encoding="utf-8")
+    (source / ".gitignore").write_text("by_tree.txt\n", encoding="utf-8")
+    destination = tmp_path / "backup"
+    caplog.set_level("INFO", logger="backuper.components.file_reader")
+
+    manifest_paths = await _run_backup_and_list_manifest_paths(
+        source, destination, user_patterns=("by_user.txt",)
+    )
+
+    assert Path(".gitignore") in manifest_paths
+    assert Path("kept.txt") in manifest_paths
+    assert Path("by_user.txt") not in manifest_paths
+    assert Path("by_tree.txt") not in manifest_paths
+    messages = [record.getMessage() for record in caplog.records]
+    user_logs = [msg for msg in messages if "Skipping by_user.txt" in msg]
+    tree_logs = [msg for msg in messages if "Skipping by_tree.txt" in msg]
+    assert len(user_logs) == 1
+    assert "excluded by user" in user_logs[0]
+    assert len(tree_logs) == 1
+    assert "excluded by .gitignore" in tree_logs[0]
+
+
+@pytest.mark.asyncio
 async def test_source_ignores_skip_file_and_directory_with_single_boundary_log(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
