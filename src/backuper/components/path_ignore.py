@@ -12,10 +12,26 @@ from backuper.utils.gitignore_lines import iter_gitignore_pattern_lines
 
 IGNORE_FILE_NAMES: tuple[str, str] = (".backupignore", ".gitignore")
 
+_USER_LAYER_LABEL = "user"
+
+
+@dataclass(frozen=True)
+class IgnoreMatchResolution:
+    """Outcome of last-match gitignore evaluation for a path under ``source_root``."""
+
+    is_ignored: bool
+    """True when the path is excluded after applying all layers."""
+    source_label: str | None
+    """Layer that owned the winning pattern: ``\"user\"`` for CLI patterns, else a POSIX
+    path relative to the backup source root (e.g. ``\".gitignore\"``, ``\"pkg/.backupignore\"``).
+    ``None`` when no pattern matched.
+    """
+
 
 @dataclass(frozen=True)
 class _PatternLayer:
     patterns: tuple[GitIgnoreSpecPattern, ...]
+    label: str
 
 
 class NullPathFilter(PathFilter):
@@ -33,7 +49,10 @@ class GitIgnorePathFilter(PathFilter):
         user_patterns: Sequence[str] = (),
         ignore_file_names: Sequence[str] = IGNORE_FILE_NAMES,
     ) -> None:
-        self._user_layer = _PatternLayer(patterns=_compile_patterns(user_patterns))
+        self._user_layer = _PatternLayer(
+            patterns=_compile_patterns(user_patterns),
+            label=_USER_LAYER_LABEL,
+        )
         self._ignore_file_names = tuple(sorted(ignore_file_names))
         self._directory_layers: dict[Path, tuple[_PatternLayer, ...]] = {}
         self._ignore_file_pattern_cache: dict[
@@ -47,7 +66,9 @@ class GitIgnorePathFilter(PathFilter):
             normalized_walk_root, source_root=normalized_source_root
         )
 
-    def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
+    def ignore_match_resolution(
+        self, entry: FileEntry, *, source_root: Path
+    ) -> IgnoreMatchResolution:
         normalized_source_root = _normalize_path(source_root)
         normalized_entry_path = _normalize_path(entry.path)
         parent = normalized_entry_path.parent
@@ -57,13 +78,17 @@ class GitIgnorePathFilter(PathFilter):
             normalized_entry_path=normalized_entry_path,
             normalized_source_root=normalized_source_root,
         )
-        is_ignored = _resolve_last_match(
+        return _resolve_last_match(
             relative_path=entry_relative_path,
             is_directory=entry.is_directory,
             layers=layers,
             source_root=normalized_source_root,
         )
-        return not is_ignored
+
+    def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
+        return not self.ignore_match_resolution(
+            entry, source_root=source_root
+        ).is_ignored
 
     def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
         if not entry.is_directory:
@@ -84,7 +109,7 @@ class GitIgnorePathFilter(PathFilter):
             is_directory=True,
             layers=parent_layers,
             source_root=normalized_source_root,
-        ):
+        ).is_ignored:
             return False
         if _layers_may_reinclude_descendant(
             layers=parent_layers,
@@ -118,7 +143,10 @@ class GitIgnorePathFilter(PathFilter):
                 ignore_file = anchor / ignore_file_name
                 patterns = self._patterns_for_ignore_file(ignore_file)
                 if patterns:
-                    layers.append(_PatternLayer(patterns=patterns))
+                    rel_label = ignore_file.relative_to(
+                        normalized_source_root
+                    ).as_posix()
+                    layers.append(_PatternLayer(patterns=patterns, label=rel_label))
         built = tuple(layers)
         self._directory_layers[normalized_walk_directory] = built
         return built
@@ -262,9 +290,10 @@ def _resolve_last_match(
     is_directory: bool,
     layers: tuple[_PatternLayer, ...],
     source_root: Path,
-) -> bool:
+) -> IgnoreMatchResolution:
     """Evaluate gitignore semantics where the final matching rule decides."""
     ignored: bool | None = None
+    winning_label: str | None = None
     for layer in layers:
         for pattern in layer.patterns:
             if _pattern_matches_path(
@@ -274,7 +303,10 @@ def _resolve_last_match(
                 source_root=source_root,
             ):
                 ignored = bool(pattern.include)
-    return bool(ignored)
+                winning_label = layer.label
+    if ignored is None:
+        return IgnoreMatchResolution(is_ignored=False, source_label=None)
+    return IgnoreMatchResolution(is_ignored=bool(ignored), source_label=winning_label)
 
 
 def _pattern_matches_path(
