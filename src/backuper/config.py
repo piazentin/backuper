@@ -71,8 +71,7 @@ def sqlite_synchronous_from_environment() -> int:
         return _parse_sqlite_synchronous_pragma(raw)
     except ValueError as exc:
         raise RuntimeError(
-            f"Invalid {BACKUPER_SQLITE_SYNCHRONOUS_ENV}={raw!r}: {exc.args[0]}. "
-            "Use OFF, NORMAL, FULL, EXTRA, or 0–3."
+            f"Invalid {BACKUPER_SQLITE_SYNCHRONOUS_ENV}={raw!r}: {exc.args[0]}"
         ) from exc
 
 

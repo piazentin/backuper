@@ -10,8 +10,11 @@ from backuper.commands import (
     VerifyIntegrityCommand,
 )
 from backuper.entrypoints.cli import runner
-from backuper.entrypoints.wiring import _RESOLUTION_GUIDANCE
 from backuper.models import CliUsageError
+
+# Matches production resolver wording closely enough for pytest `match=`; do not import
+# private `_RESOLUTION_GUIDANCE` from wiring.
+_READ_FAILURE_STUB = "SQLite manifest: stub not ready for read"
 
 
 @pytest.fixture
@@ -81,7 +84,7 @@ def test_run_restore_uses_read_operation_and_raises_actionable_guidance(
 
     def _fake_create_backup_database(*args, **kwargs):  # type: ignore[no-untyped-def]
         calls.append(kwargs["operation"])
-        raise CliUsageError(_RESOLUTION_GUIDANCE)
+        raise CliUsageError(_READ_FAILURE_STUB)
 
     monkeypatch.setattr(runner, "create_backup_database", _fake_create_backup_database)
 
@@ -106,7 +109,7 @@ def test_run_verify_integrity_uses_read_operation_and_raises_actionable_guidance
 
     def _fake_create_backup_database(*args, **kwargs):  # type: ignore[no-untyped-def]
         calls.append(kwargs["operation"])
-        raise CliUsageError(_RESOLUTION_GUIDANCE)
+        raise CliUsageError(_READ_FAILURE_STUB)
 
     monkeypatch.setattr(runner, "create_backup_database", _fake_create_backup_database)
 
