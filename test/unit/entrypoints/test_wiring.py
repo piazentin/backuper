@@ -14,6 +14,7 @@ async def test_create_backup_database_returns_backup_database(tmp_path: Path) ->
     assert isinstance(db, BackupDatabase)
 
     await db.create_version("v1")
+    await db.complete_version("v1")
     assert await db.list_versions() == ["v1"]
 
 

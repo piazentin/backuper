@@ -67,6 +67,7 @@ async def test_csv_backup_database_ignores_appledouble_sidecar_csv(
     )
 
     await db.create_version("2023-01-07T182558")
+    await db.complete_version("2023-01-07T182558")
 
     assert await db.list_versions() == ["2023-01-07T182558"]
 
@@ -83,6 +84,8 @@ async def test_csv_backup_database_create_version_and_list_versions(
 
     await db.create_version("2026.03.29")
     await db.create_version("v.scsv")
+    await db.complete_version("2026.03.29")
+    await db.complete_version("v.scsv")
 
     assert await db.list_versions() == ["2026.03.29", "v.scsv"]
 
@@ -97,6 +100,8 @@ async def test_csv_backup_database_list_versions_lexicographic_not_dir_order(
     db = CsvBackupDatabase(csv_db)
     await db.create_version("z-version")
     await db.create_version("a-version")
+    await db.complete_version("z-version")
+    await db.complete_version("a-version")
 
     def unsorted_get_all_versions(self: CsvDb) -> list[_Version]:
         return [_Version("z-version"), _Version("a-version")]
@@ -143,6 +148,7 @@ async def test_csv_backup_database_add_and_lookup_file_entries(tmp_path: Path) -
 
     await db.add_file("20260329000000", stored_file)
     await db.add_file("20260329000000", second_stored_file)
+    await db.complete_version("20260329000000")
 
     by_metadata = await db.get_files_by_metadata(
         Path("docs/readme.txt"), 1711700000.123, 42
@@ -191,6 +197,7 @@ async def test_csv_backup_database_add_and_list_directory_entries(
         hash="",
     )
     await db.add_file("20260329010000", dir_entry)
+    await db.complete_version("20260329010000")
 
     items = []
     async for item in db.list_files("20260329010000"):
@@ -209,8 +216,10 @@ async def test_csv_backup_database_writes_and_appends_csv_rows(tmp_path: Path) -
 
     await db.create_version(version)
     csv_file = tmp_path / "db" / f"{version}.csv"
-    assert csv_file.exists()
-    assert csv_file.read_text(encoding="utf-8") == ""
+    pending_csv_file = tmp_path / "db" / f".pending__{version}.csv"
+    assert not csv_file.exists()
+    assert pending_csv_file.exists()
+    assert pending_csv_file.read_text(encoding="utf-8") == ""
 
     first = BackedUpFileEntry(
         source_file=FileEntry(
@@ -240,17 +249,89 @@ async def test_csv_backup_database_writes_and_appends_csv_rows(tmp_path: Path) -
     )
 
     await db.add_file(version, first)
-    content_after_first = csv_file.read_text(encoding="utf-8")
+    content_after_first = pending_csv_file.read_text(encoding="utf-8")
     lines_after_first = [line for line in content_after_first.splitlines() if line]
     assert len(lines_after_first) == 1
     assert '"f","a.txt","ha","data/a","False","10","111.0"' in content_after_first
 
     await db.add_file(version, second)
-    content_after_second = csv_file.read_text(encoding="utf-8")
+    content_after_second = pending_csv_file.read_text(encoding="utf-8")
     lines_after_second = [line for line in content_after_second.splitlines() if line]
     assert len(lines_after_second) == 2
     assert '"f","a.txt","ha","data/a","False","10","111.0"' in content_after_second
     assert '"f","b.txt","hb","data/b","False","20","222.0"' in content_after_second
+
+    await db.complete_version(version)
+    assert not pending_csv_file.exists()
+    assert csv_file.exists()
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_pending_version_hidden_from_listing_and_most_recent(
+    tmp_path: Path,
+) -> None:
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+
+    await db.create_version("v-pending")
+
+    assert await db.list_versions() == []
+    assert await db.most_recent_version() is None
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_complete_version_renames_pending_manifest(
+    tmp_path: Path,
+) -> None:
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    version = "v-finalize"
+
+    await db.create_version(version)
+    pending_csv_file = tmp_path / "db" / f".pending__{version}.csv"
+    final_csv_file = tmp_path / "db" / f"{version}.csv"
+    assert pending_csv_file.exists()
+    assert not final_csv_file.exists()
+
+    await db.complete_version(version)
+
+    assert not pending_csv_file.exists()
+    assert final_csv_file.exists()
+    assert await db.list_versions() == [version]
+    assert await db.most_recent_version() == version
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_keeps_pending_manifest_when_not_completed(
+    tmp_path: Path,
+) -> None:
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    version = "v-failed"
+
+    await db.create_version(version)
+    await db.add_file(
+        version,
+        BackedUpFileEntry(
+            source_file=FileEntry(
+                path=Path("/src/failed.txt"),
+                relative_path=Path("failed.txt"),
+                size=10,
+                mtime=1.0,
+                is_directory=False,
+            ),
+            backup_id=UUID("66666666-6666-6666-6666-666666666666"),
+            stored_location="data/fail",
+            is_compressed=False,
+            hash="hfail",
+        ),
+    )
+
+    pending_csv_file = tmp_path / "db" / f".pending__{version}.csv"
+    final_csv_file = tmp_path / "db" / f"{version}.csv"
+    assert pending_csv_file.exists()
+    assert not final_csv_file.exists()
+    assert await db.list_versions() == []
 
 
 @pytest.mark.asyncio
@@ -262,6 +343,7 @@ async def test_csv_backup_database_list_files_single_csv_read(
     db = CsvBackupDatabase(csv_db)
     version = "20260329030000"
     await db.create_version(version)
+    await db.complete_version(version)
 
     def fail_if_legacy_double_read(*_args, **_kwargs) -> None:
         raise AssertionError(
