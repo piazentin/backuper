@@ -1,0 +1,24 @@
+---
+description: Pull requests must use the repo template via gh --template or make pr
+alwaysApply: true
+---
+
+# Pull requests
+
+The canonical structure is [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) (`Context` → `What` → `How` → `Validation` → `Risks / Rollback`).
+
+**Do not** open a PR with `gh pr create` using only `--title` / `--body` / `--fill` / `--fill-verbose` as the description, unless the body text still follows that template (for example after copying the file and editing).
+
+**Do** one of the following:
+
+1. **CLI (preferred):** from the repo root, run **`make pr`** or:
+   ```bash
+   gh pr create --base main --template .github/PULL_REQUEST_TEMPLATE.md
+   ```
+   Add flags as needed (`--draft`, `-r`, …). Fill every section with concrete detail before submitting.
+
+2. **Web:** `gh pr create -w` — GitHub applies the default PR template in the browser.
+
+3. **`--body-file`:** only if the file was started from the template (same headings and order), not a one-line summary.
+
+After creating a PR, use **`gh pr edit <n> --body-file …`** to replace the body if you forgot the template.

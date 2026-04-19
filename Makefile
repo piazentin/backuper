@@ -11,7 +11,10 @@ ifneq ($(strip $(BACKUPER_PASS_ARGS)),)
 $(eval $(BACKUPER_PASS_ARGS):;@:)
 endif
 
-.PHONY: sync setup install unit integration test test-coverage lint lint-fix format lint-imports backup init-git-hooks
+# Default base branch for `make pr` (override: `make pr PR_BASE=develop`).
+PR_BASE ?= main
+
+.PHONY: sync setup install unit integration test test-coverage lint lint-fix format lint-imports backup init-git-hooks pr
 
 # Install project + dev dependencies from uv.lock
 sync setup install:
@@ -20,6 +23,10 @@ sync setup install:
 # Point this repo at tracked hooks under .githooks/ (blocks commits on main).
 init-git-hooks:
 	git config core.hooksPath "$(CURDIR)/.githooks"
+
+# Open gh PR flow with the repo template as the starting body (see AGENTS.md).
+pr:
+	gh pr create --base $(PR_BASE) --template .github/PULL_REQUEST_TEMPLATE.md
 
 # Sync dev env then run the CLI (same as: uv sync --group dev && uv run backuper …)
 backup:
