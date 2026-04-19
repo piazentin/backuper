@@ -10,6 +10,8 @@ If you have an **existing backup tree** whose version manifests still use legacy
 uv run python -m scripts.migrate_version_csv --help
 ```
 
+Run migration with the **project virtual environment** (for example `uv run …` after `uv sync`) so the `backuper` package is importable. The migration uses `backuper.utils.zip_payload` for compressed-blob member resolution, keeping the same rules as restore (`LocalFileStore.read_blob`).
+
 Migration details, legacy source shapes, dry-run/apply semantics, and rollback artifacts are defined below.
 
 ## Scope
@@ -61,17 +63,26 @@ The **migration script** accepts legacy file rows with 3, 5, or 7+ columns and c
 
 When `size` and/or `mtime` are **not available** from the CSV row (missing, empty, or legacy rows that never carried them), migration **must** try to populate them from the **content-addressed blob on disk** before falling back to `0` / `0.0`.
 
-Blob resolution (aligned with `LocalFileStore` in `filestore.py`):
+Blob resolution (aligned with `LocalFileStore` in `filestore.py` and `backuper.utils.zip_payload`):
 
 - Absolute blob path: `<backup_root>/<backup_data_dir>/<stored_location>`
 - Default directory names match runtime config: `backup_data_dir = "data"` unless overridden for the migration run.
 - Use the row’s `stored_location` after canonicalization; for 3-column legacy rows, compute `stored_location` with `hash_to_stored_location(sha1hash, is_compressed)` first.
 - If both compressed and uncompressed blobs could exist for the same hash, prefer the path that exists on disk; if both exist, prefer the row’s `is_compressed` when known, otherwise document/define a deterministic rule (e.g. prefer uncompressed) and log a warning.
 
+**Compressed `.zip` payload member (canonical and legacy):**
+
+For **logical size** and for **which** inner file migration treats as the payload, use the same resolution as runtime restore:
+
+- Consider **file members only** (non-directory `ZipInfo` entries); stray directory entries do not count toward “how many members” or name matching.
+- **Canonical:** if any file member’s **basename** is `part001`, that member is the payload. If more than one such file member exists, the archive is invalid for resolution (migration logs a warning and cannot enrich `size`; restore would error similarly).
+- **Legacy:** if there is **no** `part001` file member, the payload is the **unique** file member whose basename equals the row’s `sha1hash` in **lowercase hex** (same normalization as manifest storage). If there are zero or multiple hash-named file members (and no `part001`), the archive is ambiguous or invalid for resolution.
+- **Both layouts:** if both a `part001` file member and a hash-named file member exist, **`part001` wins** (canonical takes precedence).
+
 **`size` (logical content size):**
 
 - **Uncompressed blob** (`is_compressed` is false): use `os.path.getsize(blob_path)` — this matches the original file byte length.
-- **Compressed blob** (`.zip` with inner name `part001`): use the **uncompressed** size of that zip member (e.g. `ZipInfo.file_size` for `part001`), not the `.zip` file’s size on disk — this matches what a full read would yield and aligns with metadata semantics elsewhere.
+- **Compressed blob** (`.zip`): use the **uncompressed** size of the **resolved** payload member (`ZipInfo.file_size` for that member’s name), not the `.zip` file’s size on disk — this matches what a full read of the resolved member would yield and stays aligned with runtime read semantics.
 
 **`mtime`:**
 
