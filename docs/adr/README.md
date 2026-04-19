@@ -10,3 +10,4 @@ Phased delivery context for SQLite work: [`plans/sqlite-support-assessment.md`](
 | [ADR-0002](0002-version-lifecycle-and-transactions.md) | 2026-04-19 | Version lifecycle (`pending` / `completed`), commit granularity, visibility |
 | [ADR-0003](0003-version-ordering-and-most-recent.md) | 2026-04-19 | `list_versions` ordering and `most_recent_version` semantics |
 | [ADR-0004](0004-migration-created-at-inference.md) | 2026-04-19 | `created_at` when migrating from CSV (parse vs mtime, collisions, dotfiles) |
+| [ADR-0005](0005-sqlite-adapter-contract-and-schema-v1.md) | 2026-04-19 | SQLite adapter contract, schema v1 (`user_version`), CSV pending finalize behavior |

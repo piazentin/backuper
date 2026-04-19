@@ -55,6 +55,12 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 
 **Outcome:** A **`SqliteBackupDatabase`** (or equivalent name) that **implements `BackupDatabase`**, with tests that validate behaviour **through the port** (not via raw SQL in callers). CSV remains the only wired backend; the new code is **integrable** but not necessarily user-selectable yet.
 
+**Accepted ADRs (Phase 2 finalization):**
+
+| ADR | Date | Topic |
+|-----|------|--------|
+| [ADR-0005](../adr/0005-sqlite-adapter-contract-and-schema-v1.md) | 2026-04-19 | Port extensions (`most_recent_version`, completion transition), CSV pending temp/finalize behavior, SQLite schema v1 + `user_version` policy, files-then-directories ordering, hash/storage/compression field decisions, deferred async offloading note |
+
 **Incremental value:** Core persistence logic and test coverage exist in isolation; regressions are caught without touching CLI or migration.
 
 **Later planning:** Map each `BackupDatabase` method to storage operations; define test matrix (parity with CSV behaviour for list/create/add/query paths).
@@ -119,3 +125,4 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 | 2026-04-18 | Initial assessment (phased incremental delivery). |
 | 2026-04-19 | Phase 1: linked ADR-0001–0004 (SQLite design lock-in). |
 | 2026-04-19 | ADRs moved to `docs/adr/`; meta table (created / last updated). |
+| 2026-04-19 | Phase 2: linked ADR-0005 (adapter contract + schema v1 decisions). |
