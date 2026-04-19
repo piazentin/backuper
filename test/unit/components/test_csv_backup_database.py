@@ -10,7 +10,12 @@ from backuper.components.csv_db import (
     _Version,
 )
 from backuper.config import CsvDbConfig
-from backuper.models import BackedUpFileEntry, FileEntry, MalformedBackupCsvError
+from backuper.models import (
+    BackedUpFileEntry,
+    FileEntry,
+    MalformedBackupCsvError,
+    VersionAlreadyExistsError,
+)
 
 
 def test_csvrow_to_model_uses_first_seven_columns_when_row_is_longer() -> None:
@@ -409,3 +414,48 @@ async def test_csv_backup_database_list_files_mixed_rows_yield_files_then_dirs(
         Path("second_dir"),
     ]
     assert items[2].is_directory and items[3].is_directory
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_create_version_rejects_existing_pending_or_completed(
+    tmp_path: Path,
+) -> None:
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+
+    await db.create_version("v-existing")
+    with pytest.raises(VersionAlreadyExistsError):
+        await db.create_version("v-existing")
+
+    await db.complete_version("v-existing")
+    with pytest.raises(VersionAlreadyExistsError):
+        await db.create_version("v-existing")
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_cannot_add_file_to_completed_version(
+    tmp_path: Path,
+) -> None:
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    version = "v-completed"
+    await db.create_version(version)
+    await db.complete_version(version)
+
+    with pytest.raises(ValueError, match="completed"):
+        await db.add_file(
+            version,
+            BackedUpFileEntry(
+                source_file=FileEntry(
+                    path=Path("/src/c.txt"),
+                    relative_path=Path("c.txt"),
+                    size=1,
+                    mtime=1.0,
+                    is_directory=False,
+                ),
+                backup_id=UUID("77777777-7777-7777-7777-777777777777"),
+                stored_location="data/c",
+                is_compressed=False,
+                hash="hc",
+            ),
+        )

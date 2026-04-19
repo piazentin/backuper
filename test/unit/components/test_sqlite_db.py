@@ -219,3 +219,31 @@ async def test_sqlite_backup_database_lookup_only_completed_versions(
     assert by_hash[0].stored_location == "data/pending"
     assert len(by_metadata) == 1
     assert by_metadata[0].source_file.relative_path == Path("doc.txt")
+
+
+@pytest.mark.asyncio
+async def test_sqlite_backup_database_cannot_add_file_to_completed_version(
+    tmp_path: Path,
+) -> None:
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(tmp_path))))
+    version = "v-completed"
+    await db.create_version(version)
+    await db.complete_version(version)
+
+    with pytest.raises(ValueError, match="completed"):
+        await db.add_file(
+            version,
+            BackedUpFileEntry(
+                source_file=FileEntry(
+                    path=Path("/src/doc.txt"),
+                    relative_path=Path("doc.txt"),
+                    size=10,
+                    mtime=10.0,
+                    is_directory=False,
+                ),
+                backup_id=UUID("55555555-5555-5555-5555-555555555555"),
+                stored_location="data/completed",
+                is_compressed=False,
+                hash="h2",
+            ),
+        )

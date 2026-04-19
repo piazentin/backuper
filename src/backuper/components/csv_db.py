@@ -15,6 +15,7 @@ from backuper.models import (
     BackedUpFileEntry,
     FileEntry,
     MalformedBackupCsvError,
+    VersionAlreadyExistsError,
     VersionNotFoundError,
 )
 from backuper.ports import BackupDatabase
@@ -142,8 +143,11 @@ class CsvDb:
         ]
 
     def create_version(self, name: str) -> _Version:
-        version_file = self._pending_csv_path_from_name(name)
-        with open(version_file, "a", encoding="utf-8"):
+        pending_file = self._pending_csv_path_from_name(name)
+        completed_file = self._csv_path_from_name(name)
+        if os.path.exists(pending_file) or os.path.exists(completed_file):
+            raise VersionAlreadyExistsError(name)
+        with open(pending_file, "x", encoding="utf-8"):
             pass
         return _Version(name)
 
@@ -156,7 +160,9 @@ class CsvDb:
         if os.path.exists(self._pending_csv_path_from_name(name)):
             return _Version(name)
         if os.path.exists(self._csv_path_from_name(name)):
-            return _Version(name)
+            raise ValueError(
+                f"Version {name!r} is completed and cannot be opened as writable."
+            )
         raise VersionNotFoundError(name)
 
     def get_most_recent_version(self) -> _Version | None:
@@ -223,14 +229,14 @@ class CsvDb:
     def insert_dir(self, version: _Version, dir: _DirEntry) -> None:
         version_file = self._pending_csv_path_from_name(version.name)
         if not os.path.exists(version_file):
-            version_file = self._csv_path_from_name(version.name)
+            raise VersionNotFoundError(version.name)
         with open(version_file, "a", encoding="utf-8", newline="") as writer:
             writer.write(_model_to_csvrow(dir))
 
     def insert_file(self, version: _Version, file: _StoredFile) -> None:
         version_file = self._pending_csv_path_from_name(version.name)
         if not os.path.exists(version_file):
-            version_file = self._csv_path_from_name(version.name)
+            raise VersionNotFoundError(version.name)
         with open(version_file, "a", encoding="utf-8", newline="") as writer:
             writer.write(_model_to_csvrow(file))
 

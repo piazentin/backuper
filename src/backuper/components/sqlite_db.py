@@ -259,12 +259,7 @@ class SqliteBackupDatabase(BackupDatabase):
 
     async def add_file(self, version: str, entry: BackedUpFileEntry) -> None:
         with self._sqlite_db.connect() as conn:
-            version_row = conn.execute(
-                "SELECT 1 FROM versions WHERE name = ?",
-                (version,),
-            ).fetchone()
-            if version_row is None:
-                raise VersionNotFoundError(version)
+            self._require_pending_version(conn, version)
 
             if entry.source_file.is_directory:
                 conn.execute(
@@ -304,6 +299,23 @@ class SqliteBackupDatabase(BackupDatabase):
                 ),
             )
             conn.commit()
+
+    def _require_pending_version(self, conn: sqlite3.Connection, version: str) -> None:
+        pending_row = conn.execute(
+            "SELECT 1 FROM versions WHERE name = ? AND state = ?",
+            (version, self._VERSION_STATE_PENDING),
+        ).fetchone()
+        if pending_row is not None:
+            return
+
+        completed_row = conn.execute(
+            "SELECT 1 FROM versions WHERE name = ? AND state = ?",
+            (version, self._VERSION_STATE_COMPLETED),
+        ).fetchone()
+        if completed_row is not None:
+            raise ValueError(f"Cannot add files to completed version {version!r}.")
+
+        raise VersionNotFoundError(version)
 
     async def get_files_by_hash(self, hash: str) -> list[BackedUpFileEntry]:
         with self._sqlite_db.connect() as conn:
