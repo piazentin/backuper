@@ -116,7 +116,9 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 
 ## Phase 5 — Operations, observability, and durability hardening
 
-**Outcome:** **Operational** story is complete: documented **SQLite pragmas** and recovery expectations, safe **copy/backup** of the DB file where applicable, and **export or query** guidance (CLI or documented `sqlite3` recipes) for audits and diffs. Performance characteristics (indexes, batching) are validated for realistic manifest sizes.
+**Status:** Completed.
+
+**Outcome:** **Operational** story is complete: documented **SQLite pragmas** and recovery expectations, safe **copy/backup** of the DB file where applicable, and **export or query** guidance (documented `sqlite3` recipes) for audits and diffs — consolidated in [`docs/sqlite-manifest-operations.md`](../sqlite-manifest-operations.md). Schema-level decisions (indexes, commit strategy) remain as described in [ADR-0005](../adr/0005-sqlite-adapter-contract-and-schema-v1.md). **Not** delivered in this phase: benchmarks, performance proof at specific manifest sizes, or validation that tuning holds across workload sizes; those remain **later planning** if needed.
 
 **Incremental value:** SQLite is **production-grade** for the same roles CSV filled, with clearer crash and inspection behaviour than raw CSV alone.
 
@@ -156,3 +158,4 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 | 2026-04-19 | Linked deferred async offload enhancement issue [#50](https://github.com/piazentin/backuper/issues/50) from Phase 2 references. |
 | 2026-04-19 | Phase 3: linked ADR-0006 (backend resolution, override, mixed-state, and partial-init read/write policy). |
 | 2026-04-19 | Phase 3: added explicit progress status, completed-vs-deferred split, and links to resolver/CLI/integration test coverage. |
+| 2026-04-19 | Phase 5: marked completed; outcome narrowed to match discovery (no F/K performance or “validated sizes” claims); linked operator doc. |
