@@ -44,6 +44,8 @@ def test_create_backup_database_defaults_to_sqlite_for_new_tree(tmp_path: Path) 
 def test_create_backup_database_uses_csv_when_force_csv_override_set(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    db_dir = tmp_path / "db"
+    db_dir.mkdir(parents=True, exist_ok=True)
     sqlite_path = (
         tmp_path
         / SqliteDbConfig(backup_dir=str(tmp_path)).backup_db_dir
@@ -51,7 +53,7 @@ def test_create_backup_database_uses_csv_when_force_csv_override_set(
     )
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     sqlite_path.write_text("placeholder", encoding="utf-8")
-    (tmp_path / "db" / "v1.csv").write_text('"d",".",""\n', encoding="utf-8")
+    (db_dir / "v1.csv").write_text('"d",".",""\n', encoding="utf-8")
     monkeypatch.setenv("FORCE_CSV_DB", "1")
 
     db = create_backup_database(tmp_path, operation="write")
@@ -62,8 +64,10 @@ def test_create_backup_database_uses_csv_when_force_csv_override_set(
 def test_create_backup_database_prefers_sqlite_when_both_backends_exist(
     tmp_path: Path,
 ) -> None:
+    db_dir = tmp_path / "db"
+    db_dir.mkdir(parents=True, exist_ok=True)
     create_backup_database(tmp_path, operation="write")
-    (tmp_path / "db" / "v1.csv").write_text('"d",".",""\n', encoding="utf-8")
+    (db_dir / "v1.csv").write_text('"d",".",""\n', encoding="utf-8")
 
     db = create_backup_database(tmp_path, operation="write")
 
