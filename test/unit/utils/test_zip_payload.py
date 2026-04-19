@@ -135,7 +135,9 @@ def test_backslash_in_member_path_normalized_like_posix(tmp_path: Path) -> None:
         zf.writestr("nested\\part001", payload)
     h = _sha1_hex(payload)
     with ZipFile(path, "r") as zf:
-        assert resolve_zip_payload_member_name(zf, h, zip_path=path) == "nested\\part001"
+        assert (
+            resolve_zip_payload_member_name(zf, h, zip_path=path) == "nested\\part001"
+        )
     assert read_zip_payload_bytes(path, h) == payload
 
 
