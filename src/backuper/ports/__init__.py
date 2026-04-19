@@ -34,6 +34,12 @@ class PathFilter(ABC):
         """Return True when an entry should be included in traversal/output."""
         pass
 
+    def exclusion_reason(self, entry: FileEntry, *, source_root: Path) -> str | None:
+        """When ``allows`` is false, a short log-facing reason; ``None`` when included."""
+        if self.allows(entry, source_root=source_root):
+            return None
+        return f"excluded by {self.__class__.__name__}"
+
     def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
         """Return True when a rejected directory can be pruned from traversal."""
         return False

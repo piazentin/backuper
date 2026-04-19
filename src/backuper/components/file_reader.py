@@ -51,15 +51,16 @@ class LocalFileReader(FileReader):
                     root_path=root_path,
                     dir_name=dir_name,
                 )
-                should_yield = self._path_filter.allows(
+                skip_reason = self._path_filter.exclusion_reason(
                     dir_entry, source_root=normalized_source_root
                 )
+                should_yield = skip_reason is None
                 should_prune = False
-                if not should_yield:
+                if skip_reason is not None:
                     self._logger.info(
                         "Skipping %s (%s)",
                         dir_entry.relative_path,
-                        self._skip_reason(),
+                        skip_reason,
                     )
                     self._increment_metric(metrics, "skipped_entries")
                     should_prune = self._path_filter.can_prune_subtree(
@@ -81,13 +82,14 @@ class LocalFileReader(FileReader):
                     root_path=root_path,
                     file_name=file,
                 )
-                if not self._path_filter.allows(
+                file_skip_reason = self._path_filter.exclusion_reason(
                     file_entry, source_root=normalized_source_root
-                ):
+                )
+                if file_skip_reason is not None:
                     self._logger.info(
                         "Skipping %s (%s)",
                         file_entry.relative_path,
-                        self._skip_reason(),
+                        file_skip_reason,
                     )
                     self._increment_metric(metrics, "skipped_entries")
                     continue
@@ -135,9 +137,6 @@ class LocalFileReader(FileReader):
     ) -> Path:
         normalized_entry_path = entry_path.absolute()
         return normalized_entry_path.relative_to(normalized_source_root)
-
-    def _skip_reason(self) -> str:
-        return f"excluded by {self._path_filter.__class__.__name__}"
 
     def get_last_walk_metrics(self) -> WalkMetrics | None:
         return self._last_walk_metrics

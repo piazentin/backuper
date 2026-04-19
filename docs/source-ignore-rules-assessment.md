@@ -114,7 +114,7 @@ Introduce an internal concept such as `IgnoreDecision` / `FilterContext`:
 
 ## Phased roadmap
 
-Phases are ordered for **risk reduction**: ship path ignores first, then performance, then richer rules.
+Phases are ordered for **risk reduction**: ship path ignores first, then performance, then richer rules. **Phases 0–3 are implemented.** **Phase 4** (predicates) is **not** in active development; see the Phase 4 subsection below and [issue #44](https://github.com/piazentin/backuper/issues/44).
 
 ### Phase 0 — Decisions and specification freeze
 
@@ -175,7 +175,11 @@ Phases are ordered for **risk reduction**: ship path ignores first, then perform
 - **Unit**: argument parsing, merge order, and last-match semantics within the user layer (`test/unit/entrypoints/test_argparser.py`, `test/unit/entrypoints/test_user_ignore_patterns.py`).
 - **Automated**: `make lint`; `make test`.
 
-### Phase 4 — Predicate rules (size / mtime) behind a feature flag
+### Phase 4 — Predicate rules (size / mtime) behind a feature flag [DEFERRED]
+
+**Status:** Not scheduled for immediate implementation. Product intent is tracked in GitHub issue [#44](https://github.com/piazentin/backuper/issues/44): optional rules to **include or exclude source files by modification age** (for example only files newer than a date, or from the last seven days) and **by file size** (for example only above a minimum, or only below a maximum such as 1 GiB). Configuration surface (CLI, files, etc.) remains to be decided when this phase is picked up.
+
+The design notes below still describe the intended technical direction when implementation resumes:
 
 - Introduce the **`FilterContext`** evaluation path.
 - Parse predicate rules from **user / tool configuration only** (Option C); Option B may be layered later if needed.
@@ -263,6 +267,8 @@ Phases are ordered for **risk reduction**: ship path ignores first, then perform
 | P3.3 | Unit | Deterministic merge order and **last-match** outcome within the user layer (two `--ignore-file` orderings; argv patterns before file lines); see `test/unit/entrypoints/test_user_ignore_patterns.py` |
 
 ### Phase 4 — predicates catalog
+
+Deferred until Phase 4 is implemented; see [issue #44](https://github.com/piazentin/backuper/issues/44).
 
 | ID | Automation | Asserts |
 | --- | --- | --- |

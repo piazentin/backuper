@@ -109,6 +109,12 @@ async def test_source_ignores_skip_file_and_directory_with_single_boundary_log(
 
     messages = [record.getMessage() for record in caplog.records]
     assert sum("Skipping layered_dir/inner.txt" in msg for msg in messages) == 1
+    layered_inner_logs = [
+        msg for msg in messages if "Skipping layered_dir/inner.txt" in msg
+    ]
+    assert any(
+        "excluded by layered_dir/.backupignore" in msg for msg in layered_inner_logs
+    )
     assert all("layered_dir/outer.txt" not in msg for msg in messages)
 
 

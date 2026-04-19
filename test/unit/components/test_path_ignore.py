@@ -201,3 +201,36 @@ def test_ignore_match_resolution_no_match_has_no_source_label(tmp_path: Path) ->
     assert path_filter.ignore_match_resolution(entry, source_root=source_root) == (
         IgnoreMatchResolution(is_ignored=False, source_label=None)
     )
+
+
+def test_exclusion_reason_none_when_not_ignored(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    path_filter = GitIgnorePathFilter()
+    path_filter.prepare_walk_directory(source_root, source_root=source_root)
+    entry = _entry(source_root, "present.txt")
+    assert path_filter.exclusion_reason(entry, source_root=source_root) is None
+
+
+def test_exclusion_reason_user_label(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    path_filter = GitIgnorePathFilter(user_patterns=("skip.txt",))
+    path_filter.prepare_walk_directory(source_root, source_root=source_root)
+    entry = _entry(source_root, "skip.txt")
+    assert path_filter.exclusion_reason(entry, source_root=source_root) == (
+        "excluded by user"
+    )
+
+
+def test_exclusion_reason_ignore_file_label(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    nested = source_root / "nested"
+    nested.mkdir(parents=True)
+    (nested / ".gitignore").write_text("inner.txt\n", encoding="utf-8")
+    path_filter = GitIgnorePathFilter()
+    path_filter.prepare_walk_directory(nested, source_root=source_root)
+    entry = _entry(source_root, "nested/inner.txt")
+    assert path_filter.exclusion_reason(entry, source_root=source_root) == (
+        "excluded by nested/.gitignore"
+    )

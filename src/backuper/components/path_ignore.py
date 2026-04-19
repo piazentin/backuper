@@ -41,6 +41,9 @@ class NullPathFilter(PathFilter):
     def allows(self, entry: FileEntry, *, source_root: Path) -> bool:
         return True
 
+    def exclusion_reason(self, entry: FileEntry, *, source_root: Path) -> str | None:
+        return None
+
 
 class GitIgnorePathFilter(PathFilter):
     def __init__(
@@ -89,6 +92,17 @@ class GitIgnorePathFilter(PathFilter):
         return not self.ignore_match_resolution(
             entry, source_root=source_root
         ).is_ignored
+
+    def exclusion_reason(self, entry: FileEntry, *, source_root: Path) -> str | None:
+        resolution = self.ignore_match_resolution(entry, source_root=source_root)
+        if not resolution.is_ignored:
+            return None
+        label = resolution.source_label
+        if label == _USER_LAYER_LABEL:
+            return "excluded by user"
+        if label:
+            return f"excluded by {label}"
+        return "excluded by GitIgnorePathFilter"
 
     def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
         if not entry.is_directory:

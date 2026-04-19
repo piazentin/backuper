@@ -35,10 +35,11 @@ Symbolic links to **directories** are **not** followed when walking the source (
 
 ## Seeing what was skipped
 
-By default, skipped entries are logged at **INFO** on stderr, for example:
+By default, skipped entries are logged at **INFO** on stderr. The parenthetical names the **layer** that owned the winning rule: **`excluded by user`** for CLI `--ignore-pattern` / `--ignore-file` rules, or **`excluded by`** followed by the ignore file path **relative to the source root** (POSIX slashes), e.g. `.gitignore` or `pkg/.backupignore`.
 
 ```text
-Skipping path/to/item (excluded by GitIgnorePathFilter)
+Skipping secrets/api.key (excluded by user)
+Skipping build/tmp.o (excluded by .gitignore)
 ```
 
 Use **`-q` / `--quiet`** before the subcommand to reduce informational logging. There is no separate “explain” or dry-run mode for `new` / `update` in the CLI today.
