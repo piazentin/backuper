@@ -146,8 +146,15 @@ class _AnalyzerStub(BackupAnalyzer):
 
 
 class _DbStub(BackupDatabase):
+    def __init__(self, *, fail_on_add_file: bool = False) -> None:
+        self.fail_on_add_file = fail_on_add_file
+        self.completed_versions: list[str] = []
+
     async def list_versions(self):
         return []
+
+    async def most_recent_version(self) -> str | None:
+        return None
 
     async def get_version_by_name(self, name: str) -> str:
         return name
@@ -160,7 +167,12 @@ class _DbStub(BackupDatabase):
         pass
 
     async def add_file(self, version: str, entry):
+        if self.fail_on_add_file:
+            raise RuntimeError("simulated write failure")
         pass
+
+    async def complete_version(self, version: str) -> None:
+        self.completed_versions.append(version)
 
     async def get_files_by_hash(self, hash: str):
         return []
@@ -307,3 +319,50 @@ async def test_backup_progress_throttled_when_just_over_hundred_files(
     assert len(recording.progress) == 51
     assert recording.progress[0] == (0, 101)
     assert recording.progress[-1] == (100, 101)
+
+
+@pytest.mark.asyncio
+async def test_add_version_marks_version_completed_on_success(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "file.txt").write_text("payload", encoding="utf-8")
+    db = _DbStub()
+
+    await add_version(
+        source,
+        "v-complete",
+        file_reader=_ReaderStub(),
+        analyzer=_AnalyzerStub(),
+        db=db,
+        filestore=LocalFileStore(
+            FilestoreConfig(backup_dir=str(tmp_path / "backup"), zip_enabled=False)
+        ),
+        reporter=_CollectingReporter(),
+    )
+
+    assert db.completed_versions == ["v-complete"]
+
+
+@pytest.mark.asyncio
+async def test_add_version_does_not_mark_version_completed_on_failure(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "file.txt").write_text("payload", encoding="utf-8")
+    db = _DbStub(fail_on_add_file=True)
+
+    with pytest.raises(RuntimeError, match="simulated write failure"):
+        await add_version(
+            source,
+            "v-fail",
+            file_reader=_ReaderStub(),
+            analyzer=_AnalyzerStub(),
+            db=db,
+            filestore=LocalFileStore(
+                FilestoreConfig(backup_dir=str(tmp_path / "backup"), zip_enabled=False)
+            ),
+            reporter=_CollectingReporter(),
+        )
+
+    assert db.completed_versions == []

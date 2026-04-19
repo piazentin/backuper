@@ -65,6 +65,11 @@ class BackupDatabase(ABC):
         pass
 
     @abstractmethod
+    async def most_recent_version(self) -> str | None:
+        """Return the most recent completed backup version, or ``None`` when absent."""
+        pass
+
+    @abstractmethod
     async def get_version_by_name(self, name: str) -> str:
         """Return the canonical version name. Raises VersionNotFoundError when missing."""
         pass
@@ -80,6 +85,11 @@ class BackupDatabase(ABC):
     @abstractmethod
     async def create_version(self, version: str) -> None:
         """Create a new backup version"""
+        pass
+
+    @abstractmethod
+    async def complete_version(self, version: str) -> None:
+        """Mark a previously-created version as completed."""
         pass
 
     @abstractmethod

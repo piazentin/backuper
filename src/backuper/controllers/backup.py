@@ -120,6 +120,8 @@ async def _run_backup_stream(
         backup_entry = await _to_backed_up_entry(entry, db=db, filestore=filestore)
         await db.add_file(version, backup_entry)
 
+    await db.complete_version(version)
+
 
 async def _to_backed_up_entry(
     entry: AnalyzedFileEntry,

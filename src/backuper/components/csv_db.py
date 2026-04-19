@@ -268,6 +268,10 @@ class CsvBackupDatabase(BackupDatabase):
         names = [version.name for version in self._csv_db.get_all_versions()]
         return sorted(names)
 
+    async def most_recent_version(self) -> str | None:
+        most_recent = self._csv_db.get_most_recent_version()
+        return most_recent.name if most_recent is not None else None
+
     async def get_version_by_name(self, name: str) -> str:
         return self._csv_db.get_version_by_name(name).name
 
@@ -303,6 +307,11 @@ class CsvBackupDatabase(BackupDatabase):
 
     async def create_version(self, version: str) -> None:
         self._csv_db.create_version(version)
+
+    async def complete_version(self, version: str) -> None:
+        # CSV backend currently has no separate lifecycle state; make this explicit
+        # while validating the version exists.
+        self._csv_db.get_version_by_name(version)
 
     async def add_file(self, version: str, entry: BackedUpFileEntry) -> None:
         version_obj = self._csv_db.get_version_by_name(version)
