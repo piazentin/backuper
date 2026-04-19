@@ -18,6 +18,33 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 - **CSV migration (operators):** legacy version manifests must be migrated with **`uv run python -m scripts.migrate_version_csv`** before using the current runtime on an existing backup tree; see **[`docs/csv-migration-contract.md`](docs/csv-migration-contract.md)**. Migration imports **`backuper`** (e.g. `backuper.utils.zip_payload` for compressed-blob layout) — keep using **`uv run`** so the package resolves.
 - **Source ignores (operators):** on-disk `.gitignore` / `.backupignore`, CLI `--ignore-pattern` / `--ignore-file`, precedence, and logging—see **[`docs/source-ignores.md`](docs/source-ignores.md)**.
+- **ADRs:** record **significant** architecture only — see **[Architecture decision records (ADRs)](#architecture-decision-records-adrs)** below. Index: **[`docs/adr/README.md`](docs/adr/README.md)**.
+
+## Architecture decision records (ADRs)
+
+This repository keeps **architecture decision records** under **[`docs/adr/`](docs/adr/README.md)** as plain Markdown. They exist so contributors (and agents) can find **durable** intent and trade-offs without replaying every PR.
+
+**Write an ADR only when it is worth the maintenance.** Favour **few, high-signal** documents over a paper trail of small changes.
+
+**Typically ADR-worthy**
+
+- Cross-cutting **contracts** (e.g. persistence model, port semantics, on-disk layout) that many modules or operators depend on.
+- **Irreversible or expensive** trade-offs (format choice, durability mode, migration rules).
+- **Operator- or security-relevant** behaviour that must stay stable across refactors.
+
+**Typically not ADR-worthy**
+
+- Routine refactors, renames, or one-off bugfixes confined to a small surface.
+- Test-only or fixture changes, formatting, dependency bumps that do not change architectural boundaries.
+- Anything better expressed as a **short comment** or **commit message** next to the code.
+
+New ADRs use the next free number (`0005-…`, etc.), include **Date** and **Status**, and are listed in **[`docs/adr/README.md`](docs/adr/README.md)**.
+
+**Tooling (optional, not required)**
+
+- **Default:** Markdown files in `docs/adr/` — no generator, no extra dependencies.
+- **PR discipline:** Use **[`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md)**; consider whether the change needs an ADR when you edit **How** / **Risks** (see template note).
+- **Optional elsewhere:** [adr-tools](https://github.com/npryce/adr-tools) (CLI scaffolding / supersede), [MADR](https://adr.github.io/madr/) templates, or static sites (e.g. Log4brains) — only if the team wants templating or a browsable log. Nothing in CI **mandates** ADRs; **relevance is judgment**, not a linter.
 
 ## Future HTTP / second composition root
 
@@ -67,7 +94,7 @@ Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run
 
 ## Pull requests
 
-- Always read and follow [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) before opening a PR.
+- Always read and follow [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) before opening a PR. For **architectural** changes, see [Architecture decision records (ADRs)](#architecture-decision-records-adrs).
 - Keep PR body section headings and order exactly as the template: `Context`, `What`, `How`, `Validation`, `Risks / Rollback`.
 - **Use the template in tooling so it is not skipped:**
   - From the repo root: **`make pr`** (runs `gh pr create --base main --template .github/PULL_REQUEST_TEMPLATE.md --reviewer '@copilot'`; override base with `make pr PR_BASE=<branch>`), or run that `gh` command yourself. Use the literal **`@copilot`** reviewer so GitHub Copilot code review is requested ([`.cursor/rules/github-copilot-pr-review.mdc`](.cursor/rules/github-copilot-pr-review.mdc)).
