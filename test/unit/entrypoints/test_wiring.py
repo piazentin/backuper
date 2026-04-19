@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from backuper.components.csv_db import CsvBackupDatabase
 from backuper.components.sqlite_db import SqliteBackupDatabase
-from backuper.config import SqliteDbConfig
+from backuper.config import BACKUPER_SQLITE_SYNCHRONOUS_ENV, SqliteDbConfig
 from backuper.entrypoints.wiring import create_backup_database
 from backuper.models import CliUsageError
 from backuper.ports import BackupDatabase
@@ -39,6 +39,15 @@ def test_create_backup_database_defaults_to_sqlite_for_new_tree(tmp_path: Path) 
     db = create_backup_database(tmp_path, operation="write")
 
     assert isinstance(db, SqliteBackupDatabase)
+
+
+def test_create_backup_database_invalid_sqlite_synchronous_env_is_cli_usage_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(BACKUPER_SQLITE_SYNCHRONOUS_ENV, "not-a-mode")
+
+    with pytest.raises(CliUsageError, match="BACKUPER_SQLITE_SYNCHRONOUS"):
+        create_backup_database(tmp_path, operation="write")
 
 
 def test_create_backup_database_uses_csv_when_force_csv_override_set(

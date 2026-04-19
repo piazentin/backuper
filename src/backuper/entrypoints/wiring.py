@@ -109,6 +109,11 @@ def create_backup_database(
     if operation == "read":
         _validate_sqlite_manifest_for_read(sqlite_manifest_path)
     try:
-        return SqliteBackupDatabase(SqliteDb(sqlite_db_config(str(backup_root))))
+        config = sqlite_db_config(str(backup_root))
+    except (RuntimeError, ValueError) as exc:
+        # Invalid BACKUPER_SQLITE_SYNCHRONOUS (and other config parsing failures).
+        raise CliUsageError(str(exc)) from exc
+    try:
+        return SqliteBackupDatabase(SqliteDb(config))
     except sqlite3.Error as exc:
         raise CliUsageError(_SQLITE_BOOTSTRAP_GUIDANCE) from exc
