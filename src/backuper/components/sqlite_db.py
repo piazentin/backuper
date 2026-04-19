@@ -73,8 +73,8 @@ FROM version_files vf
 INNER JOIN versions v ON v.name = vf.version_name
 WHERE v.state = ?
   AND vf.restore_path = ?
-  AND vf.mtime > ?
-  AND vf.mtime < ?
+  AND vf.mtime >= ?
+  AND vf.mtime <= ?
   AND vf.size = ?
 ORDER BY vf.id ASC
 """

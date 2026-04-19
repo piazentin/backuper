@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from collections.abc import Callable
+from contextlib import closing
 from pathlib import Path
 from typing import Literal
 
@@ -17,6 +18,11 @@ _SQLITE_REQUIRED_TABLES = {"versions", "version_files", "version_directories"}
 _RESOLUTION_GUIDANCE = (
     "The SQLite manifest is not ready for read operations. "
     "Run a write command (new/update) to initialize or repair the SQLite backend, "
+    "or set FORCE_CSV_DB=1 to force CSV backend selection."
+)
+_MISSING_SQLITE_MANIFEST_GUIDANCE = (
+    "No SQLite manifest found for read operation. "
+    "Run a write command (new/update) to create the SQLite backend, "
     "or set FORCE_CSV_DB=1 to force CSV backend selection."
 )
 
@@ -58,24 +64,22 @@ def _resolve_backend(backup_root: Path) -> Literal["csv", "sqlite"]:
 
 def _validate_sqlite_manifest_for_read(sqlite_manifest_path: Path) -> None:
     if not sqlite_manifest_path.exists():
-        raise CliUsageError(
-            "No SQLite manifest found for read operation. " + _RESOLUTION_GUIDANCE
-        )
+        raise CliUsageError(_MISSING_SQLITE_MANIFEST_GUIDANCE)
     try:
-        conn = sqlite3.connect(f"file:{sqlite_manifest_path}?mode=ro", uri=True)
+        with closing(
+            sqlite3.connect(f"file:{sqlite_manifest_path}?mode=ro", uri=True)
+        ) as conn:
+            version_row = conn.execute("PRAGMA user_version").fetchone()
+            if version_row is None or int(version_row[0]) < 1:
+                raise CliUsageError(_RESOLUTION_GUIDANCE)
+            table_rows = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+            table_names = {str(row[0]) for row in table_rows}
+            if not _SQLITE_REQUIRED_TABLES.issubset(table_names):
+                raise CliUsageError(_RESOLUTION_GUIDANCE)
     except sqlite3.Error as exc:
         raise CliUsageError(_RESOLUTION_GUIDANCE) from exc
-
-    with conn:
-        version_row = conn.execute("PRAGMA user_version").fetchone()
-        if version_row is None or int(version_row[0]) < 1:
-            raise CliUsageError(_RESOLUTION_GUIDANCE)
-        table_rows = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
-        table_names = {str(row[0]) for row in table_rows}
-        if not _SQLITE_REQUIRED_TABLES.issubset(table_names):
-            raise CliUsageError(_RESOLUTION_GUIDANCE)
 
 
 def create_backup_database(

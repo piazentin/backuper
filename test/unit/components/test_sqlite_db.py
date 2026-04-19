@@ -222,6 +222,57 @@ async def test_sqlite_backup_database_lookup_only_completed_versions(
 
 
 @pytest.mark.asyncio
+async def test_sqlite_backup_database_metadata_lookup_includes_tolerance_boundaries(
+    tmp_path: Path,
+) -> None:
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(tmp_path))))
+    version = "v-boundaries"
+    expected_mtime = 10.0
+    tolerance = db._MTIME_TOLERANCE_SECONDS
+    lower_bound = expected_mtime - tolerance
+    upper_bound = expected_mtime + tolerance
+    await db.create_version(version)
+    await db.add_file(
+        version,
+        BackedUpFileEntry(
+            source_file=FileEntry(
+                path=Path("/src/lower.txt"),
+                relative_path=Path("boundaries.txt"),
+                size=10,
+                mtime=lower_bound,
+                is_directory=False,
+            ),
+            backup_id=UUID("66666666-6666-6666-6666-666666666666"),
+            stored_location="data/lower",
+            is_compressed=False,
+            hash="h-lower",
+        ),
+    )
+    await db.add_file(
+        version,
+        BackedUpFileEntry(
+            source_file=FileEntry(
+                path=Path("/src/upper.txt"),
+                relative_path=Path("boundaries.txt"),
+                size=10,
+                mtime=upper_bound,
+                is_directory=False,
+            ),
+            backup_id=UUID("77777777-7777-7777-7777-777777777777"),
+            stored_location="data/upper",
+            is_compressed=False,
+            hash="h-upper",
+        ),
+    )
+    await db.complete_version(version)
+
+    matches = await db.get_files_by_metadata(Path("boundaries.txt"), expected_mtime, 10)
+
+    assert len(matches) == 2
+    assert {item.hash for item in matches} == {"h-lower", "h-upper"}
+
+
+@pytest.mark.asyncio
 async def test_sqlite_backup_database_cannot_add_file_to_completed_version(
     tmp_path: Path,
 ) -> None:
