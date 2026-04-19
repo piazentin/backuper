@@ -6,7 +6,7 @@ This guide is for anyone configuring backups who needs **what to put where** wit
 
 Place **`.gitignore`** and/or **`.backupignore`** files in directories inside the source tree. Patterns are **relative to that directory**, like Git. Nested directories can have their own files; rules from shallower directories still apply, with the usual layered precedence (see below).
 
-When **both** `.gitignore` and `.backupignore` exist in the **same** directory, their pattern lines are combined in a **fixed filename order**: **`.backupignore` first, then `.gitignore`**.
+When **both** `.gitignore` and **`.backupignore`** exist in the **same** directory, Backuper loads them in a **fixed order**: **`.backupignore` first, then `.gitignore`**. Evaluation uses **last matching rule wins** across all patterns from both files. So if a path matches a rule in **`.backupignore`** and also matches a later rule in **`.gitignore`**, the **`.gitignore`** rule decides (include or exclude) for that path.
 
 Files are read as **UTF-8** (with BOM tolerated), **LF** or **CRLF** line endings; blank lines and **`#`** comments are skipped, same as Git.
 
@@ -27,7 +27,7 @@ Effective layers are applied from **broad to local**: user (CLI) patterns first,
 
 ## Negation (`!`)
 
-Lines starting with **`!`** can un-ignore paths that would otherwise be excluded. Negation interacts with **directory pruning** (whether the walker can skip whole subtrees): in edge cases Backuper may walk deeper than the minimum needed so that re-inclusion can be honored. For full detail, see **[source-ignore-rules-assessment.md](source-ignore-rules-assessment.md)**.
+Lines starting with **`!`** can un-ignore paths that would otherwise be excluded. Negation interacts with **directory pruning** (whether the walker can skip whole subtrees): in edge cases Backuper may walk deeper than the minimum needed so that re-inclusion can be honored.
 
 ## Symlinks
 
@@ -50,6 +50,5 @@ Use **`-q` / `--quiet`** before the subcommand to reduce informational logging. 
 
 ## Further reading
 
-- **[source-ignore-rules-assessment.md](source-ignore-rules-assessment.md)** — layered semantics, roadmap context, and edge-case notes.
 - Project layering and commands: **[AGENTS.md](../AGENTS.md)**.
 - CLI overview: **[README.md](../README.md)**.

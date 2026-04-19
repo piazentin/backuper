@@ -17,6 +17,7 @@ This file is the canonical agent and contributor map for this repository; prefer
 ## Additional documentation
 
 - **CSV migration (operators):** legacy version manifests must be migrated with **`uv run python -m scripts.migrate_version_csv`** before using the current runtime on an existing backup tree; see **[`docs/csv-migration-contract.md`](docs/csv-migration-contract.md)**.
+- **Source ignores (operators):** on-disk `.gitignore` / `.backupignore`, CLI `--ignore-pattern` / `--ignore-file`, precedence, and logging—see **[`docs/source-ignores.md`](docs/source-ignores.md)**.
 
 ## Future HTTP / second composition root
 

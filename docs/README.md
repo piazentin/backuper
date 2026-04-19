@@ -5,7 +5,6 @@ Project documentation that supplements **[README.md](../README.md)** (install, u
 | Document | Description |
 |----------|-------------|
 | [csv-migration-contract.md](csv-migration-contract.md) | Required migration path for legacy version CSVs; canonical row contract for the runtime; migration script semantics (dry-run, apply, rollback artifacts) |
-| [source-ignores.md](source-ignores.md) | Operator guide: on-disk `.gitignore` / `.backupignore`, CLI `--ignore-pattern` / `--ignore-file`, precedence vs the user layer, symlinks, and logging |
-| [source-ignore-rules-assessment.md](source-ignore-rules-assessment.md) | Source-tree ignore semantics (layering, pruning), phased roadmap, and how CLI user ignores relate to on-disk rules |
+| [source-ignores.md](source-ignores.md) | Operator guide: on-disk `.gitignore` / `.backupignore`, CLI `--ignore-pattern` / `--ignore-file`, precedence vs the user layer, symlinks, logging, and negation edge cases |
 
 Add new top-level docs here and link them from this table.
