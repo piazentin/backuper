@@ -27,7 +27,9 @@ SQLite stores **`created_at`** per version ([ADR-0003](0003-version-ordering-and
 
    This matches the CLI default version string from [`argparser.py`](../../src/backuper/entrypoints/cli/argparser.py): `datetime.now().strftime("%Y-%m-%dT%H%M%S")` (local timezone context for `now()`).
 
-   When the version name matches this pattern, **`created_at`** is derived by **parsing** the stem into an absolute time, then **normalizing to UTC** for storage at **millisecond** precision (same precision rules as mtime fallback).
+   When the version name matches this pattern, **`created_at`** is derived by **parsing** the stem into calendar and wall-clock components, then interpreting them as **local civil time in the migration host’s default timezone** (the same zone `datetime.now()` would use on that host at migration time). That **timezone-aware** instant is **normalized to UTC** for storage at **millisecond** precision (same precision rules as mtime fallback).
+
+   **Trade-off:** The stem does not record which timezone produced the original backup filename. **`created_at`** from parsing is therefore **stable for a given migration run** but may **differ** if the same tree is migrated on another machine with a different default offset (or different historical DST rules) for the same stem. **`mtime`** fallback is similarly host-dependent. Operators needing predictable cross-host migration should run migration in a controlled environment or rely on **`mtime`** when stems are ambiguous.
 
 2. **Fallback: file mtime**  
    If the version name is **not** parsable under the rule above, set **`created_at`** from the **CSV file’s last modification time** (`mtime`).

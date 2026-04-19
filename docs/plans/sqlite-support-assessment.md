@@ -32,7 +32,7 @@ This document assesses adding a **SQLite-backed** implementation of the backup m
 
 ## Phase 1 — Design lock-in
 
-**Outcome:** A agreed **persistence model** for SQLite is documented and reviewable: entity boundaries (versions, files, directories), **transaction boundaries** for backup operations, **schema versioning** approach, and **durability posture** (e.g. journal mode, expectations around `synchronous`). Alignment with the existing **`BackupDatabase`** contract and with version-ordering semantics (CSV legacy vs SQLite — see ADRs below) is explicitly called out.
+**Outcome:** An agreed **persistence model** for SQLite is documented and reviewable: entity boundaries (versions, files, directories), **transaction boundaries** for backup operations, **schema versioning** approach, and **durability posture** (e.g. journal mode, expectations around `synchronous`). Alignment with the existing **`BackupDatabase`** contract and with version-ordering semantics (CSV legacy vs SQLite — see ADRs below) is explicitly called out.
 
 **Accepted ADRs** (under [`docs/adr/`](../adr/)):
 

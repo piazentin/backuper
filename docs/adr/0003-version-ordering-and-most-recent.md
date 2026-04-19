@@ -15,7 +15,8 @@ The **`BackupDatabase`** port will expose **`most_recent_version`** (new) alongs
 ## Decision
 
 1. **`list_versions`**  
-   Return version names in **ascending lexicographic order** (Unicode string sort of the version identifier). Callers that previously sorted results for stability should get deterministic ordering from the port.
+   Return version names in **ascending lexicographic order** (Unicode string sort of the version identifier) as a **port-level contract across backends**. Callers that previously sorted results for stability should get deterministic ordering from the port.  
+   This is a **behavioural change** for any adapter that currently returns filesystem iteration order rather than a sorted result. In particular, the legacy CSV implementation must **sort version names before returning them**; returning raw `os.listdir()` order does **not** satisfy this contract.
 
 2. **`most_recent_version` — SQLite**  
    Define “most recent” as the **`completed`** version with the greatest **`created_at`**.  
