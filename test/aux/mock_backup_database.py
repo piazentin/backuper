@@ -22,6 +22,9 @@ class MockBackupDatabase(BackupDatabase):
     async def list_versions(self) -> list[str]:
         return ["test_version"]
 
+    async def most_recent_version(self) -> str | None:
+        return "test_version"
+
     async def get_version_by_name(self, name: str) -> str:
         return name
 
@@ -32,6 +35,10 @@ class MockBackupDatabase(BackupDatabase):
             yield FileEntry(path=_p, relative_path=_p, size=0, mtime=0.0)
 
     async def create_version(self, version: str) -> None:
+        # Not used in tests
+        pass
+
+    async def complete_version(self, version: str) -> None:
         # Not used in tests
         pass
 

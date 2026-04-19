@@ -15,6 +15,7 @@ from backuper.models import (
     BackedUpFileEntry,
     FileEntry,
     MalformedBackupCsvError,
+    VersionAlreadyExistsError,
     VersionNotFoundError,
 )
 from backuper.ports import BackupDatabase
@@ -111,6 +112,8 @@ def _model_to_csvrow(model: _FileSystemObject) -> str:
 
 
 class CsvDb:
+    _PENDING_PREFIX = ".pending__"
+
     def __init__(self, config: CsvDbConfig) -> None:
         self._config = config
         self.db_dir = os.path.join(self._config.backup_dir, self._config.backup_db_dir)
@@ -119,18 +122,32 @@ class CsvDb:
     def _csv_path_from_name(self, name: str) -> str:
         return os.path.join(self.db_dir, name + self._config.csv_file_extension)
 
+    def _pending_csv_path_from_name(self, name: str) -> str:
+        pending_name = f"{self._PENDING_PREFIX}{name}{self._config.csv_file_extension}"
+        return os.path.join(self.db_dir, pending_name)
+
+    def _is_pending_csv_filename(self, filename: str) -> bool:
+        return filename.startswith(self._PENDING_PREFIX) and filename.endswith(
+            self._config.csv_file_extension
+        )
+
     def get_all_versions(self) -> list[_Version]:
         ext = self._config.csv_file_extension
         return [
             _Version(f.removesuffix(ext))
             for f in os.listdir(self.db_dir)
             # Skip dotfiles (e.g. macOS AppleDouble `._name.csv` sidecars are not UTF-8 CSV).
-            if f.endswith(ext) and not f.startswith(".")
+            if f.endswith(ext)
+            and not f.startswith(".")
+            and not self._is_pending_csv_filename(f)
         ]
 
     def create_version(self, name: str) -> _Version:
-        version_file = self._csv_path_from_name(name)
-        with open(version_file, "a", encoding="utf-8"):
+        pending_file = self._pending_csv_path_from_name(name)
+        completed_file = self._csv_path_from_name(name)
+        if os.path.exists(pending_file) or os.path.exists(completed_file):
+            raise VersionAlreadyExistsError(name)
+        with open(pending_file, "x", encoding="utf-8"):
             pass
         return _Version(name)
 
@@ -138,6 +155,15 @@ class CsvDb:
         if os.path.exists(self._csv_path_from_name(name)):
             return _Version(name)
         return None
+
+    def get_writable_version_by_name(self, name: str) -> _Version:
+        if os.path.exists(self._pending_csv_path_from_name(name)):
+            return _Version(name)
+        if os.path.exists(self._csv_path_from_name(name)):
+            raise ValueError(
+                f"Version {name!r} is completed and cannot be opened as writable."
+            )
+        raise VersionNotFoundError(name)
 
     def get_most_recent_version(self) -> _Version | None:
         """Pick the version whose ``name`` is greatest by lexicographic (string) order.
@@ -201,14 +227,27 @@ class CsvDb:
             ]
 
     def insert_dir(self, version: _Version, dir: _DirEntry) -> None:
-        version_file = self._csv_path_from_name(version.name)
+        version_file = self._pending_csv_path_from_name(version.name)
+        if not os.path.exists(version_file):
+            raise VersionNotFoundError(version.name)
         with open(version_file, "a", encoding="utf-8", newline="") as writer:
             writer.write(_model_to_csvrow(dir))
 
     def insert_file(self, version: _Version, file: _StoredFile) -> None:
-        version_file = self._csv_path_from_name(version.name)
+        version_file = self._pending_csv_path_from_name(version.name)
+        if not os.path.exists(version_file):
+            raise VersionNotFoundError(version.name)
         with open(version_file, "a", encoding="utf-8", newline="") as writer:
             writer.write(_model_to_csvrow(file))
+
+    def complete_version(self, name: str) -> None:
+        pending_file = self._pending_csv_path_from_name(name)
+        completed_file = self._csv_path_from_name(name)
+        if os.path.exists(completed_file):
+            return
+        if not os.path.exists(pending_file):
+            raise VersionNotFoundError(name)
+        os.replace(pending_file, completed_file)
 
 
 class CsvBackupDatabase(BackupDatabase):
@@ -268,6 +307,10 @@ class CsvBackupDatabase(BackupDatabase):
         names = [version.name for version in self._csv_db.get_all_versions()]
         return sorted(names)
 
+    async def most_recent_version(self) -> str | None:
+        most_recent = self._csv_db.get_most_recent_version()
+        return most_recent.name if most_recent is not None else None
+
     async def get_version_by_name(self, name: str) -> str:
         return self._csv_db.get_version_by_name(name).name
 
@@ -304,8 +347,11 @@ class CsvBackupDatabase(BackupDatabase):
     async def create_version(self, version: str) -> None:
         self._csv_db.create_version(version)
 
+    async def complete_version(self, version: str) -> None:
+        self._csv_db.complete_version(version)
+
     async def add_file(self, version: str, entry: BackedUpFileEntry) -> None:
-        version_obj = self._csv_db.get_version_by_name(version)
+        version_obj = self._csv_db.get_writable_version_by_name(version)
 
         if entry.source_file.is_directory:
             dir_entry = _DirEntry(str(entry.source_file.relative_path))
