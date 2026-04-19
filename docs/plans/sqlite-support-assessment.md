@@ -128,6 +128,8 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 
 ## Phase 6 (optional) — CSV write posture and long-term maintenance
 
+**Status:** Won't Do. Canceled.
+
 **Outcome:** Explicit **product decision** encoded in docs and code: e.g. CSV becomes **read-only** for migration only, or remains a **peer write path** for a deprecation period. Test and documentation burden for **dual writers** is bounded by that decision.
 
 **Incremental value:** Predictable maintenance cost; avoids indefinite **full dual-write** unless deliberately chosen.
@@ -159,3 +161,4 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 | 2026-04-19 | Phase 3: linked ADR-0006 (backend resolution, override, mixed-state, and partial-init read/write policy). |
 | 2026-04-19 | Phase 3: added explicit progress status, completed-vs-deferred split, and links to resolver/CLI/integration test coverage. |
 | 2026-04-19 | Phase 5: marked completed; outcome narrowed to match discovery (no F/K performance or “validated sizes” claims); linked operator doc. |
+| 2026-04-19 | Phase 6: marked canceled (won’t do). |
