@@ -97,7 +97,7 @@ def test_multiple_part001_basenames_ambiguous(tmp_path: Path) -> None:
     h = _sha1_hex(b"irrelevant")
     with ZipFile(path, "r") as zf:
         with pytest.raises(
-            ZipPayloadError, match="multiple file members named 'part001'"
+            ZipPayloadError, match=r"multiple file members whose basename is 'part001'"
         ):
             resolve_zip_payload_member_name(zf, h, zip_path=path)
 
@@ -110,7 +110,9 @@ def test_multiple_hash_named_members_ambiguous(tmp_path: Path) -> None:
         zf.writestr(f"two/{h}", b"b")
 
     with ZipFile(path, "r") as zf:
-        with pytest.raises(ZipPayloadError, match="multiple file members match hash"):
+        with pytest.raises(
+            ZipPayloadError, match="multiple file members whose basename is"
+        ):
             resolve_zip_payload_member_name(zf, h, zip_path=path)
 
 
@@ -123,6 +125,18 @@ def test_file_hash_normalized_to_lowercase_for_legacy_match(tmp_path: Path) -> N
     with ZipFile(path, "r") as zf:
         assert resolve_zip_payload_member_name(zf, h_mixed, zip_path=path) == h_lower
     assert read_zip_payload_bytes(path, h_mixed) == payload
+
+
+def test_backslash_in_member_path_normalized_like_posix(tmp_path: Path) -> None:
+    """Backslashes in stored names are treated like / for basename (ZIP is POSIX-style)."""
+    payload = b"slash-style"
+    path = tmp_path / "bs.zip"
+    with ZipFile(path, "w") as zf:
+        zf.writestr("nested\\part001", payload)
+    h = _sha1_hex(payload)
+    with ZipFile(path, "r") as zf:
+        assert resolve_zip_payload_member_name(zf, h, zip_path=path) == "nested\\part001"
+    assert read_zip_payload_bytes(path, h) == payload
 
 
 def test_part001_in_subdirectory_resolved_by_basename(tmp_path: Path) -> None:

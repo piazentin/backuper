@@ -7,7 +7,7 @@ member named after the content hash (lowercase hex), matching manifest storage.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from zipfile import ZipFile, ZipInfo
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,8 @@ class ZipPayloadError(ValueError):
 
 
 def _normalized_basename(filename: str) -> str:
-    return Path(filename).name
+    # ZIP names are POSIX-style; normalize backslashes so basename is not OS-dependent.
+    return PurePosixPath(filename.replace("\\", "/")).name
 
 
 def _file_members(zf: ZipFile) -> list[ZipInfo]:
@@ -52,7 +53,7 @@ def resolve_zip_payload_member_name(
     if len(part001) > 1:
         names = sorted({info.filename for info in members})
         raise ZipPayloadError(
-            f"{label}: multiple file members named 'part001' in archive; "
+            f"{label}: multiple file members whose basename is 'part001' in archive; "
             f"expected a single payload member. Members: {names}"
         )
     if len(part001) == 1:
@@ -65,7 +66,7 @@ def resolve_zip_payload_member_name(
     if len(hash_named) > 1:
         names = sorted({info.filename for info in members})
         raise ZipPayloadError(
-            f"{label}: multiple file members match hash {hash_key!r}; "
+            f"{label}: multiple file members whose basename is {hash_key!r}; "
             f"expected a single hash-named member. Members: {names}"
         )
     if len(hash_named) == 1:
@@ -80,11 +81,12 @@ def resolve_zip_payload_member_name(
     if not names:
         raise ZipPayloadError(
             f"{label}: ZIP has no file members (empty or directory-only). "
-            f"Expected a member named 'part001' or a single file member named {hash_key!r}."
+            f"Expected a file member whose basename is 'part001', or exactly one file member "
+            f"whose basename is {hash_key!r}."
         )
     raise ZipPayloadError(
-        f"{label}: cannot resolve payload: expected a file member named 'part001' "
-        f"or exactly one file member named {hash_key!r}. Members: {names}"
+        f"{label}: cannot resolve payload: expected a file member whose basename is 'part001' "
+        f"or exactly one file member whose basename is {hash_key!r}. Members: {names}"
     )
 
 

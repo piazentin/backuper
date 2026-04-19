@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import BadZipFile, LargeZipFile, ZipFile
 
 from backuper.utils.zip_payload import ZipPayloadError, resolve_zip_payload_member_name
 
@@ -47,7 +47,7 @@ def read_logical_size_and_blob_mtime(
                 return 0, blob_mtime
             member = archive.getinfo(member_name)
             return member.file_size, blob_mtime
-    except OSError as exc:
+    except (OSError, BadZipFile, LargeZipFile) as exc:
         _LOG.warning("Cannot read ZIP blob %s: %s", blob_path, exc)
         return 0, blob_mtime
 

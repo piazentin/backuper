@@ -43,6 +43,19 @@ def test_read_logical_size_part001_matches_zipinfo_file_size(tmp_path: Path) -> 
     assert mtime > 0
 
 
+def test_read_logical_size_corrupt_zip_returns_zero_without_raising(
+    tmp_path: Path,
+) -> None:
+    blob = tmp_path / "corrupt.zip"
+    blob.write_bytes(b"not a zip file")
+    h = "a" * 40
+    size, mtime = read_logical_size_and_blob_mtime(
+        blob, is_compressed=True, file_hash=h
+    )
+    assert size == 0
+    assert mtime > 0
+
+
 def test_read_logical_size_legacy_hash_named_matches_zipinfo_file_size(
     tmp_path: Path,
 ) -> None:
