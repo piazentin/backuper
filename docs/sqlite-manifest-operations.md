@@ -245,14 +245,18 @@ Prefer a **minimal** SQLite-related logging surface — avoid noise; no broad ta
 
 ### CLI exit codes and messages
 
+The CLI entrypoint `main()` in [`src/backuper/entrypoints/cli/main.py`](../src/backuper/entrypoints/cli/main.py) wraps parsing and dispatch in a small error boundary — this section describes observable behavior, not a separate stability contract for automation.
+
 | Outcome | Exit code | Notes |
 |---------|-----------|--------|
-| Success | `0` | Normal completion. |
-| User-facing errors | `1` | Usage, resolver/bootstrap, domain errors — message on **stderr** (`UserFacingError` and similar). |
-| Unexpected errors | `1` | Generic stderr line in current implementation. |
-| Argparse / `--help` | `SystemExit` | Python **argparse** uses **`2`** for usage errors and **`0`** for `--help`; preserved by the CLI entrypoint. |
+| Success | `0` | Normal completion after dispatch. |
+| User-facing errors | `1` | **`UserFacingError`** and subclasses (including **`CliUsageError`**) — full message on **stderr**, no traceback. Covers invalid usage reported by the app, backend resolution / manifest bootstrap failures, and domain errors (e.g. missing paths, version not found). |
+| Unexpected errors | `1` | Logged at **ERROR** with traceback; **stderr** shows a short generic line (current text: “An unexpected error occurred.”). |
+| **`argparse`** | `SystemExit` | **`main()`** re-raises **`SystemExit`** unchanged (not mapped to `1`). Standard **Python 3 `argparse`**: **`--help` / `-h`** exits **`0`**; unknown flags, missing required arguments, and similar usage problems typically exit **`2`**. |
 
-Small message prefixes in wiring (e.g. distinguishing resolver vs manifest) may evolve for clarity; behavior remains **document-first** — there is no separate exit-code taxonomy for SQLite-specific failures beyond what is described here.
+SQLite-related resolver and bootstrap messages from wiring are prefixed with **`SQLite manifest:`** so operators can tell them apart from other usage lines in **stderr**.
+
+There is **no** separate exit-code taxonomy for SQLite-only failure modes beyond **`1`** vs success **`0`** vs **`argparse`**’s **`SystemExit`** codes above.
 
 ### Preflight integrity in product
 

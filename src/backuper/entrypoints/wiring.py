@@ -19,18 +19,20 @@ from backuper.ports import BackupDatabase
 
 _FORCE_CSV_DB_ENV = "FORCE_CSV_DB"
 _SQLITE_REQUIRED_TABLES = {"versions", "version_files", "version_directories"}
+# Prefix helps operators grep stderr and distinguish manifest wiring from generic usage errors.
+_SQLITE_CLI_PREFIX = "SQLite manifest: "
 _RESOLUTION_GUIDANCE = (
-    "The SQLite manifest is not ready for read operations. "
+    _SQLITE_CLI_PREFIX + "The manifest is not ready for read operations. "
     "Run a write command (new/update) to initialize or repair the SQLite backend, "
     "or set FORCE_CSV_DB=1 to force CSV backend selection."
 )
 _MISSING_SQLITE_MANIFEST_GUIDANCE = (
-    "No SQLite manifest found for read operation. "
+    _SQLITE_CLI_PREFIX + "No database file found for read operations. "
     "Run a write command (new/update) to create the SQLite backend, "
     "or set FORCE_CSV_DB=1 to force CSV backend selection."
 )
 _SQLITE_BOOTSTRAP_GUIDANCE = (
-    "The SQLite backend could not be initialized. "
+    _SQLITE_CLI_PREFIX + "The backend could not be initialized. "
     "Run a write command (new/update) to initialize or repair the SQLite backend, "
     "or set FORCE_CSV_DB=1 to force CSV backend selection."
 )
