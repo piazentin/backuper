@@ -18,6 +18,7 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 - **CSV migration (operators):** legacy version manifests must be migrated with **`uv run python -m scripts.migrate_version_csv`** before using the current runtime on an existing backup tree; see **[`docs/csv-migration-contract.md`](docs/csv-migration-contract.md)**. Migration imports **`backuper`** (e.g. `backuper.utils.zip_payload` for compressed-blob layout) — keep using **`uv run`** so the package resolves.
 - **Source ignores (operators):** on-disk `.gitignore` / `.backupignore`, CLI `--ignore-pattern` / `--ignore-file`, precedence, and logging—see **[`docs/source-ignores.md`](docs/source-ignores.md)**.
+- **SQLite manifest (operators):** WAL mode, `busy_timeout`, integrity tooling, env overrides, and CLI exit notes—see **[`docs/sqlite-manifest-operations.md`](docs/sqlite-manifest-operations.md)**.
 - **ADRs:** record **significant** architecture only — see **[Architecture decision records (ADRs)](#architecture-decision-records-adrs)** below. Index: **[`docs/adr/README.md`](docs/adr/README.md)**.
 
 ## Architecture decision records (ADRs)
@@ -79,6 +80,7 @@ Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run
 
 ### Concurrency and single-writer expectations
 
+- **SQLite manifest trees** use WAL with a bounded `busy_timeout` on the manifest connection; concurrent access details are in **[`docs/sqlite-manifest-operations.md`](docs/sqlite-manifest-operations.md)**.
 - **Single active writer per backup tree.** Run only one of `new`, `update`, or CSV migration against the same backup root at a time. The tool does not coordinate multiple processes; overlapping writers can interleave CSV appends or leave the manifest inconsistent with what was written under `data/`.
 - **Version CSVs** ([`CsvDb.insert_dir`](src/backuper/components/csv_db.py) / [`insert_file`](src/backuper/components/csv_db.py)) append rows to the per-version manifest file. There is no cross-process locking or transactional merge—correctness assumes a single writer extending each manifest sequentially.
 - **Blob storage** ([`LocalFileStore.put`](src/backuper/components/filestore.py)): content-addressed blobs are published via [`_publish_staged_blob_if_absent`](src/backuper/components/filestore.py). If the destination path already exists (for example another writer finished first for the same hash), the staged copy is removed and the existing blob is kept. That only deduplicates identical-hash content on disk; it does not make concurrent `new`/`update` runs safe. Treat parallel backup jobs against the same tree as unsupported.
