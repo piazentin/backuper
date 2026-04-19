@@ -25,13 +25,19 @@ _MISSING_SQLITE_MANIFEST_GUIDANCE = (
     "Run a write command (new/update) to create the SQLite backend, "
     "or set FORCE_CSV_DB=1 to force CSV backend selection."
 )
+_SQLITE_BOOTSTRAP_GUIDANCE = (
+    "The SQLite backend could not be initialized. "
+    "Run a write command (new/update) to initialize or repair the SQLite backend, "
+    "or set FORCE_CSV_DB=1 to force CSV backend selection."
+)
 
 
 def _sqlite_manifest_path(backup_root: Path) -> Path:
+    config = SqliteDbConfig(backup_dir=str(backup_root))
     return (
         backup_root
-        / SqliteDbConfig(backup_dir=str(backup_root)).backup_db_dir
-        / SqliteDbConfig(backup_dir=str(backup_root)).sqlite_filename
+        / config.backup_db_dir
+        / config.sqlite_filename
     )
 
 
@@ -99,4 +105,7 @@ def create_backup_database(
     sqlite_manifest_path = _sqlite_manifest_path(backup_root)
     if operation == "read":
         _validate_sqlite_manifest_for_read(sqlite_manifest_path)
-    return SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(backup_root))))
+    try:
+        return SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(backup_root))))
+    except sqlite3.Error as exc:
+        raise CliUsageError(_SQLITE_BOOTSTRAP_GUIDANCE) from exc

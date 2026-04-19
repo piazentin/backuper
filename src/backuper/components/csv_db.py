@@ -126,11 +126,6 @@ class CsvDb:
         pending_name = f"{self._PENDING_PREFIX}{name}{self._config.csv_file_extension}"
         return os.path.join(self.db_dir, pending_name)
 
-    def _is_pending_csv_filename(self, filename: str) -> bool:
-        return filename.startswith(self._PENDING_PREFIX) and filename.endswith(
-            self._config.csv_file_extension
-        )
-
     def get_all_versions(self) -> list[_Version]:
         ext = self._config.csv_file_extension
         return [
@@ -252,6 +247,8 @@ class CsvDb:
 
 
 class CsvBackupDatabase(BackupDatabase):
+    _MTIME_TOLERANCE_SECONDS = 0.001
+
     def __init__(
         self,
         csv_db: CsvDb,
@@ -390,7 +387,10 @@ class CsvBackupDatabase(BackupDatabase):
         rel = str(relative_path)
         result = []
         for stored_file in self._files_by_restore_path.get(rel, []):
-            if abs(stored_file.mtime - mtime) < 0.001 and stored_file.size == size:
+            if (
+                abs(stored_file.mtime - mtime) <= self._MTIME_TOLERANCE_SECONDS
+                and stored_file.size == size
+            ):
                 result.append(self._stored_file_to_backup_entry(stored_file))
 
         return result

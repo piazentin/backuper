@@ -131,3 +131,18 @@ def test_create_backup_database_read_maps_invalid_sqlite_file_to_usage_error(
 
     with pytest.raises(CliUsageError, match="SQLite manifest is not ready"):
         create_backup_database(tmp_path, operation="read")
+
+
+def test_create_backup_database_write_maps_invalid_sqlite_file_to_usage_error(
+    tmp_path: Path,
+) -> None:
+    sqlite_path = (
+        tmp_path
+        / SqliteDbConfig(backup_dir=str(tmp_path)).backup_db_dir
+        / SqliteDbConfig(backup_dir=str(tmp_path)).sqlite_filename
+    )
+    sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    sqlite_path.write_text("not-a-sqlite-db", encoding="utf-8")
+
+    with pytest.raises(CliUsageError, match="SQLite backend could not be initialized"):
+        create_backup_database(tmp_path, operation="write")
