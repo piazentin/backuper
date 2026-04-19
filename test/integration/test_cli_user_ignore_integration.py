@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+import pytest
 from backuper.commands import NewCommand
 from backuper.components.csv_db import CsvDb, _StoredFile
 from backuper.config import CsvDbConfig
@@ -12,6 +13,11 @@ from backuper.entrypoints.cli import run_new
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _IGNORE_FIXTURE = _REPO_ROOT / "test" / "resources" / "bkp_test_sources_ignore_rules"
+
+
+@pytest.fixture(autouse=True)
+def _force_csv_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FORCE_CSV_DB", "1")
 
 
 def _copy_ignore_fixture(tmp_path: Path) -> Path:

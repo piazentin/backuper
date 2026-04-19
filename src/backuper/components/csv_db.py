@@ -126,20 +126,13 @@ class CsvDb:
         pending_name = f"{self._PENDING_PREFIX}{name}{self._config.csv_file_extension}"
         return os.path.join(self.db_dir, pending_name)
 
-    def _is_pending_csv_filename(self, filename: str) -> bool:
-        return filename.startswith(self._PENDING_PREFIX) and filename.endswith(
-            self._config.csv_file_extension
-        )
-
     def get_all_versions(self) -> list[_Version]:
         ext = self._config.csv_file_extension
         return [
             _Version(f.removesuffix(ext))
             for f in os.listdir(self.db_dir)
             # Skip dotfiles (e.g. macOS AppleDouble `._name.csv` sidecars are not UTF-8 CSV).
-            if f.endswith(ext)
-            and not f.startswith(".")
-            and not self._is_pending_csv_filename(f)
+            if f.endswith(ext) and not f.startswith(".")
         ]
 
     def create_version(self, name: str) -> _Version:
@@ -147,8 +140,11 @@ class CsvDb:
         completed_file = self._csv_path_from_name(name)
         if os.path.exists(pending_file) or os.path.exists(completed_file):
             raise VersionAlreadyExistsError(name)
-        with open(pending_file, "x", encoding="utf-8"):
-            pass
+        try:
+            with open(pending_file, "x", encoding="utf-8"):
+                pass
+        except FileExistsError as exc:
+            raise VersionAlreadyExistsError(name) from exc
         return _Version(name)
 
     def maybe_get_version_by_name(self, name: str) -> _Version | None:
@@ -251,6 +247,8 @@ class CsvDb:
 
 
 class CsvBackupDatabase(BackupDatabase):
+    _MTIME_TOLERANCE_SECONDS = 0.001
+
     def __init__(
         self,
         csv_db: CsvDb,
@@ -389,7 +387,10 @@ class CsvBackupDatabase(BackupDatabase):
         rel = str(relative_path)
         result = []
         for stored_file in self._files_by_restore_path.get(rel, []):
-            if abs(stored_file.mtime - mtime) < 0.001 and stored_file.size == size:
+            if (
+                abs(stored_file.mtime - mtime) <= self._MTIME_TOLERANCE_SECONDS
+                and stored_file.size == size
+            ):
                 result.append(self._stored_file_to_backup_entry(stored_file))
 
         return result

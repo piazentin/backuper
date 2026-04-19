@@ -181,6 +181,58 @@ async def test_csv_backup_database_add_and_lookup_file_entries(tmp_path: Path) -
 
 
 @pytest.mark.asyncio
+async def test_csv_backup_database_metadata_lookup_includes_tolerance_boundaries(
+    tmp_path: Path,
+) -> None:
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    version = "v-boundary-csv"
+    expected_mtime = 10.0
+    tolerance = db._MTIME_TOLERANCE_SECONDS
+    lower_bound = expected_mtime - tolerance
+    upper_bound = expected_mtime + tolerance
+    await db.create_version(version)
+    await db.add_file(
+        version,
+        BackedUpFileEntry(
+            source_file=FileEntry(
+                path=Path("/src/lower.txt"),
+                relative_path=Path("boundary.txt"),
+                size=10,
+                mtime=lower_bound,
+                is_directory=False,
+            ),
+            backup_id=UUID("88888888-8888-8888-8888-888888888888"),
+            stored_location="data/lower",
+            is_compressed=False,
+            hash="h-lower-csv",
+        ),
+    )
+    await db.add_file(
+        version,
+        BackedUpFileEntry(
+            source_file=FileEntry(
+                path=Path("/src/upper.txt"),
+                relative_path=Path("boundary.txt"),
+                size=10,
+                mtime=upper_bound,
+                is_directory=False,
+            ),
+            backup_id=UUID("99999999-9999-9999-9999-999999999999"),
+            stored_location="data/upper",
+            is_compressed=False,
+            hash="h-upper-csv",
+        ),
+    )
+    await db.complete_version(version)
+
+    matches = await db.get_files_by_metadata(Path("boundary.txt"), expected_mtime, 10)
+
+    assert len(matches) == 2
+    assert {item.hash for item in matches} == {"h-lower-csv", "h-upper-csv"}
+
+
+@pytest.mark.asyncio
 async def test_csv_backup_database_add_and_list_directory_entries(
     tmp_path: Path,
 ) -> None:
