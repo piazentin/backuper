@@ -73,7 +73,8 @@ FROM version_files vf
 INNER JOIN versions v ON v.name = vf.version_name
 WHERE v.state = ?
   AND vf.restore_path = ?
-  AND vf.mtime = ?
+  AND vf.mtime > ?
+  AND vf.mtime < ?
   AND vf.size = ?
 ORDER BY vf.id ASC
 """
@@ -194,6 +195,7 @@ class SqliteBackupDatabase(BackupDatabase):
     _COMPRESSION_ZIP = "zip"
     _VERSION_STATE_PENDING = "pending"
     _VERSION_STATE_COMPLETED = "completed"
+    _MTIME_TOLERANCE_SECONDS = 0.001
 
     def __init__(self, sqlite_db: SqliteDb) -> None:
         self._sqlite_db = sqlite_db
@@ -269,16 +271,13 @@ class SqliteBackupDatabase(BackupDatabase):
 
     async def create_version(self, version: str) -> None:
         with self._sqlite_db.connect() as conn:
-            existing_row = conn.execute(
-                "SELECT 1 FROM versions WHERE name = ?",
-                (version,),
-            ).fetchone()
-            if existing_row is not None:
-                raise VersionAlreadyExistsError(version)
-            conn.execute(
-                SQL_INSERT_VERSION,
-                (version, self._VERSION_STATE_PENDING, time.time()),
-            )
+            try:
+                conn.execute(
+                    SQL_INSERT_VERSION,
+                    (version, self._VERSION_STATE_PENDING, time.time()),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise VersionAlreadyExistsError(version) from exc
             conn.commit()
 
     async def complete_version(self, version: str) -> None:
@@ -364,13 +363,16 @@ class SqliteBackupDatabase(BackupDatabase):
     async def get_files_by_metadata(
         self, relative_path: Path, mtime: float, size: int
     ) -> list[BackedUpFileEntry]:
+        lower_bound = mtime - self._MTIME_TOLERANCE_SECONDS
+        upper_bound = mtime + self._MTIME_TOLERANCE_SECONDS
         with self._sqlite_db.connect() as conn:
             rows = conn.execute(
                 SQL_SELECT_FILES_BY_METADATA,
                 (
                     self._VERSION_STATE_COMPLETED,
                     str(relative_path),
-                    mtime,
+                    lower_bound,
+                    upper_bound,
                     size,
                 ),
             ).fetchall()

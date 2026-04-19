@@ -139,7 +139,6 @@ class CsvDb:
             # Skip dotfiles (e.g. macOS AppleDouble `._name.csv` sidecars are not UTF-8 CSV).
             if f.endswith(ext)
             and not f.startswith(".")
-            and not self._is_pending_csv_filename(f)
         ]
 
     def create_version(self, name: str) -> _Version:
@@ -147,8 +146,11 @@ class CsvDb:
         completed_file = self._csv_path_from_name(name)
         if os.path.exists(pending_file) or os.path.exists(completed_file):
             raise VersionAlreadyExistsError(name)
-        with open(pending_file, "x", encoding="utf-8"):
-            pass
+        try:
+            with open(pending_file, "x", encoding="utf-8"):
+                pass
+        except FileExistsError as exc:
+            raise VersionAlreadyExistsError(name) from exc
         return _Version(name)
 
     def maybe_get_version_by_name(self, name: str) -> _Version | None:
