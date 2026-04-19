@@ -265,7 +265,8 @@ class CsvBackupDatabase(BackupDatabase):
         )
 
     async def list_versions(self) -> list[str]:
-        return [version.name for version in self._csv_db.get_all_versions()]
+        names = [version.name for version in self._csv_db.get_all_versions()]
+        return sorted(names)
 
     async def get_version_by_name(self, name: str) -> str:
         return self._csv_db.get_version_by_name(name).name
