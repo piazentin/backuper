@@ -13,6 +13,11 @@ from backuper.entrypoints.cli import run_new, run_update, run_verify_integrity
 from backuper.models import CliUsageError, VersionNotFoundError
 
 
+@pytest.fixture(autouse=True)
+def _force_csv_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FORCE_CSV_DB", "1")
+
+
 def _seed_backup(destination: Path, source: Path, *, version: str = "v1") -> None:
     source.mkdir()
     (source / "file.txt").write_text("payload", encoding="utf-8")

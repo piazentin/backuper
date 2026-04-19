@@ -64,7 +64,11 @@ def run_new(command: NewCommand) -> None:
                 path_filter=GitIgnorePathFilter(user_patterns=user_patterns)
             ),
             analyzer=BackupAnalyzerImpl(),
-            db=create_backup_database(destination, index_status=print),
+            db=create_backup_database(
+                destination,
+                operation="write",
+                index_status=print,
+            ),
             filestore=_local_filestore(destination),
             reporter=StdoutAnalysisReporter(),
         )
@@ -92,7 +96,11 @@ def run_update(command: UpdateCommand) -> None:
                 path_filter=GitIgnorePathFilter(user_patterns=user_patterns)
             ),
             analyzer=BackupAnalyzerImpl(),
-            db=create_backup_database(destination, index_status=print),
+            db=create_backup_database(
+                destination,
+                operation="write",
+                index_status=print,
+            ),
             filestore=_local_filestore(destination),
             reporter=StdoutAnalysisReporter(),
         )
@@ -107,7 +115,7 @@ def run_verify_integrity(command: VerifyIntegrityCommand) -> list[str]:
     errors = asyncio.run(
         run_verify_integrity_flow(
             command,
-            db=create_backup_database(destination),
+            db=create_backup_database(destination, operation="read"),
             filestore=_local_filestore(destination),
         )
     )
@@ -132,7 +140,7 @@ def run_restore(command: RestoreCommand) -> None:
     asyncio.run(
         run_restore_flow(
             command,
-            db=create_backup_database(source),
+            db=create_backup_database(source, operation="read"),
             filestore=_local_filestore(source),
             on_restore_file=lambda relative_path: print(
                 f"Restoring {relative_path} to {command.destination}"
