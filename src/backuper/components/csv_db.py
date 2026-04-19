@@ -137,8 +137,7 @@ class CsvDb:
             _Version(f.removesuffix(ext))
             for f in os.listdir(self.db_dir)
             # Skip dotfiles (e.g. macOS AppleDouble `._name.csv` sidecars are not UTF-8 CSV).
-            if f.endswith(ext)
-            and not f.startswith(".")
+            if f.endswith(ext) and not f.startswith(".")
         ]
 
     def create_version(self, name: str) -> _Version:

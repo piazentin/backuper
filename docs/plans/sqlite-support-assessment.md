@@ -71,6 +71,12 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 
 **Outcome:** The composition root (or equivalent wiring) can **materialise a SQLite-backed `BackupDatabase`** for a backup root, with configuration or on-disk **discoverability** rules defined so the runtime knows which backend to use. **`new` / `update` / `verify-integrity` / `restore`** run against SQLite end-to-end for supported configurations.
 
+**Accepted ADRs (Phase 3 policy lock-in):**
+
+| ADR | Date | Topic |
+|-----|------|--------|
+| [ADR-0006](../adr/0006-backend-resolution-policy.md) | 2026-04-19 | Backend precedence (SQLite default, mixed-state selection), `FORCE_CSV_DB=1` override semantics, canonical CSV detection for resolver decisions, and partial SQLite init behavior split by write (`new`/`update`) vs read (`restore`/`verify-integrity`) flows |
+
 **Incremental value:** New backups can opt into SQLite without migration from CSV; validates real workflows before mass migration.
 
 **Later planning:** CLI/config surface, defaults, and discoverability rules (CSV **or** SQLite per tree — [ADR-0001](../adr/0001-sqlite-manifest-store.md)).
@@ -127,3 +133,4 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 | 2026-04-19 | ADRs moved to `docs/adr/`; meta table (created / last updated). |
 | 2026-04-19 | Phase 2: linked ADR-0005 (adapter contract + schema v1 decisions). |
 | 2026-04-19 | Linked deferred async offload enhancement issue [#50](https://github.com/piazentin/backuper/issues/50) from Phase 2 references. |
+| 2026-04-19 | Phase 3: linked ADR-0006 (backend resolution, override, mixed-state, and partial-init read/write policy). |
