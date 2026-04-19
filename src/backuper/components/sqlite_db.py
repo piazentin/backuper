@@ -16,6 +16,68 @@ from backuper.models import (
 )
 from backuper.ports import BackupDatabase
 
+SQL_SELECT_COMPLETED_VERSION_NAMES = (
+    "SELECT name FROM versions WHERE state = ? ORDER BY name ASC"
+)
+SQL_SELECT_MOST_RECENT_COMPLETED_VERSION = """
+SELECT name
+FROM versions
+WHERE state = ?
+ORDER BY created_at DESC, name DESC
+LIMIT 1
+"""
+SQL_SELECT_COMPLETED_VERSION_BY_NAME = (
+    "SELECT name FROM versions WHERE name = ? AND state = ?"
+)
+SQL_SELECT_FILES_BY_VERSION = """
+SELECT restore_path, hash_digest, storage_location, compression, size, mtime
+FROM version_files
+WHERE version_name = ?
+ORDER BY id ASC
+"""
+SQL_SELECT_DIRECTORIES_BY_VERSION = """
+SELECT restore_path
+FROM version_directories
+WHERE version_name = ?
+ORDER BY id ASC
+"""
+SQL_INSERT_VERSION = "INSERT INTO versions(name, state, created_at) VALUES (?, ?, ?)"
+SQL_INSERT_DIRECTORY = """
+INSERT INTO version_directories(version_name, restore_path)
+VALUES (?, ?)
+"""
+SQL_INSERT_FILE = """
+INSERT INTO version_files(
+    version_name,
+    restore_path,
+    hash_algorithm,
+    hash_digest,
+    storage_location,
+    compression,
+    size,
+    mtime
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+"""
+SQL_SELECT_FILES_BY_HASH = """
+SELECT vf.restore_path, vf.hash_digest, vf.storage_location, vf.compression,
+       vf.size, vf.mtime
+FROM version_files vf
+INNER JOIN versions v ON v.name = vf.version_name
+WHERE v.state = ? AND vf.hash_algorithm = ? AND vf.hash_digest = ?
+ORDER BY vf.id ASC
+"""
+SQL_SELECT_FILES_BY_METADATA = """
+SELECT vf.restore_path, vf.hash_digest, vf.storage_location, vf.compression,
+       vf.size, vf.mtime
+FROM version_files vf
+INNER JOIN versions v ON v.name = vf.version_name
+WHERE v.state = ?
+  AND vf.restore_path = ?
+  AND vf.mtime = ?
+  AND vf.size = ?
+ORDER BY vf.id ASC
+"""
+
 
 class SqliteDb:
     """SQLite bootstrapper for backup manifest storage."""
@@ -139,7 +201,7 @@ class SqliteBackupDatabase(BackupDatabase):
     async def list_versions(self) -> list[str]:
         with self._sqlite_db.connect() as conn:
             rows = conn.execute(
-                "SELECT name FROM versions WHERE state = ? ORDER BY name ASC",
+                SQL_SELECT_COMPLETED_VERSION_NAMES,
                 (self._VERSION_STATE_COMPLETED,),
             ).fetchall()
         return [str(row["name"]) for row in rows]
@@ -147,13 +209,7 @@ class SqliteBackupDatabase(BackupDatabase):
     async def most_recent_version(self) -> str | None:
         with self._sqlite_db.connect() as conn:
             row = conn.execute(
-                """
-                SELECT name
-                FROM versions
-                WHERE state = ?
-                ORDER BY created_at DESC, name DESC
-                LIMIT 1
-                """,
+                SQL_SELECT_MOST_RECENT_COMPLETED_VERSION,
                 (self._VERSION_STATE_COMPLETED,),
             ).fetchone()
         if row is None:
@@ -163,7 +219,7 @@ class SqliteBackupDatabase(BackupDatabase):
     async def get_version_by_name(self, name: str) -> str:
         with self._sqlite_db.connect() as conn:
             row = conn.execute(
-                "SELECT name FROM versions WHERE name = ? AND state = ?",
+                SQL_SELECT_COMPLETED_VERSION_BY_NAME,
                 (name, self._VERSION_STATE_COMPLETED),
             ).fetchone()
         if row is None:
@@ -180,21 +236,11 @@ class SqliteBackupDatabase(BackupDatabase):
                 raise VersionNotFoundError(version)
 
             file_rows = conn.execute(
-                """
-                SELECT restore_path, hash_digest, storage_location, compression, size, mtime
-                FROM version_files
-                WHERE version_name = ?
-                ORDER BY id ASC
-                """,
+                SQL_SELECT_FILES_BY_VERSION,
                 (version,),
             ).fetchall()
             dir_rows = conn.execute(
-                """
-                SELECT restore_path
-                FROM version_directories
-                WHERE version_name = ?
-                ORDER BY id ASC
-                """,
+                SQL_SELECT_DIRECTORIES_BY_VERSION,
                 (version,),
             ).fetchall()
 
@@ -230,7 +276,7 @@ class SqliteBackupDatabase(BackupDatabase):
             if existing_row is not None:
                 raise VersionAlreadyExistsError(version)
             conn.execute(
-                "INSERT INTO versions(name, state, created_at) VALUES (?, ?, ?)",
+                SQL_INSERT_VERSION,
                 (version, self._VERSION_STATE_PENDING, time.time()),
             )
             conn.commit()
@@ -263,28 +309,14 @@ class SqliteBackupDatabase(BackupDatabase):
 
             if entry.source_file.is_directory:
                 conn.execute(
-                    """
-                    INSERT INTO version_directories(version_name, restore_path)
-                    VALUES (?, ?)
-                    """,
+                    SQL_INSERT_DIRECTORY,
                     (version, str(entry.source_file.relative_path)),
                 )
                 conn.commit()
                 return
 
             conn.execute(
-                """
-                INSERT INTO version_files(
-                    version_name,
-                    restore_path,
-                    hash_algorithm,
-                    hash_digest,
-                    storage_location,
-                    compression,
-                    size,
-                    mtime
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+                SQL_INSERT_FILE,
                 (
                     version,
                     str(entry.source_file.relative_path),
@@ -320,14 +352,7 @@ class SqliteBackupDatabase(BackupDatabase):
     async def get_files_by_hash(self, hash: str) -> list[BackedUpFileEntry]:
         with self._sqlite_db.connect() as conn:
             rows = conn.execute(
-                """
-                SELECT vf.restore_path, vf.hash_digest, vf.storage_location, vf.compression,
-                       vf.size, vf.mtime
-                FROM version_files vf
-                INNER JOIN versions v ON v.name = vf.version_name
-                WHERE v.state = ? AND vf.hash_algorithm = ? AND vf.hash_digest = ?
-                ORDER BY vf.id ASC
-                """,
+                SQL_SELECT_FILES_BY_HASH,
                 (
                     self._VERSION_STATE_COMPLETED,
                     self._DEFAULT_HASH_ALGORITHM,
@@ -341,17 +366,7 @@ class SqliteBackupDatabase(BackupDatabase):
     ) -> list[BackedUpFileEntry]:
         with self._sqlite_db.connect() as conn:
             rows = conn.execute(
-                """
-                SELECT vf.restore_path, vf.hash_digest, vf.storage_location, vf.compression,
-                       vf.size, vf.mtime
-                FROM version_files vf
-                INNER JOIN versions v ON v.name = vf.version_name
-                WHERE v.state = ?
-                  AND vf.restore_path = ?
-                  AND vf.mtime = ?
-                  AND vf.size = ?
-                ORDER BY vf.id ASC
-                """,
+                SQL_SELECT_FILES_BY_METADATA,
                 (
                     self._VERSION_STATE_COMPLETED,
                     str(relative_path),
