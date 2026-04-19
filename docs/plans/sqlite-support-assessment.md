@@ -59,7 +59,7 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 
 | ADR | Date | Topic |
 |-----|------|--------|
-| [ADR-0005](../adr/0005-sqlite-adapter-contract-and-schema-v1.md) | 2026-04-19 | Port extensions (`most_recent_version`, completion transition), CSV pending temp/finalize behavior, SQLite schema v1 + `user_version` policy, files-then-directories ordering, hash/storage/compression field decisions, deferred async offloading note |
+| [ADR-0005](../adr/0005-sqlite-adapter-contract-and-schema-v1.md) | 2026-04-19 | Port extensions (`most_recent_version`, completion transition), CSV pending temp/finalize behavior, SQLite schema v1 + `user_version` policy, files-then-directories ordering, hash/storage/compression field decisions, deferred async offloading note ([issue #50](https://github.com/piazentin/backuper/issues/50)) |
 
 **Incremental value:** Core persistence logic and test coverage exist in isolation; regressions are caught without touching CLI or migration.
 
@@ -126,3 +126,4 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 | 2026-04-19 | Phase 1: linked ADR-0001–0004 (SQLite design lock-in). |
 | 2026-04-19 | ADRs moved to `docs/adr/`; meta table (created / last updated). |
 | 2026-04-19 | Phase 2: linked ADR-0005 (adapter contract + schema v1 decisions). |
+| 2026-04-19 | Linked deferred async offload enhancement issue [#50](https://github.com/piazentin/backuper/issues/50) from Phase 2 references. |

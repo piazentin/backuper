@@ -60,14 +60,14 @@ This document captures stable architectural decisions that tests, migration work
 
 6. **I/O posture (deferred enhancement)**
    - Blocking DB I/O remains acceptable under the current architecture.
-   - Async offloading (`asyncio.to_thread` / executor strategy) is deferred to a follow-up GitHub enhancement issue and remains out of scope for this decision.
+   - Async offloading (`asyncio.to_thread` / executor strategy) is deferred to follow-up GitHub enhancement issue [#50](https://github.com/piazentin/backuper/issues/50) and remains out of scope for this decision.
 
 ## Consequences
 
 - Port contract tests can run against CSV and SQLite with one shared behavior matrix while documenting backend-specific differences explicitly.
 - Migration and integration work can rely on stable schema/user_version and lifecycle semantics without redefining adapter behavior.
 - Operator recovery expectations include retained CSV pending artifacts and hidden pending visibility by default.
-- A follow-up issue must track event-loop fairness and connection/thread-ownership risks before async DB offloading is introduced.
+- Follow-up issue [#50](https://github.com/piazentin/backuper/issues/50) tracks event-loop fairness and connection/thread-ownership risks before async DB offloading is introduced.
 
 ## Related
 
