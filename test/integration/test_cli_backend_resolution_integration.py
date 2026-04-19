@@ -6,9 +6,19 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-from backuper.commands import NewCommand, RestoreCommand, UpdateCommand, VerifyIntegrityCommand
+from backuper.commands import (
+    NewCommand,
+    RestoreCommand,
+    UpdateCommand,
+    VerifyIntegrityCommand,
+)
 from backuper.config import SqliteDbConfig
-from backuper.entrypoints.cli import run_new, run_restore, run_update, run_verify_integrity
+from backuper.entrypoints.cli import (
+    run_new,
+    run_restore,
+    run_update,
+    run_verify_integrity,
+)
 from backuper.models import CliUsageError
 
 
@@ -25,7 +35,9 @@ def _set_partial_sqlite_manifest(backup_root: Path) -> None:
         conn.commit()
 
 
-def test_run_update_repairs_partial_sqlite_manifest_for_write_flow(tmp_path: Path) -> None:
+def test_run_update_repairs_partial_sqlite_manifest_for_write_flow(
+    tmp_path: Path,
+) -> None:
     backup = tmp_path / "backup"
     source_v1 = tmp_path / "src-v1"
     source_v2 = tmp_path / "src-v2"
@@ -40,7 +52,9 @@ def test_run_update_repairs_partial_sqlite_manifest_for_write_flow(tmp_path: Pat
     (source_v2 / "file.txt").write_text("v2", encoding="utf-8")
     run_update(UpdateCommand(version="v2", source=str(source_v2), location=str(backup)))
 
-    errors = run_verify_integrity(VerifyIntegrityCommand(location=str(backup), version="v2"))
+    errors = run_verify_integrity(
+        VerifyIntegrityCommand(location=str(backup), version="v2")
+    )
     assert errors == []
 
 

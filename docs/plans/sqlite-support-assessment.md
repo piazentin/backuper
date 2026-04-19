@@ -69,7 +69,24 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 
 ## Phase 3 — End-to-end integration for new SQLite-backed trees
 
-**Outcome:** The composition root (or equivalent wiring) can **materialise a SQLite-backed `BackupDatabase`** for a backup root, with configuration or on-disk **discoverability** rules defined so the runtime knows which backend to use. **`new` / `update` / `verify-integrity` / `restore`** run against SQLite end-to-end for supported configurations.
+**Status:** In progress (core behavior merged; operator-facing follow-ups deferred).
+
+**Outcome:** The composition root now **materialises SQLite or CSV via resolver policy** for a backup root, using on-disk discoverability plus env override semantics. **`new` / `update` / `verify-integrity` / `restore`** are wired with operation context (`write` vs `read`) so backend selection and partial-init handling follow a single policy.
+
+**Done (implemented and covered):**
+
+- Resolver behavior in composition root:
+  - SQLite default for new/empty trees.
+  - SQLite wins when both SQLite + canonical CSV artifacts exist.
+  - `FORCE_CSV_DB=1` forces CSV even when SQLite exists.
+  - Canonical CSV detection excludes dot/pending artifacts used in CSV lifecycle transitions.
+- Read/write split for partial SQLite initialization:
+  - `new` and `update` pass `operation="write"` (repair/migration path allowed by backend implementation).
+  - `restore` and `verify-integrity` pass `operation="read"` and fail fast with actionable guidance when SQLite is not read-ready.
+- Validation references:
+  - Unit resolver matrix and read-path guardrails: [`test/unit/entrypoints/test_wiring.py`](../../test/unit/entrypoints/test_wiring.py)
+  - Unit CLI operation-context wiring (`read` vs `write`): [`test/unit/entrypoints/test_cli_runner_resolution_context.py`](../../test/unit/entrypoints/test_cli_runner_resolution_context.py)
+  - Integration flow checks (override + partial-init read/write behavior): [`test/integration/test_cli_backend_resolution_integration.py`](../../test/integration/test_cli_backend_resolution_integration.py)
 
 **Accepted ADRs (Phase 3 policy lock-in):**
 
@@ -79,7 +96,11 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 
 **Incremental value:** New backups can opt into SQLite without migration from CSV; validates real workflows before mass migration.
 
-**Later planning:** CLI/config surface, defaults, and discoverability rules (CSV **or** SQLite per tree — [ADR-0001](../adr/0001-sqlite-manifest-store.md)).
+**Deferred from Phase 3 / later planning:**
+
+- CLI/config UX polish beyond current env override contract (for example richer operator controls than `FORCE_CSV_DB=1`).
+- Additional operator docs consolidating mixed-manifest diagnostics and recovery runbooks.
+- Any policy changes to long-term CSV write posture remain in later phases (see Phase 6 and [ADR-0001](../adr/0001-sqlite-manifest-store.md)).
 
 ---
 
@@ -134,3 +155,4 @@ Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README
 | 2026-04-19 | Phase 2: linked ADR-0005 (adapter contract + schema v1 decisions). |
 | 2026-04-19 | Linked deferred async offload enhancement issue [#50](https://github.com/piazentin/backuper/issues/50) from Phase 2 references. |
 | 2026-04-19 | Phase 3: linked ADR-0006 (backend resolution, override, mixed-state, and partial-init read/write policy). |
+| 2026-04-19 | Phase 3: added explicit progress status, completed-vs-deferred split, and links to resolver/CLI/integration test coverage. |
