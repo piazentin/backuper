@@ -34,11 +34,7 @@ _SQLITE_BOOTSTRAP_GUIDANCE = (
 
 def _sqlite_manifest_path(backup_root: Path) -> Path:
     config = SqliteDbConfig(backup_dir=str(backup_root))
-    return (
-        backup_root
-        / config.backup_db_dir
-        / config.sqlite_filename
-    )
+    return backup_root / config.backup_db_dir / config.sqlite_filename
 
 
 def _has_canonical_csv_manifest(backup_root: Path) -> bool:
@@ -106,6 +102,8 @@ def create_backup_database(
     if operation == "read":
         _validate_sqlite_manifest_for_read(sqlite_manifest_path)
     try:
-        return SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(backup_root))))
+        return SqliteBackupDatabase(
+            SqliteDb(SqliteDbConfig(backup_dir=str(backup_root)))
+        )
     except sqlite3.Error as exc:
         raise CliUsageError(_SQLITE_BOOTSTRAP_GUIDANCE) from exc
