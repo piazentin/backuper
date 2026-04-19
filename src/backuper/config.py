@@ -41,6 +41,13 @@ class CsvDbConfig:
 
 
 @dataclass
+class SqliteDbConfig:
+    backup_dir: str
+    backup_db_dir: str = "db"
+    sqlite_filename: str = "manifest.sqlite3"
+
+
+@dataclass
 class FilestoreConfig:
     backup_dir: str
     backup_data_dir: str = "data"
