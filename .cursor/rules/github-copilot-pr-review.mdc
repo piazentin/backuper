@@ -7,6 +7,10 @@ alwaysApply: false
 
 Use **GitHub CLI 2.88+** and a GitHub plan that includes [Copilot code review](https://docs.github.com/copilot/using-github-copilot/code-review/using-copilot-code-review). Not supported on GitHub Enterprise Server.
 
+## This repository
+
+Prefer **`make pr`** from the repo root: it runs `gh pr create` with **`.github/PULL_REQUEST_TEMPLATE.md`** and **`--reviewer '@copilot'`** (see the **`pull-requests`** Cursor rule and **`AGENTS.md`**). Use the commands below when not using `make pr`.
+
 ## Add Copilot when creating a PR
 
 ```bash

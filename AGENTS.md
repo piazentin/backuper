@@ -17,6 +17,7 @@ This file is the canonical agent and contributor map for this repository; prefer
 ## Additional documentation
 
 - **CSV migration (operators):** legacy version manifests must be migrated with **`uv run python -m scripts.migrate_version_csv`** before using the current runtime on an existing backup tree; see **[`docs/csv-migration-contract.md`](docs/csv-migration-contract.md)**.
+- **Source ignores (operators):** on-disk `.gitignore` / `.backupignore`, CLI `--ignore-pattern` / `--ignore-file`, precedence, and logging—see **[`docs/source-ignores.md`](docs/source-ignores.md)**.
 
 ## Future HTTP / second composition root
 
@@ -68,7 +69,11 @@ Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run
 
 - Always read and follow [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) before opening a PR.
 - Keep PR body section headings and order exactly as the template: `Context`, `What`, `How`, `Validation`, `Risks / Rollback`.
-- Use `gh pr create` with a body that mirrors the template and includes concrete verification details.
+- **Use the template in tooling so it is not skipped:**
+  - From the repo root: **`make pr`** (runs `gh pr create --base main --template .github/PULL_REQUEST_TEMPLATE.md --reviewer '@copilot'`; override base with `make pr PR_BASE=<branch>`), or run that `gh` command yourself. Use the literal **`@copilot`** reviewer so GitHub Copilot code review is requested ([`.cursor/rules/github-copilot-pr-review.mdc`](.cursor/rules/github-copilot-pr-review.mdc)).
+  - Or **`gh pr create -w`** to create the PR in the browser (GitHub applies the default template there), then add **Copilot** as a reviewer if needed.
+- Do **not** rely on `--fill` / `--fill-verbose` alone for the final PR body—they replace the structured template unless you combine them carefully with `--template` per `gh pr create --help`.
+- If the PR was opened with a poor description, fix it with **`gh pr edit <n> --body-file <path>`** using a file that follows the template. If Copilot was not requested, run **`gh pr edit <n> --add-reviewer '@copilot'`**.
 
 ## Implementation layering
 

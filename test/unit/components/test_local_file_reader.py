@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from backuper.components.file_reader import LocalFileReader
+from backuper.components.path_ignore import GitIgnorePathFilter
 from backuper.models import FileEntry
 from backuper.ports import PathFilter
 
@@ -61,6 +62,34 @@ class _SelectivePathFilter(PathFilter):
 
     def can_prune_subtree(self, entry: FileEntry, *, source_root: Path) -> bool:
         return entry.relative_path == Path("ignored_dir")
+
+
+@pytest.mark.asyncio
+async def test_local_file_reader_gitignore_caplog_user_and_tree_exclusion_substrings(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Skip logs include grep-friendly reasons: CLI patterns vs on-disk ignore files."""
+    (tmp_path / "by_user.txt").write_text("u", encoding="utf-8")
+    (tmp_path / "by_tree.txt").write_text("t", encoding="utf-8")
+    (tmp_path / "kept.txt").write_text("k", encoding="utf-8")
+    (tmp_path / ".gitignore").write_text("by_tree.txt\n", encoding="utf-8")
+    reader = LocalFileReader(
+        path_filter=GitIgnorePathFilter(user_patterns=("by_user.txt",)),
+    )
+    caplog.set_level("INFO", logger="backuper.components.file_reader")
+
+    paths: list[Path] = []
+    async for entry in reader.read_directory(tmp_path):
+        paths.append(entry.relative_path)
+
+    assert sorted(paths) == [Path(".gitignore"), Path("kept.txt")]
+    messages = [record.getMessage() for record in caplog.records]
+    user_logs = [msg for msg in messages if "Skipping by_user.txt" in msg]
+    tree_logs = [msg for msg in messages if "Skipping by_tree.txt" in msg]
+    assert len(user_logs) == 1
+    assert "excluded by user" in user_logs[0]
+    assert len(tree_logs) == 1
+    assert "excluded by .gitignore" in tree_logs[0]
 
 
 @pytest.mark.asyncio

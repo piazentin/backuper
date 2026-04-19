@@ -9,4 +9,5 @@ When running project validation, use documented `make` targets instead of callin
 
 - Prefer `make test` for the full suite (`pytest test/unit test/integration`), or `make unit` / `make integration` when you need that scope.
 - Prefer `make lint` / `make lint-fix` for formatting and linting.
+- Prefer **`make pr`** (or `gh pr create --template .github/PULL_REQUEST_TEMPLATE.md --reviewer '@copilot'`) when creating a pull request so the body starts from [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) and **Copilot** is requested ([github-copilot-pr-review.mdc](github-copilot-pr-review.mdc)).
 - Do not run `pytest`, `ruff`, or other validation tools directly unless the user explicitly asks for that command.
