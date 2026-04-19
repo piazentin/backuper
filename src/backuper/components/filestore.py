@@ -11,6 +11,7 @@ from backuper.models import PutResult
 from backuper.ports import FileStore
 from backuper.utils.hashing import compute_hash
 from backuper.utils.paths import hash_to_stored_location, normalize_path
+from backuper.utils.zip_payload import read_zip_payload_bytes
 
 StoredLocation = str
 
@@ -45,8 +46,7 @@ class LocalFileStore(FileStore):
         rel = self.blob_relative_path(file_hash, is_compressed)
         path = self._root_path / rel
         if is_compressed:
-            with ZipFile(path, "r") as zf:
-                return zf.read("part001")
+            return read_zip_payload_bytes(path, file_hash)
         return path.read_bytes()
 
     def put(

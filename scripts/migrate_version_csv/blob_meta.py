@@ -5,36 +5,49 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import BadZipFile, LargeZipFile, ZipFile
+
+from backuper.utils.zip_payload import ZipPayloadError, resolve_zip_payload_member_name
 
 from scripts.migrate_version_csv.paths import hash_to_stored_location
 
 _LOG = logging.getLogger(__name__)
-_ZIP_MEMBER_NAME = "part001"
 
 
 def read_logical_size_and_blob_mtime(
     blob_path: Path,
     *,
     is_compressed: bool,
+    file_hash: str | None = None,
 ) -> tuple[int, float]:
-    """Logical file size (uncompressed bytes) and the blob file's mtime."""
+    """Logical uncompressed size and the blob file's mtime.
+
+    For compressed blobs, pass ``file_hash`` (manifest SHA-1 hex); member resolution matches
+    ``backuper.utils.zip_payload`` (same rules as restore).
+    """
     if not blob_path.is_file():
         return 0, 0.0
     blob_mtime = os.path.getmtime(blob_path)
     if not is_compressed:
         return os.path.getsize(blob_path), blob_mtime
+    if not file_hash:
+        _LOG.warning(
+            "Compressed blob enrichment needs file_hash for ZIP resolution: %s",
+            blob_path,
+        )
+        return 0, blob_mtime
     try:
         with ZipFile(blob_path, "r") as archive:
             try:
-                member = archive.getinfo(_ZIP_MEMBER_NAME)
-            except KeyError:
-                _LOG.warning(
-                    "ZIP blob missing %r member: %s", _ZIP_MEMBER_NAME, blob_path
+                member_name = resolve_zip_payload_member_name(
+                    archive, file_hash, zip_path=blob_path
                 )
+            except ZipPayloadError as exc:
+                _LOG.warning("%s", exc)
                 return 0, blob_mtime
+            member = archive.getinfo(member_name)
             return member.file_size, blob_mtime
-    except OSError as exc:
+    except (OSError, BadZipFile, LargeZipFile) as exc:
         _LOG.warning("Cannot read ZIP blob %s: %s", blob_path, exc)
         return 0, blob_mtime
 
@@ -115,6 +128,7 @@ def enrich_size_mtime(
     logical_size, blob_mtime = read_logical_size_and_blob_mtime(
         blob_path,
         is_compressed=blob_is_compressed,
+        file_hash=sha1hash,
     )
     out_size = logical_size if need_size else None
     out_mtime = blob_mtime if need_mtime else None
