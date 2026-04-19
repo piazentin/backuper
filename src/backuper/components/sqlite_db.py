@@ -16,6 +16,14 @@ from backuper.models import (
 )
 from backuper.ports import BackupDatabase
 
+SQLITE_BUSY_TIMEOUT_MS = 5000
+
+
+def configure_sqlite_read_probe_connection(conn: sqlite3.Connection) -> None:
+    """Apply minimal PRAGMAs for read-only manifest probes (matches writer busy_timeout)."""
+    conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
+
+
 SQL_SELECT_COMPLETED_VERSION_NAMES = (
     "SELECT name FROM versions WHERE state = ? ORDER BY name ASC"
 )
@@ -86,6 +94,10 @@ class SqliteDb:
     _SCHEMA_VERSION = 1
 
     def __init__(self, config: SqliteDbConfig) -> None:
+        if not 0 <= config.sqlite_synchronous <= 3:
+            raise ValueError(
+                f"sqlite_synchronous must be 0–3, got {config.sqlite_synchronous}"
+            )
         self._config = config
         self.db_dir = Path(self._config.backup_dir) / self._config.backup_db_dir
         self.db_dir.mkdir(parents=True, exist_ok=True)
@@ -121,6 +133,8 @@ class SqliteDb:
     def _configure_connection(self, conn: sqlite3.Connection) -> None:
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
+        conn.execute(f"PRAGMA synchronous={self._config.sqlite_synchronous}")
 
     def _migrate_to_v1(self, conn: sqlite3.Connection) -> None:
         conn.execute(

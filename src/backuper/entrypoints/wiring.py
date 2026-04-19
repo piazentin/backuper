@@ -8,8 +8,12 @@ from pathlib import Path
 from typing import Literal
 
 from backuper.components.csv_db import CsvBackupDatabase, CsvDb
-from backuper.components.sqlite_db import SqliteBackupDatabase, SqliteDb
-from backuper.config import CsvDbConfig, SqliteDbConfig
+from backuper.components.sqlite_db import (
+    SqliteBackupDatabase,
+    SqliteDb,
+    configure_sqlite_read_probe_connection,
+)
+from backuper.config import CsvDbConfig, SqliteDbConfig, sqlite_db_config
 from backuper.models import CliUsageError
 from backuper.ports import BackupDatabase
 
@@ -71,6 +75,7 @@ def _validate_sqlite_manifest_for_read(sqlite_manifest_path: Path) -> None:
         with closing(
             sqlite3.connect(f"file:{sqlite_manifest_path}?mode=ro", uri=True)
         ) as conn:
+            configure_sqlite_read_probe_connection(conn)
             version_row = conn.execute("PRAGMA user_version").fetchone()
             if version_row is None or int(version_row[0]) < 1:
                 raise CliUsageError(_RESOLUTION_GUIDANCE)
@@ -102,8 +107,6 @@ def create_backup_database(
     if operation == "read":
         _validate_sqlite_manifest_for_read(sqlite_manifest_path)
     try:
-        return SqliteBackupDatabase(
-            SqliteDb(SqliteDbConfig(backup_dir=str(backup_root)))
-        )
+        return SqliteBackupDatabase(SqliteDb(sqlite_db_config(str(backup_root))))
     except sqlite3.Error as exc:
         raise CliUsageError(_SQLITE_BOOTSTRAP_GUIDANCE) from exc
