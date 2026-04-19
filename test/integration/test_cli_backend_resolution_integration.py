@@ -66,7 +66,7 @@ def test_run_restore_fails_fast_for_partial_sqlite_manifest_on_read_flow(
     backup.mkdir(parents=True, exist_ok=True)
     _set_partial_sqlite_manifest(backup)
 
-    with pytest.raises(CliUsageError, match="SQLite manifest is not ready for read"):
+    with pytest.raises(CliUsageError, match=r"SQLite manifest:.*not ready for read"):
         run_restore(
             RestoreCommand(
                 location=str(backup),
@@ -83,7 +83,7 @@ def test_run_verify_integrity_fails_fast_for_partial_sqlite_manifest_on_read_flo
     backup.mkdir(parents=True, exist_ok=True)
     _set_partial_sqlite_manifest(backup)
 
-    with pytest.raises(CliUsageError, match="SQLite manifest is not ready for read"):
+    with pytest.raises(CliUsageError, match=r"SQLite manifest:.*not ready for read"):
         run_verify_integrity(VerifyIntegrityCommand(location=str(backup)))
 
 

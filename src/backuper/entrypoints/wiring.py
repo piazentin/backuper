@@ -8,25 +8,31 @@ from pathlib import Path
 from typing import Literal
 
 from backuper.components.csv_db import CsvBackupDatabase, CsvDb
-from backuper.components.sqlite_db import SqliteBackupDatabase, SqliteDb
-from backuper.config import CsvDbConfig, SqliteDbConfig
+from backuper.components.sqlite_db import (
+    SqliteBackupDatabase,
+    SqliteDb,
+    configure_sqlite_read_probe_connection,
+)
+from backuper.config import CsvDbConfig, SqliteDbConfig, sqlite_db_config
 from backuper.models import CliUsageError
 from backuper.ports import BackupDatabase
 
 _FORCE_CSV_DB_ENV = "FORCE_CSV_DB"
 _SQLITE_REQUIRED_TABLES = {"versions", "version_files", "version_directories"}
+# Prefix helps operators grep stderr and distinguish manifest wiring from generic usage errors.
+_SQLITE_CLI_PREFIX = "SQLite manifest: "
 _RESOLUTION_GUIDANCE = (
-    "The SQLite manifest is not ready for read operations. "
+    _SQLITE_CLI_PREFIX + "The manifest is not ready for read operations. "
     "Run a write command (new/update) to initialize or repair the SQLite backend, "
     "or set FORCE_CSV_DB=1 to force CSV backend selection."
 )
 _MISSING_SQLITE_MANIFEST_GUIDANCE = (
-    "No SQLite manifest found for read operation. "
+    _SQLITE_CLI_PREFIX + "No database file found for read operations. "
     "Run a write command (new/update) to create the SQLite backend, "
     "or set FORCE_CSV_DB=1 to force CSV backend selection."
 )
 _SQLITE_BOOTSTRAP_GUIDANCE = (
-    "The SQLite backend could not be initialized. "
+    _SQLITE_CLI_PREFIX + "The backend could not be initialized. "
     "Run a write command (new/update) to initialize or repair the SQLite backend, "
     "or set FORCE_CSV_DB=1 to force CSV backend selection."
 )
@@ -71,6 +77,7 @@ def _validate_sqlite_manifest_for_read(sqlite_manifest_path: Path) -> None:
         with closing(
             sqlite3.connect(f"file:{sqlite_manifest_path}?mode=ro", uri=True)
         ) as conn:
+            configure_sqlite_read_probe_connection(conn)
             version_row = conn.execute("PRAGMA user_version").fetchone()
             if version_row is None or int(version_row[0]) < 1:
                 raise CliUsageError(_RESOLUTION_GUIDANCE)
@@ -102,8 +109,11 @@ def create_backup_database(
     if operation == "read":
         _validate_sqlite_manifest_for_read(sqlite_manifest_path)
     try:
-        return SqliteBackupDatabase(
-            SqliteDb(SqliteDbConfig(backup_dir=str(backup_root)))
-        )
+        config = sqlite_db_config(str(backup_root))
+    except (RuntimeError, ValueError) as exc:
+        # Invalid BACKUPER_SQLITE_SYNCHRONOUS (and other config parsing failures).
+        raise CliUsageError(str(exc)) from exc
+    try:
+        return SqliteBackupDatabase(SqliteDb(config))
     except sqlite3.Error as exc:
         raise CliUsageError(_SQLITE_BOOTSTRAP_GUIDANCE) from exc

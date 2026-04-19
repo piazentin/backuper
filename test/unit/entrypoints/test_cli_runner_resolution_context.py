@@ -12,11 +12,9 @@ from backuper.commands import (
 from backuper.entrypoints.cli import runner
 from backuper.models import CliUsageError
 
-_READ_GUIDANCE = (
-    "The SQLite manifest is not ready for read operations. "
-    "Run a write command (new/update) to initialize or repair the SQLite backend, "
-    "or set FORCE_CSV_DB=1 to force CSV backend selection."
-)
+# Matches production resolver wording closely enough for pytest `match=`; do not import
+# private `_RESOLUTION_GUIDANCE` from wiring.
+_READ_FAILURE_STUB = "SQLite manifest: stub not ready for read"
 
 
 @pytest.fixture
@@ -86,11 +84,11 @@ def test_run_restore_uses_read_operation_and_raises_actionable_guidance(
 
     def _fake_create_backup_database(*args, **kwargs):  # type: ignore[no-untyped-def]
         calls.append(kwargs["operation"])
-        raise CliUsageError(_READ_GUIDANCE)
+        raise CliUsageError(_READ_FAILURE_STUB)
 
     monkeypatch.setattr(runner, "create_backup_database", _fake_create_backup_database)
 
-    with pytest.raises(CliUsageError, match="SQLite manifest is not ready for read"):
+    with pytest.raises(CliUsageError, match=r"SQLite manifest:.*not ready for read"):
         runner.run_restore(
             RestoreCommand(
                 location=str(backup),
@@ -111,11 +109,11 @@ def test_run_verify_integrity_uses_read_operation_and_raises_actionable_guidance
 
     def _fake_create_backup_database(*args, **kwargs):  # type: ignore[no-untyped-def]
         calls.append(kwargs["operation"])
-        raise CliUsageError(_READ_GUIDANCE)
+        raise CliUsageError(_READ_FAILURE_STUB)
 
     monkeypatch.setattr(runner, "create_backup_database", _fake_create_backup_database)
 
-    with pytest.raises(CliUsageError, match="SQLite manifest is not ready for read"):
+    with pytest.raises(CliUsageError, match=r"SQLite manifest:.*not ready for read"):
         runner.run_verify_integrity(VerifyIntegrityCommand(location=str(backup)))
 
     assert calls == ["read"]

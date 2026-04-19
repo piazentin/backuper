@@ -9,6 +9,7 @@ The CLI runs [`src/backuper`](src/backuper): entrypoints are the composition roo
 ## Documentation
 
 - **[docs/README.md](docs/README.md)** — index of project docs beyond the README.
+- **[docs/sqlite-manifest-operations.md](docs/sqlite-manifest-operations.md)** — SQLite manifest store: PRAGMA defaults, concurrency, integrity checks, and operator SQL (see also [CSV migration](docs/csv-migration-contract.md) and [source ignores](docs/source-ignores.md)).
 
 ## Install and run
 

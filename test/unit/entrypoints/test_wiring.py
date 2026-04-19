@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from backuper.components.csv_db import CsvBackupDatabase
 from backuper.components.sqlite_db import SqliteBackupDatabase
-from backuper.config import SqliteDbConfig
+from backuper.config import BACKUPER_SQLITE_SYNCHRONOUS_ENV, SqliteDbConfig
 from backuper.entrypoints.wiring import create_backup_database
 from backuper.models import CliUsageError
 from backuper.ports import BackupDatabase
@@ -39,6 +39,15 @@ def test_create_backup_database_defaults_to_sqlite_for_new_tree(tmp_path: Path) 
     db = create_backup_database(tmp_path, operation="write")
 
     assert isinstance(db, SqliteBackupDatabase)
+
+
+def test_create_backup_database_invalid_sqlite_synchronous_env_is_cli_usage_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(BACKUPER_SQLITE_SYNCHRONOUS_ENV, "not-a-mode")
+
+    with pytest.raises(CliUsageError, match="BACKUPER_SQLITE_SYNCHRONOUS"):
+        create_backup_database(tmp_path, operation="write")
 
 
 def test_create_backup_database_uses_csv_when_force_csv_override_set(
@@ -111,14 +120,16 @@ def test_create_backup_database_read_fails_for_partial_sqlite_manifest(
         conn.execute("PRAGMA user_version=0")
         conn.commit()
 
-    with pytest.raises(CliUsageError, match="SQLite manifest is not ready"):
+    with pytest.raises(CliUsageError, match=r"SQLite manifest:.*not ready for read"):
         create_backup_database(tmp_path, operation="read")
 
 
 def test_create_backup_database_read_fails_when_sqlite_manifest_is_missing(
     tmp_path: Path,
 ) -> None:
-    with pytest.raises(CliUsageError, match="No SQLite manifest found"):
+    with pytest.raises(
+        CliUsageError, match=r"SQLite manifest:.*No database file found"
+    ):
         create_backup_database(tmp_path, operation="read")
 
 
@@ -133,7 +144,7 @@ def test_create_backup_database_read_maps_invalid_sqlite_file_to_usage_error(
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     sqlite_path.write_text("not-a-sqlite-db", encoding="utf-8")
 
-    with pytest.raises(CliUsageError, match="SQLite manifest is not ready"):
+    with pytest.raises(CliUsageError, match=r"SQLite manifest:.*not ready for read"):
         create_backup_database(tmp_path, operation="read")
 
 
@@ -148,5 +159,7 @@ def test_create_backup_database_write_maps_invalid_sqlite_file_to_usage_error(
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     sqlite_path.write_text("not-a-sqlite-db", encoding="utf-8")
 
-    with pytest.raises(CliUsageError, match="SQLite backend could not be initialized"):
+    with pytest.raises(
+        CliUsageError, match=r"SQLite manifest:.*could not be initialized"
+    ):
         create_backup_database(tmp_path, operation="write")

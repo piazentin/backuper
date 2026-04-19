@@ -1,10 +1,20 @@
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from uuid import UUID
 
 import pytest
-from backuper.components.sqlite_db import SqliteBackupDatabase, SqliteDb
-from backuper.config import SqliteDbConfig
+from backuper.components.sqlite_db import (
+    SQLITE_BUSY_TIMEOUT_MS,
+    SqliteBackupDatabase,
+    SqliteDb,
+    configure_sqlite_read_probe_connection,
+)
+from backuper.config import (
+    BACKUPER_SQLITE_SYNCHRONOUS_ENV,
+    SqliteDbConfig,
+    sqlite_db_config,
+)
 from backuper.models import BackedUpFileEntry, FileEntry, VersionNotFoundError
 
 
@@ -34,13 +44,19 @@ def test_bootstrap_creates_schema_v1_and_sets_user_version(tmp_path: Path) -> No
         user_version = conn.execute("PRAGMA user_version").fetchone()
         foreign_keys = conn.execute("PRAGMA foreign_keys").fetchone()
         journal_mode = conn.execute("PRAGMA journal_mode").fetchone()
+        synchronous = conn.execute("PRAGMA synchronous").fetchone()
+        busy_timeout = conn.execute("PRAGMA busy_timeout").fetchone()
 
     assert user_version is not None
     assert foreign_keys is not None
     assert journal_mode is not None
+    assert synchronous is not None
+    assert busy_timeout is not None
     assert user_version[0] == 1
     assert foreign_keys[0] == 1
     assert journal_mode[0] == "wal"
+    assert synchronous[0] == 1
+    assert busy_timeout[0] == SQLITE_BUSY_TIMEOUT_MS
     assert {"versions", "version_files", "version_directories"} <= _table_names(
         db.db_path
     )
@@ -51,6 +67,56 @@ def test_bootstrap_creates_schema_v1_and_sets_user_version(tmp_path: Path) -> No
         "idx_version_files_version_name_id",
         "idx_version_directories_version_name_id",
     } <= _index_names(db.db_path)
+
+
+def test_configure_sqlite_read_probe_connection_sets_busy_timeout(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "probe.db"
+    sqlite3.connect(db_path).close()
+    uri = f"file:{db_path}?mode=ro"
+    with closing(sqlite3.connect(uri, uri=True)) as conn:
+        configure_sqlite_read_probe_connection(conn)
+        ms = conn.execute("PRAGMA busy_timeout").fetchone()
+    assert ms is not None
+    assert ms[0] == SQLITE_BUSY_TIMEOUT_MS
+
+
+def test_backuper_sqlite_synchronous_env_overrides_pragma(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(BACKUPER_SQLITE_SYNCHRONOUS_ENV, "FULL")
+    db = SqliteDb(sqlite_db_config(str(tmp_path)))
+    with db.connect() as conn:
+        synchronous = conn.execute("PRAGMA synchronous").fetchone()
+    assert synchronous is not None
+    assert synchronous[0] == 2
+
+
+def test_backuper_sqlite_synchronous_env_accepts_numeric_and_case_insensitive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(BACKUPER_SQLITE_SYNCHRONOUS_ENV, "3")
+    db = SqliteDb(sqlite_db_config(str(tmp_path)))
+    with db.connect() as conn:
+        assert conn.execute("PRAGMA synchronous").fetchone()[0] == 3
+
+    monkeypatch.setenv(BACKUPER_SQLITE_SYNCHRONOUS_ENV, "oFf")
+    db2 = SqliteDb(sqlite_db_config(str(tmp_path)))
+    with db2.connect() as conn:
+        assert conn.execute("PRAGMA synchronous").fetchone()[0] == 0
+
+
+def test_backuper_sqlite_synchronous_env_invalid_raises_from_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(BACKUPER_SQLITE_SYNCHRONOUS_ENV, "maybe")
+    with pytest.raises(RuntimeError, match=BACKUPER_SQLITE_SYNCHRONOUS_ENV):
+        sqlite_db_config(str(tmp_path))
+
+    monkeypatch.setenv(BACKUPER_SQLITE_SYNCHRONOUS_ENV, "9")
+    with pytest.raises(RuntimeError, match=BACKUPER_SQLITE_SYNCHRONOUS_ENV):
+        sqlite_db_config(str(tmp_path))
 
 
 def test_bootstrap_reopen_is_idempotent_and_preserves_data(tmp_path: Path) -> None:

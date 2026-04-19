@@ -6,7 +6,7 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 - `python -m backuper` → [`src/backuper/__main__.py`](src/backuper/__main__.py) → [`main()`](src/backuper/entrypoints/cli/main.py) (`sys.exit`) → [`argparser.parse`](src/backuper/entrypoints/cli/argparser.py) (returns a command plus `quiet`) → [`dispatch_command`](src/backuper/entrypoints/cli/main.py) → [`run_new` / `run_update` / `run_verify_integrity` / `run_restore`](src/backuper/entrypoints/cli/runner.py).
 - Installed CLI: `[project.scripts]` maps `backuper` to `backuper.entrypoints.cli.main:main` (e.g. `uv run backuper …` after `uv sync`).
-- **`main()`** configures the root logger, then dispatches. It prints **`UserFacingError`** messages to stderr (exit **1**, no traceback), logs unexpected exceptions at **ERROR** with full traceback and prints a short generic message to stderr (exit **1**), and re-raises **`SystemExit`** (e.g. `--help`, argparse errors). **`run_with_args()`** parses and dispatches without that outer error boundary (useful for tests or callers that want uncaught exceptions).
+- **`main()`** configures the root logger, then dispatches. It prints **`UserFacingError`** messages to stderr (exit **1**, no traceback), logs unexpected exceptions at **ERROR** with full traceback and prints a short generic message to stderr (exit **1**), and re-raises **`SystemExit`** (e.g. `--help`, argparse errors). **`run_with_args()`** parses and dispatches without that outer error boundary (useful for tests or callers that want uncaught exceptions). A concise **exit-code** table (including **`argparse`** / **`SystemExit`** behavior) is in **[`docs/sqlite-manifest-operations.md`](docs/sqlite-manifest-operations.md)** under *Observability and diagnostics*.
 - **Parent parser:** `-q` / `--quiet` lowers log verbosity (logging level **WARNING** instead of **INFO**). **`verify-integrity`** accepts **`--json`**: single JSON object on stdout, `{"errors": [...]}`, instead of human-oriented lines (see [`runner._present_verify_integrity_stdout`](src/backuper/entrypoints/cli/runner.py)).
 
 ## Architecture
@@ -18,6 +18,7 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 - **CSV migration (operators):** legacy version manifests must be migrated with **`uv run python -m scripts.migrate_version_csv`** before using the current runtime on an existing backup tree; see **[`docs/csv-migration-contract.md`](docs/csv-migration-contract.md)**. Migration imports **`backuper`** (e.g. `backuper.utils.zip_payload` for compressed-blob layout) — keep using **`uv run`** so the package resolves.
 - **Source ignores (operators):** on-disk `.gitignore` / `.backupignore`, CLI `--ignore-pattern` / `--ignore-file`, precedence, and logging—see **[`docs/source-ignores.md`](docs/source-ignores.md)**.
+- **SQLite manifest (operators):** WAL mode, `busy_timeout`, integrity tooling, env overrides, and CLI exit notes—see **[`docs/sqlite-manifest-operations.md`](docs/sqlite-manifest-operations.md)**.
 - **ADRs:** record **significant** architecture only — see **[Architecture decision records (ADRs)](#architecture-decision-records-adrs)** below. Index: **[`docs/adr/README.md`](docs/adr/README.md)**.
 
 ## Architecture decision records (ADRs)
@@ -79,6 +80,7 @@ Shared fixtures live under [`test/aux/`](test/aux/). Narrow ad hoc runs: `uv run
 
 ### Concurrency and single-writer expectations
 
+- **SQLite manifest trees** use WAL with a bounded `busy_timeout` on the manifest connection; concurrent access details are in **[`docs/sqlite-manifest-operations.md`](docs/sqlite-manifest-operations.md)**.
 - **Single active writer per backup tree.** Run only one of `new`, `update`, or CSV migration against the same backup root at a time. The tool does not coordinate multiple processes; overlapping writers can interleave CSV appends or leave the manifest inconsistent with what was written under `data/`.
 - **Version CSVs** ([`CsvDb.insert_dir`](src/backuper/components/csv_db.py) / [`insert_file`](src/backuper/components/csv_db.py)) append rows to the per-version manifest file. There is no cross-process locking or transactional merge—correctness assumes a single writer extending each manifest sequentially.
 - **Blob storage** ([`LocalFileStore.put`](src/backuper/components/filestore.py)): content-addressed blobs are published via [`_publish_staged_blob_if_absent`](src/backuper/components/filestore.py). If the destination path already exists (for example another writer finished first for the same hash), the staged copy is removed and the existing blob is kept. That only deduplicates identical-hash content on disk; it does not make concurrent `new`/`update` runs safe. Treat parallel backup jobs against the same tree as unsupported.
