@@ -1,9 +1,20 @@
 from __future__ import annotations
 
 import sqlite3
+import time
+import uuid
+from collections.abc import AsyncGenerator
 from pathlib import Path
+from uuid import UUID
 
 from backuper.config import SqliteDbConfig
+from backuper.models import (
+    BackedUpFileEntry,
+    FileEntry,
+    VersionAlreadyExistsError,
+    VersionNotFoundError,
+)
+from backuper.ports import BackupDatabase
 
 
 class SqliteDb:
@@ -113,3 +124,247 @@ class SqliteDb:
             ON version_directories(version_name, id)
             """
         )
+
+
+class SqliteBackupDatabase(BackupDatabase):
+    _DEFAULT_HASH_ALGORITHM = "sha1"
+    _COMPRESSION_NONE = "none"
+    _COMPRESSION_ZIP = "zip"
+    _VERSION_STATE_PENDING = "pending"
+    _VERSION_STATE_COMPLETED = "completed"
+
+    def __init__(self, sqlite_db: SqliteDb) -> None:
+        self._sqlite_db = sqlite_db
+
+    async def list_versions(self) -> list[str]:
+        with self._sqlite_db.connect() as conn:
+            rows = conn.execute(
+                "SELECT name FROM versions WHERE state = ? ORDER BY name ASC",
+                (self._VERSION_STATE_COMPLETED,),
+            ).fetchall()
+        return [str(row["name"]) for row in rows]
+
+    async def most_recent_version(self) -> str | None:
+        with self._sqlite_db.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT name
+                FROM versions
+                WHERE state = ?
+                ORDER BY created_at DESC, name DESC
+                LIMIT 1
+                """,
+                (self._VERSION_STATE_COMPLETED,),
+            ).fetchone()
+        if row is None:
+            return None
+        return str(row["name"])
+
+    async def get_version_by_name(self, name: str) -> str:
+        with self._sqlite_db.connect() as conn:
+            row = conn.execute(
+                "SELECT name FROM versions WHERE name = ? AND state = ?",
+                (name, self._VERSION_STATE_COMPLETED),
+            ).fetchone()
+        if row is None:
+            raise VersionNotFoundError(name)
+        return str(row["name"])
+
+    async def list_files(self, version: str) -> AsyncGenerator[FileEntry, None]:
+        with self._sqlite_db.connect() as conn:
+            version_row = conn.execute(
+                "SELECT name FROM versions WHERE name = ? AND state = ?",
+                (version, self._VERSION_STATE_COMPLETED),
+            ).fetchone()
+            if version_row is None:
+                raise VersionNotFoundError(version)
+
+            file_rows = conn.execute(
+                """
+                SELECT restore_path, hash_digest, storage_location, compression, size, mtime
+                FROM version_files
+                WHERE version_name = ?
+                ORDER BY id ASC
+                """,
+                (version,),
+            ).fetchall()
+            dir_rows = conn.execute(
+                """
+                SELECT restore_path
+                FROM version_directories
+                WHERE version_name = ?
+                ORDER BY id ASC
+                """,
+                (version,),
+            ).fetchall()
+
+        for row in file_rows:
+            restore_path = Path(str(row["restore_path"]))
+            yield FileEntry(
+                path=restore_path,
+                relative_path=restore_path,
+                size=int(row["size"]),
+                mtime=float(row["mtime"]),
+                is_directory=False,
+                hash=str(row["hash_digest"]),
+                stored_location=str(row["storage_location"]),
+                is_compressed=str(row["compression"]) == self._COMPRESSION_ZIP,
+            )
+
+        for row in dir_rows:
+            restore_path = Path(str(row["restore_path"]))
+            yield FileEntry(
+                path=restore_path,
+                relative_path=restore_path,
+                size=0,
+                mtime=0.0,
+                is_directory=True,
+            )
+
+    async def create_version(self, version: str) -> None:
+        with self._sqlite_db.connect() as conn:
+            existing_row = conn.execute(
+                "SELECT 1 FROM versions WHERE name = ?",
+                (version,),
+            ).fetchone()
+            if existing_row is not None:
+                raise VersionAlreadyExistsError(version)
+            conn.execute(
+                "INSERT INTO versions(name, state, created_at) VALUES (?, ?, ?)",
+                (version, self._VERSION_STATE_PENDING, time.time()),
+            )
+            conn.commit()
+
+    async def complete_version(self, version: str) -> None:
+        with self._sqlite_db.connect() as conn:
+            completed_row = conn.execute(
+                "SELECT 1 FROM versions WHERE name = ? AND state = ?",
+                (version, self._VERSION_STATE_COMPLETED),
+            ).fetchone()
+            if completed_row is not None:
+                return
+
+            pending_row = conn.execute(
+                "SELECT 1 FROM versions WHERE name = ? AND state = ?",
+                (version, self._VERSION_STATE_PENDING),
+            ).fetchone()
+            if pending_row is None:
+                raise VersionNotFoundError(version)
+
+            conn.execute(
+                "UPDATE versions SET state = ? WHERE name = ?",
+                (self._VERSION_STATE_COMPLETED, version),
+            )
+            conn.commit()
+
+    async def add_file(self, version: str, entry: BackedUpFileEntry) -> None:
+        with self._sqlite_db.connect() as conn:
+            version_row = conn.execute(
+                "SELECT 1 FROM versions WHERE name = ?",
+                (version,),
+            ).fetchone()
+            if version_row is None:
+                raise VersionNotFoundError(version)
+
+            if entry.source_file.is_directory:
+                conn.execute(
+                    """
+                    INSERT INTO version_directories(version_name, restore_path)
+                    VALUES (?, ?)
+                    """,
+                    (version, str(entry.source_file.relative_path)),
+                )
+                conn.commit()
+                return
+
+            conn.execute(
+                """
+                INSERT INTO version_files(
+                    version_name,
+                    restore_path,
+                    hash_algorithm,
+                    hash_digest,
+                    storage_location,
+                    compression,
+                    size,
+                    mtime
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    version,
+                    str(entry.source_file.relative_path),
+                    self._DEFAULT_HASH_ALGORITHM,
+                    entry.hash,
+                    entry.stored_location,
+                    self._COMPRESSION_ZIP
+                    if entry.is_compressed
+                    else self._COMPRESSION_NONE,
+                    entry.source_file.size,
+                    entry.source_file.mtime,
+                ),
+            )
+            conn.commit()
+
+    async def get_files_by_hash(self, hash: str) -> list[BackedUpFileEntry]:
+        with self._sqlite_db.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT vf.restore_path, vf.hash_digest, vf.storage_location, vf.compression,
+                       vf.size, vf.mtime
+                FROM version_files vf
+                INNER JOIN versions v ON v.name = vf.version_name
+                WHERE v.state = ? AND vf.hash_algorithm = ? AND vf.hash_digest = ?
+                ORDER BY vf.id ASC
+                """,
+                (
+                    self._VERSION_STATE_COMPLETED,
+                    self._DEFAULT_HASH_ALGORITHM,
+                    hash,
+                ),
+            ).fetchall()
+        return [self._row_to_backed_up_file_entry(row) for row in rows]
+
+    async def get_files_by_metadata(
+        self, relative_path: Path, mtime: float, size: int
+    ) -> list[BackedUpFileEntry]:
+        with self._sqlite_db.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT vf.restore_path, vf.hash_digest, vf.storage_location, vf.compression,
+                       vf.size, vf.mtime
+                FROM version_files vf
+                INNER JOIN versions v ON v.name = vf.version_name
+                WHERE v.state = ?
+                  AND vf.restore_path = ?
+                  AND vf.mtime = ?
+                  AND vf.size = ?
+                ORDER BY vf.id ASC
+                """,
+                (
+                    self._VERSION_STATE_COMPLETED,
+                    str(relative_path),
+                    mtime,
+                    size,
+                ),
+            ).fetchall()
+        return [self._row_to_backed_up_file_entry(row) for row in rows]
+
+    def _row_to_backed_up_file_entry(self, row: sqlite3.Row) -> BackedUpFileEntry:
+        restore_path = Path(str(row["restore_path"]))
+        file_entry = FileEntry(
+            path=restore_path,
+            relative_path=restore_path,
+            size=int(row["size"]),
+            mtime=float(row["mtime"]),
+            is_directory=False,
+        )
+        return BackedUpFileEntry(
+            source_file=file_entry,
+            backup_id=self._generate_uuid_from_hash(str(row["hash_digest"])),
+            stored_location=str(row["storage_location"]),
+            is_compressed=str(row["compression"]) == self._COMPRESSION_ZIP,
+            hash=str(row["hash_digest"]),
+        )
+
+    def _generate_uuid_from_hash(self, hash_value: str) -> UUID:
+        return uuid.uuid5(uuid.NAMESPACE_DNS, hash_value)

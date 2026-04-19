@@ -1,8 +1,11 @@
 import sqlite3
 from pathlib import Path
+from uuid import UUID
 
-from backuper.components.sqlite_db import SqliteDb
+import pytest
+from backuper.components.sqlite_db import SqliteBackupDatabase, SqliteDb
 from backuper.config import SqliteDbConfig
+from backuper.models import BackedUpFileEntry, FileEntry, VersionNotFoundError
 
 
 def _table_names(db_path: Path) -> set[str]:
@@ -70,3 +73,149 @@ def test_bootstrap_reopen_is_idempotent_and_preserves_data(tmp_path: Path) -> No
     assert user_version is not None
     assert user_version[0] == 1
     assert [tuple(row) for row in rows] == [("v1", "pending", 1700000000.0)]
+
+
+@pytest.mark.asyncio
+async def test_sqlite_backup_database_pending_hidden_until_complete(
+    tmp_path: Path,
+) -> None:
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(tmp_path))))
+
+    await db.create_version("v-pending")
+
+    assert await db.list_versions() == []
+    assert await db.most_recent_version() is None
+    with pytest.raises(VersionNotFoundError):
+        await db.get_version_by_name("v-pending")
+
+
+@pytest.mark.asyncio
+async def test_sqlite_backup_database_most_recent_uses_created_at_then_name(
+    tmp_path: Path,
+) -> None:
+    sqlite_db = SqliteDb(SqliteDbConfig(backup_dir=str(tmp_path)))
+    db = SqliteBackupDatabase(sqlite_db)
+
+    with sqlite_db.connect() as conn:
+        conn.execute(
+            "INSERT INTO versions(name, state, created_at) VALUES (?, ?, ?)",
+            ("a", "completed", 100.0),
+        )
+        conn.execute(
+            "INSERT INTO versions(name, state, created_at) VALUES (?, ?, ?)",
+            ("b", "completed", 100.0),
+        )
+        conn.execute(
+            "INSERT INTO versions(name, state, created_at) VALUES (?, ?, ?)",
+            ("older", "completed", 90.0),
+        )
+        conn.commit()
+
+    assert await db.list_versions() == ["a", "b", "older"]
+    assert await db.most_recent_version() == "b"
+
+
+@pytest.mark.asyncio
+async def test_sqlite_backup_database_add_and_list_files_files_then_dirs(
+    tmp_path: Path,
+) -> None:
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(tmp_path))))
+    version = "v1"
+    await db.create_version(version)
+    await db.add_file(
+        version,
+        BackedUpFileEntry(
+            source_file=FileEntry(
+                path=Path("/src/z.txt"),
+                relative_path=Path("z.txt"),
+                size=2,
+                mtime=2.0,
+                is_directory=False,
+            ),
+            backup_id=UUID("11111111-1111-1111-1111-111111111111"),
+            stored_location="data/z",
+            is_compressed=False,
+            hash="hz",
+        ),
+    )
+    await db.add_file(
+        version,
+        BackedUpFileEntry(
+            source_file=FileEntry(
+                path=Path("/src/a-dir"),
+                relative_path=Path("a-dir"),
+                size=0,
+                mtime=0.0,
+                is_directory=True,
+            ),
+            backup_id=UUID("22222222-2222-2222-2222-222222222222"),
+            stored_location="",
+            is_compressed=False,
+            hash="",
+        ),
+    )
+    await db.add_file(
+        version,
+        BackedUpFileEntry(
+            source_file=FileEntry(
+                path=Path("/src/a.txt"),
+                relative_path=Path("a.txt"),
+                size=1,
+                mtime=1.0,
+                is_directory=False,
+            ),
+            backup_id=UUID("33333333-3333-3333-3333-333333333333"),
+            stored_location="data/a",
+            is_compressed=True,
+            hash="ha",
+        ),
+    )
+    await db.complete_version(version)
+
+    items = [item async for item in db.list_files(version)]
+
+    assert [item.relative_path for item in items] == [
+        Path("z.txt"),
+        Path("a.txt"),
+        Path("a-dir"),
+    ]
+    assert [item.is_directory for item in items] == [False, False, True]
+    assert items[0].is_compressed is False
+    assert items[1].is_compressed is True
+
+
+@pytest.mark.asyncio
+async def test_sqlite_backup_database_lookup_only_completed_versions(
+    tmp_path: Path,
+) -> None:
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(tmp_path))))
+
+    await db.create_version("v-pending")
+    await db.add_file(
+        "v-pending",
+        BackedUpFileEntry(
+            source_file=FileEntry(
+                path=Path("/src/doc.txt"),
+                relative_path=Path("doc.txt"),
+                size=10,
+                mtime=10.0,
+                is_directory=False,
+            ),
+            backup_id=UUID("44444444-4444-4444-4444-444444444444"),
+            stored_location="data/pending",
+            is_compressed=False,
+            hash="h1",
+        ),
+    )
+
+    assert await db.get_files_by_hash("h1") == []
+    assert await db.get_files_by_metadata(Path("doc.txt"), 10.0, 10) == []
+
+    await db.complete_version("v-pending")
+
+    by_hash = await db.get_files_by_hash("h1")
+    by_metadata = await db.get_files_by_metadata(Path("doc.txt"), 10.0, 10)
+    assert len(by_hash) == 1
+    assert by_hash[0].stored_location == "data/pending"
+    assert len(by_metadata) == 1
+    assert by_metadata[0].source_file.relative_path == Path("doc.txt")
