@@ -24,9 +24,9 @@ sync setup install:
 init-git-hooks:
 	git config core.hooksPath "$(CURDIR)/.githooks"
 
-# Open gh PR flow with the repo template as the starting body (see AGENTS.md).
+# Open gh PR flow with the repo template as the starting body and Copilot review (see AGENTS.md).
 pr:
-	gh pr create --base $(PR_BASE) --template .github/PULL_REQUEST_TEMPLATE.md
+	gh pr create --base $(PR_BASE) --template .github/PULL_REQUEST_TEMPLATE.md --reviewer '@copilot'
 
 # Sync dev env then run the CLI (same as: uv sync --group dev && uv run backuper …)
 backup:

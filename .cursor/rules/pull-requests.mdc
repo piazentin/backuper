@@ -13,12 +13,12 @@ The canonical structure is [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQ
 
 1. **CLI (preferred):** from the repo root, run **`make pr`** or:
    ```bash
-   gh pr create --base main --template .github/PULL_REQUEST_TEMPLATE.md
+   gh pr create --base main --template .github/PULL_REQUEST_TEMPLATE.md --reviewer '@copilot'
    ```
-   Add flags as needed (`--draft`, `-r`, …). Fill every section with concrete detail before submitting.
+   Use the literal **`@copilot`** reviewer (see [github-copilot-pr-review.mdc](github-copilot-pr-review.mdc)); omitting `@` can make `gh` fail to resolve the reviewer. Add other flags as needed (`--draft`, extra `-r`, …). Fill every section with concrete detail before submitting.
 
-2. **Web:** `gh pr create -w` — GitHub applies the default PR template in the browser.
+2. **Web:** `gh pr create -w` — GitHub applies the default PR template in the browser. Request review from **Copilot** in the PR UI if it was not added (see [github-copilot-pr-review.mdc](github-copilot-pr-review.mdc)).
 
-3. **`--body-file`:** only if the file was started from the template (same headings and order), not a one-line summary.
+3. **`--body-file`:** only if the file was started from the template (same headings and order), not a one-line summary. Include **`--reviewer '@copilot'`** when using `gh pr create` unless there is a reason not to.
 
-After creating a PR, use **`gh pr edit <n> --body-file …`** to replace the body if you forgot the template.
+**Fix-ups:** use **`gh pr edit <n> --body-file …`** if the description omitted the template. Use **`gh pr edit <n> --add-reviewer '@copilot'`** if Copilot was not requested ([github-copilot-pr-review.mdc](github-copilot-pr-review.mdc)).
