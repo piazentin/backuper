@@ -7,6 +7,7 @@
 
 ## How
 <!-- How was this implemented, and why this approach/trade-off? -->
+<!-- If this PR establishes or materially changes a significant architectural decision, add or update an ADR under docs/adr/ (see AGENTS.md — Architecture decision records). Not every PR needs an ADR. -->
 
 ## Validation
 <!-- How did you verify this works? -->

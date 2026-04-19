@@ -7,6 +7,7 @@ from backuper.components.csv_db import (
     CsvDb,
     _csvrow_to_model,
     _StoredFile,
+    _Version,
 )
 from backuper.config import CsvDbConfig
 from backuper.models import BackedUpFileEntry, FileEntry, MalformedBackupCsvError
@@ -67,8 +68,7 @@ async def test_csv_backup_database_ignores_appledouble_sidecar_csv(
 
     await db.create_version("2023-01-07T182558")
 
-    versions = sorted(await db.list_versions())
-    assert versions == ["2023-01-07T182558"]
+    assert await db.list_versions() == ["2023-01-07T182558"]
 
     # Must not raise UnicodeDecodeError when scanning versions
     assert await db.get_files_by_metadata(Path("nope.txt"), 0.0, 0) == []
@@ -84,7 +84,26 @@ async def test_csv_backup_database_create_version_and_list_versions(
     await db.create_version("2026.03.29")
     await db.create_version("v.scsv")
 
-    assert sorted(await db.list_versions()) == ["2026.03.29", "v.scsv"]
+    assert await db.list_versions() == ["2026.03.29", "v.scsv"]
+
+
+@pytest.mark.asyncio
+async def test_csv_backup_database_list_versions_lexicographic_not_dir_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-0003: list_versions sorts; order does not follow get_all_versions iteration."""
+    csv_db = CsvDb(CsvDbConfig(backup_dir=str(tmp_path)))
+    db = CsvBackupDatabase(csv_db)
+    await db.create_version("z-version")
+    await db.create_version("a-version")
+
+    def unsorted_get_all_versions(self: CsvDb) -> list[_Version]:
+        return [_Version("z-version"), _Version("a-version")]
+
+    monkeypatch.setattr(CsvDb, "get_all_versions", unsorted_get_all_versions)
+
+    assert await db.list_versions() == ["a-version", "z-version"]
 
 
 @pytest.mark.asyncio

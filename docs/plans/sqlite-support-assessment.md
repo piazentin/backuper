@@ -1,5 +1,10 @@
 # Technical assessment: SQLite manifest support
 
+| | |
+|--|--|
+| **Created** | 2026-04-18 |
+| **Last updated** | 2026-04-19 |
+
 ## Purpose
 
 This document assesses adding a **SQLite-backed** implementation of the backup manifest alongside (and eventually instead of) **per-version CSV** files. It is scoped to **phased incremental delivery**: each phase is a shippable increment that can be analysed and broken down into tasks later. It does not prescribe individual tasks.
@@ -27,11 +32,22 @@ This document assesses adding a **SQLite-backed** implementation of the backup m
 
 ## Phase 1 — Design lock-in
 
-**Outcome:** A agreed **persistence model** for SQLite is documented and reviewable: entity boundaries (versions, files, directories), **transaction boundaries** for backup operations, **schema versioning** approach, and **durability posture** (e.g. journal mode, expectations around `synchronous`). Alignment with the existing **`BackupDatabase`** contract and with **lexicographic “most recent version”** semantics (see `AGENTS.md` / `CsvDb`) is explicitly called out.
+**Outcome:** An agreed **persistence model** for SQLite is documented and reviewable: entity boundaries (versions, files, directories), **transaction boundaries** for backup operations, **schema versioning** approach, and **durability posture** (e.g. journal mode, expectations around `synchronous`). Alignment with the existing **`BackupDatabase`** contract and with version-ordering semantics (CSV legacy vs SQLite — see ADRs below) is explicitly called out.
+
+**Accepted ADRs** (under [`docs/adr/`](../adr/)):
+
+| ADR | Date | Topic |
+|-----|------|--------|
+| [ADR-0001](../adr/0001-sqlite-manifest-store.md) | 2026-04-19 | SQLite file layout, **WAL**, mutual exclusivity with CSV |
+| [ADR-0002](../adr/0002-version-lifecycle-and-transactions.md) | 2026-04-19 | **`pending` / `completed`**, commit-per-file, **pending not visible by default**, directory markers |
+| [ADR-0003](../adr/0003-version-ordering-and-most-recent.md) | 2026-04-19 | **`list_versions`** lexicographic order, **`most_recent_version`** (SQLite **`created_at`** vs legacy CSV names) |
+| [ADR-0004](../adr/0004-migration-created-at-inference.md) | 2026-04-19 | **`created_at`** from parsable **`YYYY-MM-DDTHHMMSS`** stem vs CSV **mtime** (UTC ms), collisions, dotfiles |
+
+Index: [`docs/adr/README.md`](../adr/README.md), [`docs/plans/README.md`](README.md).
 
 **Incremental value:** Stakeholders can approve direction before implementation cost; migration and wiring phases can assume a stable target.
 
-**Later planning:** Break down into schema review, ADR or design doc, and optional proof-of-concept spikes.
+**Later planning:** Schema DDL, PRAGMA tuning, and optional proof-of-concept spikes.
 
 ---
 
@@ -51,7 +67,7 @@ This document assesses adding a **SQLite-backed** implementation of the backup m
 
 **Incremental value:** New backups can opt into SQLite without migration from CSV; validates real workflows before mass migration.
 
-**Later planning:** CLI/config surface, defaults, and coexistence rules when both CSV and SQLite artefacts could appear.
+**Later planning:** CLI/config surface, defaults, and discoverability rules (CSV **or** SQLite per tree — [ADR-0001](../adr/0001-sqlite-manifest-store.md)).
 
 ---
 
@@ -89,7 +105,7 @@ This document assesses adding a **SQLite-backed** implementation of the backup m
 
 | Area | Note |
 |------|------|
-| **Version ordering** | Behaviour must stay consistent with documented **string-order** “most recent version” unless the project explicitly changes contract. |
+| **Version ordering** | Legacy CSV: lexicographic “most recent” by name (`AGENTS.md`). SQLite: **`created_at`** + tie-break — see [ADR-0003](../adr/0003-version-ordering-and-most-recent.md) and [ADR-0004](../adr/0004-migration-created-at-inference.md). |
 | **Concurrency** | SQLite improves crash semantics; **locking** story (single writer) should remain clear for parallel jobs. |
 | **Test suite** | Many tests today assert CSV **file** shape; parity testing should **prefer the port** to avoid permanent 2× file-assertion maintenance. |
 | **Migration surface** | A second migration tool alongside `migrate_version_csv` increases **operator cognitive load** unless docs consolidate entry points. |
@@ -101,3 +117,5 @@ This document assesses adding a **SQLite-backed** implementation of the backup m
 | Date | Change |
 |------|--------|
 | 2026-04-18 | Initial assessment (phased incremental delivery). |
+| 2026-04-19 | Phase 1: linked ADR-0001–0004 (SQLite design lock-in). |
+| 2026-04-19 | ADRs moved to `docs/adr/`; meta table (created / last updated). |
