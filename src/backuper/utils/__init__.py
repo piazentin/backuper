@@ -11,6 +11,15 @@ from backuper.utils.paths import (
     normalize_path,
     relative_dir_from_hash,
 )
+from backuper.utils.zip_payload import (
+    ZipPayloadError as ZipPayloadError,
+)
+from backuper.utils.zip_payload import (
+    read_zip_payload_bytes as read_zip_payload_bytes,
+)
+from backuper.utils.zip_payload import (
+    resolve_zip_payload_member_name as resolve_zip_payload_member_name,
+)
 
 __all__ = [
     "gitignore_pattern_lines",
@@ -20,4 +29,7 @@ __all__ = [
     "hash_to_stored_location",
     "normalize_path",
     "relative_dir_from_hash",
+    "ZipPayloadError",
+    "read_zip_payload_bytes",
+    "resolve_zip_payload_member_name",
 ]
