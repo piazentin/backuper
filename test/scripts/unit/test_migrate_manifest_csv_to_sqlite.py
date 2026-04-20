@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import io
+import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -13,6 +15,9 @@ from scripts.migrate_manifest_csv_to_sqlite.canonical_parse import (
     CanonicalCsvDir,
     CanonicalCsvFile,
     parse_canonical_version_csv,
+)
+from scripts.migrate_manifest_csv_to_sqlite.created_at import (
+    infer_created_at_for_manifests,
 )
 from scripts.migrate_manifest_csv_to_sqlite.discovery import discover_csv_manifests
 
@@ -201,3 +206,65 @@ def test_main_invalid_manifest_exits_one(
     err = capsys.readouterr().err
     assert "ERROR:" in err
     assert "migrate_version_csv" in err
+
+
+def test_created_at_infers_from_parsable_version_stem(tmp_path: Path) -> None:
+    manifest = tmp_path / "2026-02-01T094441.csv"
+    manifest.write_text('"d","x",""\n', encoding="utf-8")
+    inferred = infer_created_at_for_manifests([manifest])
+    assert len(inferred) == 1
+    assert inferred[0].version_name == "2026-02-01T094441"
+
+    local_tz = datetime.now().astimezone().tzinfo
+    assert local_tz is not None
+    expected = float(
+        round(
+            datetime(2026, 2, 1, 9, 44, 41, tzinfo=local_tz).astimezone(UTC).timestamp()
+            * 1000
+        )
+    )
+    assert inferred[0].created_at_ms == expected
+
+
+def test_created_at_falls_back_to_manifest_mtime_for_non_parsable_stem(
+    tmp_path: Path,
+) -> None:
+    manifest = tmp_path / "release-v2.csv"
+    manifest.write_text('"d","x",""\n', encoding="utf-8")
+    mtime = 1_712_500_000.123
+    os.utime(manifest, (mtime, mtime))
+
+    inferred = infer_created_at_for_manifests([manifest])
+    assert len(inferred) == 1
+    assert inferred[0].version_name == "release-v2"
+    assert inferred[0].created_at_ms == float(round(mtime * 1000))
+
+
+def test_created_at_logs_collision_and_uses_lexicographic_tie_break(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    z_manifest = tmp_path / "zzz.csv"
+    a_manifest = tmp_path / "aaa.csv"
+    z_manifest.write_text('"d","x",""\n', encoding="utf-8")
+    a_manifest.write_text('"d","x",""\n', encoding="utf-8")
+    shared_mtime = 1_712_500_000.0
+    os.utime(z_manifest, (shared_mtime, shared_mtime))
+    os.utime(a_manifest, (shared_mtime, shared_mtime))
+
+    with caplog.at_level("WARNING"):
+        inferred = infer_created_at_for_manifests([z_manifest, a_manifest])
+
+    assert [item.version_name for item in inferred] == ["aaa", "zzz"]
+    assert inferred[0].created_at_ms == inferred[1].created_at_ms
+    assert "created_at collision" in caplog.text
+    assert "lexicographic" in caplog.text
+
+
+def test_created_at_ignores_dot_prefixed_manifests(tmp_path: Path) -> None:
+    regular = tmp_path / "v1.csv"
+    dotprefixed = tmp_path / ".pending__v2.csv"
+    regular.write_text('"d","x",""\n', encoding="utf-8")
+    dotprefixed.write_text('"d","x",""\n', encoding="utf-8")
+
+    inferred = infer_created_at_for_manifests([regular, dotprefixed])
+    assert [item.version_name for item in inferred] == ["v1"]
