@@ -6,6 +6,7 @@ import argparse
 import logging
 import sqlite3
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 from backuper.components.sqlite_db import (
@@ -32,6 +33,7 @@ _LOG = logging.getLogger(__name__)
 _LIVE_SQLITE_FILENAME = "manifest.sqlite3"
 _STAGING_SQLITE_SUFFIX = ".migrating"
 _VERSION_STATE_COMPLETED = "completed"
+_CSV_ARCHIVE_DIRNAME = "_migrated_from_csv"
 
 _RUNBOOK_EPILOG = """\
 Runbook: docs/csv-to-sqlite-migration.md (TBD — operator guide will land with Phase 4).
@@ -107,6 +109,26 @@ def _cleanup_staging_artifacts(staging_db_path: Path) -> None:
     for candidate in (staging_db_path, wal_path, shm_path):
         if candidate.exists():
             candidate.unlink()
+
+
+def _new_archive_run_id() -> str:
+    return datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _archive_migrated_csv_manifests(
+    *, targets: list[Path], db_path: Path, archive_dirname: str = _CSV_ARCHIVE_DIRNAME
+) -> Path:
+    archive_root = db_path / archive_dirname / _new_archive_run_id()
+    archive_root.mkdir(parents=True, exist_ok=False)
+    for csv_path in targets:
+        destination = archive_root / csv_path.name
+        if destination.exists():
+            raise RuntimeError(
+                "Archive collision while moving CSV manifest: "
+                f"{destination} already exists."
+            )
+        csv_path.replace(destination)
+    return archive_root
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -220,6 +242,10 @@ def main(argv: list[str] | None = None) -> int:
         staging_db_path.replace(live_db_path)
         with sqlite3.connect(live_db_path) as live_conn:
             live_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        _archive_migrated_csv_manifests(
+            targets=targets,
+            db_path=db_path,
+        )
     except Exception as exc:
         _cleanup_staging_artifacts(staging_db_path)
         print(f"ERROR: failed to build SQLite manifest: {exc}", file=sys.stderr)
