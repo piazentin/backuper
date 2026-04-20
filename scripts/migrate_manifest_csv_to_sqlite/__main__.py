@@ -4,17 +4,34 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sqlite3
 import sys
 from pathlib import Path
 
+from backuper.components.sqlite_db import (
+    SQL_INSERT_DIRECTORY,
+    SQL_INSERT_FILE,
+    SQL_INSERT_VERSION,
+    SqliteDb,
+)
+from backuper.config import sqlite_db_config
 from backuper.models import MalformedBackupCsvError
 
 from scripts.migrate_manifest_csv_to_sqlite.canonical_parse import (
+    CanonicalCsvDir,
+    CanonicalCsvFile,
+    CanonicalFsObject,
     parse_canonical_version_csv,
+)
+from scripts.migrate_manifest_csv_to_sqlite.created_at import (
+    infer_created_at_for_manifests,
 )
 from scripts.migrate_manifest_csv_to_sqlite.discovery import discover_csv_manifests
 
 _LOG = logging.getLogger(__name__)
+_LIVE_SQLITE_FILENAME = "manifest.sqlite3"
+_STAGING_SQLITE_SUFFIX = ".migrating"
+_VERSION_STATE_COMPLETED = "completed"
 
 _RUNBOOK_EPILOG = """\
 Runbook: docs/csv-to-sqlite-migration.md (TBD — operator guide will land with Phase 4).
@@ -78,6 +95,20 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
+def _staging_sidecar_paths(staging_db_path: Path) -> tuple[Path, Path]:
+    return (
+        Path(f"{staging_db_path}-wal"),
+        Path(f"{staging_db_path}-shm"),
+    )
+
+
+def _cleanup_staging_artifacts(staging_db_path: Path) -> None:
+    wal_path, shm_path = _staging_sidecar_paths(staging_db_path)
+    for candidate in (staging_db_path, wal_path, shm_path):
+        if candidate.exists():
+            candidate.unlink()
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     logging.basicConfig(
@@ -98,12 +129,22 @@ def main(argv: list[str] | None = None) -> int:
         print("No CSV manifest files found.", file=sys.stderr)
         return 0
 
+    parsed_manifests: dict[Path, list[CanonicalFsObject]] = {}
     for csv_path in targets:
         try:
-            parse_canonical_version_csv(csv_path)
+            parsed_manifests[csv_path] = parse_canonical_version_csv(csv_path)
         except MalformedBackupCsvError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
+
+    inferred_created_at = infer_created_at_for_manifests(targets)
+    created_at_by_manifest = {
+        item.manifest_path.resolve(): item.created_at_ms for item in inferred_created_at
+    }
+
+    db_path = backup_root / args.db_dir
+    live_db_path = db_path / _LIVE_SQLITE_FILENAME
+    staging_db_path = db_path / f"{_LIVE_SQLITE_FILENAME}{_STAGING_SQLITE_SUFFIX}"
 
     if args.verbose:
         _LOG.info(
@@ -116,18 +157,75 @@ def main(argv: list[str] | None = None) -> int:
         for csv_path in targets:
             _LOG.info("manifest: %s", csv_path)
 
-    # Migration/staging/archive logic is implemented in follow-up tasks.
     if args.dry_run:
         print("Dry-run: would migrate the following manifests (no writes):")
         for csv_path in targets:
             print(f"  {csv_path}")
         return 0
 
-    print(
-        "ERROR: CSV→SQLite migration is not implemented in this build yet.",
-        file=sys.stderr,
-    )
-    return 2
+    if live_db_path.exists() and not args.force:
+        print(
+            "ERROR: live SQLite manifest already exists at "
+            f"{live_db_path}. Refusing to overwrite without --force.",
+            file=sys.stderr,
+        )
+        return 1
+
+    _cleanup_staging_artifacts(staging_db_path)
+
+    sqlite_cfg = sqlite_db_config(str(backup_root))
+    sqlite_cfg.backup_db_dir = args.db_dir
+    sqlite_cfg.sqlite_filename = staging_db_path.name
+
+    try:
+        sqlite_db = SqliteDb(sqlite_cfg)
+        with sqlite_db.connect() as conn:
+            for csv_path in targets:
+                version_name = csv_path.stem
+                created_at_ms = created_at_by_manifest[csv_path]
+                conn.execute(
+                    SQL_INSERT_VERSION,
+                    (version_name, _VERSION_STATE_COMPLETED, created_at_ms),
+                )
+                fs_objects = parsed_manifests[csv_path]
+                for entry in fs_objects:
+                    if isinstance(entry, CanonicalCsvFile):
+                        conn.execute(
+                            SQL_INSERT_FILE,
+                            (
+                                version_name,
+                                entry.restore_path,
+                                "sha1",
+                                entry.sha1hash,
+                                entry.stored_location,
+                                "zip" if entry.is_compressed else "none",
+                                entry.size,
+                                entry.mtime,
+                            ),
+                        )
+                for entry in fs_objects:
+                    if isinstance(entry, CanonicalCsvDir):
+                        conn.execute(SQL_INSERT_DIRECTORY, (version_name, entry.name))
+            conn.commit()
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+        db_path.mkdir(parents=True, exist_ok=True)
+        if args.force and live_db_path.exists():
+            live_db_path.unlink()
+            live_wal = Path(f"{live_db_path}-wal")
+            live_shm = Path(f"{live_db_path}-shm")
+            for sidecar in (live_wal, live_shm):
+                if sidecar.exists():
+                    sidecar.unlink()
+        staging_db_path.replace(live_db_path)
+        with sqlite3.connect(live_db_path) as live_conn:
+            live_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except Exception as exc:
+        _cleanup_staging_artifacts(staging_db_path)
+        print(f"ERROR: failed to build SQLite manifest: {exc}", file=sys.stderr)
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
