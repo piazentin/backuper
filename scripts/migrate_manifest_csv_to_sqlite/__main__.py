@@ -7,6 +7,11 @@ import logging
 import sys
 from pathlib import Path
 
+from backuper.models import MalformedBackupCsvError
+
+from scripts.migrate_manifest_csv_to_sqlite.canonical_parse import (
+    parse_canonical_version_csv,
+)
 from scripts.migrate_manifest_csv_to_sqlite.discovery import discover_csv_manifests
 
 _LOG = logging.getLogger(__name__)
@@ -92,6 +97,13 @@ def main(argv: list[str] | None = None) -> int:
     if not targets:
         print("No CSV manifest files found.", file=sys.stderr)
         return 0
+
+    for csv_path in targets:
+        try:
+            parse_canonical_version_csv(csv_path)
+        except MalformedBackupCsvError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
 
     if args.verbose:
         _LOG.info(
