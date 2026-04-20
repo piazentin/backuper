@@ -17,6 +17,7 @@ This file is the canonical agent and contributor map for this repository; prefer
 ## Additional documentation
 
 - **CSV migration (operators):** legacy version manifests must be migrated with **`uv run python -m scripts.migrate_version_csv`** before using the current runtime on an existing backup tree; see **[`docs/csv-migration-contract.md`](docs/csv-migration-contract.md)**. Migration imports **`backuper`** (e.g. `backuper.utils.zip_payload` for compressed-blob layout) — keep using **`uv run`** so the package resolves.
+- **CSV → SQLite migration (operators):** canonical CSV trees can be migrated to the SQLite manifest backend with **`uv run python -m scripts.migrate_manifest_csv_to_sqlite`**; use **[`docs/csv-to-sqlite-migration.md`](docs/csv-to-sqlite-migration.md)** for order-of-operations, archive/rollback, and validation guidance.
 - **Source ignores (operators):** on-disk `.gitignore` / `.backupignore`, CLI `--ignore-pattern` / `--ignore-file`, precedence, and logging—see **[`docs/source-ignores.md`](docs/source-ignores.md)**.
 - **SQLite manifest (operators):** WAL mode, `busy_timeout`, integrity tooling, env overrides, and CLI exit notes—see **[`docs/sqlite-manifest-operations.md`](docs/sqlite-manifest-operations.md)**.
 - **ADRs:** record **significant** architecture only — see **[Architecture decision records (ADRs)](#architecture-decision-records-adrs)** below. Index: **[`docs/adr/README.md`](docs/adr/README.md)**.

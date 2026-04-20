@@ -46,6 +46,6 @@ Without a locked policy, `new`, `update`, `restore`, and `verify-integrity` coul
 
 ## Related
 
-- [SQLite support assessment](../plans/sqlite-support-assessment.md)
+- [CSV to SQLite migration runbook](../csv-to-sqlite-migration.md)
 - [ADR-0001: SQLite manifest store layout and durability](0001-sqlite-manifest-store.md)
 - [ADR-0005: SQLite adapter contract and schema v1](0005-sqlite-adapter-contract-and-schema-v1.md)

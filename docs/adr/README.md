@@ -2,7 +2,7 @@
 
 Accepted decisions for **significant** cross-cutting design. **Bar:** document only what is worth maintaining long-term — see **[`AGENTS.md`](../../AGENTS.md#architecture-decision-records-adrs)** (when to write an ADR, optional tooling).
 
-Phased delivery context for SQLite work: [`plans/sqlite-support-assessment.md`](../plans/sqlite-support-assessment.md).
+SQLite migration/operator context: [`docs/csv-to-sqlite-migration.md`](../csv-to-sqlite-migration.md).
 
 | ADR | Date | Title |
 |-----|------|--------|

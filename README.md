@@ -97,6 +97,16 @@ Run migration only during a **quiet window** (no concurrent `backuper` commands 
 
 **Concurrency:** in general, use a **single writer** per backup root for `new`, `update`, and migration. Version manifests are append-only CSV files without multi-process coordination; the filestore deduplicates identical content hashes on disk but does not make parallel backup jobs safe. See **Concurrency and single-writer expectations** in **[AGENTS.md](AGENTS.md)**.
 
+## CSV to SQLite manifest migration
+
+For existing trees that are already on canonical CSV and need to move to the SQLite manifest backend, use the operator runbook: **[docs/csv-to-sqlite-migration.md](docs/csv-to-sqlite-migration.md)**.
+
+The runbook sequences:
+
+1. Legacy-to-canonical CSV normalization (`scripts.migrate_version_csv`) when needed.
+2. Canonical CSV to SQLite migration (`scripts.migrate_manifest_csv_to_sqlite`).
+3. Post-migration checks (`verify-integrity` and optional `restore` smoke test).
+
 ## Development
 
 - **Environment:** `make sync` or `uv sync --group dev` (app plus pytest, Ruff, import-linter).

@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-The backup manifest is moving from per-version CSV files to SQLite under the backup root ([`docs/plans/sqlite-support-assessment.md`](../plans/sqlite-support-assessment.md)). We need a clear on-disk story: where the database lives, how it coexists with legacy CSV, and how durability options interact with Python tooling and operator workflows.
+The backup manifest is moving from per-version CSV files to SQLite under the backup root. We need a clear on-disk story: where the database lives, how it coexists with legacy CSV, and how durability options interact with Python tooling and operator workflows.
 
 ## Decision
 
@@ -28,10 +28,10 @@ The backup manifest is moving from per-version CSV files to SQLite under the bac
 
 ## Consequences
 
-- Phase 5 ops docs must spell out **WAL companion files** and **safe backup** procedures.
+- Operations docs must spell out **WAL companion files** and **safe backup** procedures.
 - “Single file under the backup root” in product language means **one logical manifest database**; physically, WAL may add short-lived companion files — this must be clear for support and scripting.
 
 ## Related
 
-- [sqlite-support-assessment.md](../plans/sqlite-support-assessment.md)
+- [CSV to SQLite migration runbook](../csv-to-sqlite-migration.md)
 - [ADR-0002: Version lifecycle and transactions](0002-version-lifecycle-and-transactions.md)
