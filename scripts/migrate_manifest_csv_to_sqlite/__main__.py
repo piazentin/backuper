@@ -291,14 +291,14 @@ def main(argv: list[str] | None = None) -> int:
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
         db_path.mkdir(parents=True, exist_ok=True)
-        if args.force and live_db_path.exists():
-            live_db_path.unlink()
-            live_wal = Path(f"{live_db_path}-wal")
-            live_shm = Path(f"{live_db_path}-shm")
-            for sidecar in (live_wal, live_shm):
-                if sidecar.exists():
-                    sidecar.unlink()
+        # Do not unlink the live DB before replace: if replace fails, the old
+        # manifest must remain. os.replace overwrites the destination atomically.
         staging_db_path.replace(live_db_path)
+        live_wal = Path(f"{live_db_path}-wal")
+        live_shm = Path(f"{live_db_path}-shm")
+        for sidecar in (live_wal, live_shm):
+            if sidecar.exists():
+                sidecar.unlink()
         _cleanup_staging_artifacts(staging_db_path)
     except Exception as exc:
         _cleanup_staging_artifacts(staging_db_path)
