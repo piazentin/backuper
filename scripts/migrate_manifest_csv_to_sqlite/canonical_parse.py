@@ -93,7 +93,7 @@ def parse_canonical_version_csv(manifest_path: str | Path) -> list[CanonicalFsOb
                     f"{path}: CSV record {record_index}: {exc} {_CANONICAL_ONLY_HINT}"
                 ) from exc
             if isinstance(model, _DirEntry):
-                parsed.append(CanonicalCsvDir(name=model.name))
+                parsed.append(CanonicalCsvDir(name=model.normalized_path()))
             else:
                 parsed.append(_stored_file_to_canonical(cast(_StoredFile, model)))
     return parsed

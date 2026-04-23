@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -60,10 +61,12 @@ def _try_parse_version_stem_to_utc_epoch_seconds(stem: str) -> float | None:
     except ValueError:
         return None
 
-    local_tz = datetime.now().astimezone().tzinfo
-    if local_tz is None:
-        return None
-    as_utc = local_civil.replace(tzinfo=local_tz).astimezone(UTC)
+    # Use libc local-time conversion so DST offset is evaluated at the parsed
+    # civil timestamp, not at "now".
+    epoch_s = time.mktime(local_civil.timetuple()) + (
+        local_civil.microsecond / 1_000_000
+    )
+    as_utc = datetime.fromtimestamp(epoch_s, tz=UTC)
     return _quantize_epoch_seconds(as_utc.timestamp())
 
 

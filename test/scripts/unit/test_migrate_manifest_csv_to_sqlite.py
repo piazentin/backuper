@@ -6,7 +6,8 @@ import argparse
 import io
 import os
 import sqlite3
-from datetime import UTC, datetime
+import time
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -168,7 +169,7 @@ def test_main_apply_writes_live_sqlite_manifest(
             "SELECT restore_path FROM version_directories WHERE version_name = 'v' ORDER BY id ASC"
         ).fetchall()
         assert file_rows == [("f.txt",)]
-        assert dir_rows == [("dir/",)]
+        assert dir_rows == [("dir",)]
 
 
 def test_main_explicit_csv_dry_run(
@@ -286,6 +287,19 @@ def test_main_rejects_explicit_csv_non_csv_suffix(
     assert "must end with .csv" in err
 
 
+def test_main_rejects_explicit_csv_uppercase_suffix(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "data").mkdir()
+    db = tmp_path / "db"
+    db.mkdir()
+    wrong = db / "version.CSV"
+    wrong.write_text('"d","x",""\n', encoding="utf-8")
+    assert main([str(tmp_path), "--csv", str(wrong)]) == 1
+    err = capsys.readouterr().err
+    assert "must end with .csv" in err
+
+
 def test_main_rejects_duplicate_explicit_csv_basenames(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -390,9 +404,7 @@ def test_created_at_infers_from_parsable_version_stem(tmp_path: Path) -> None:
     assert len(inferred) == 1
     assert inferred[0].version_name == "2026-02-01T094441"
 
-    local_tz = datetime.now().astimezone().tzinfo
-    assert local_tz is not None
-    ts = datetime(2026, 2, 1, 9, 44, 41, tzinfo=local_tz).astimezone(UTC).timestamp()
+    ts = time.mktime(datetime(2026, 2, 1, 9, 44, 41).timetuple())
     expected = float(round(ts * 1000)) / 1000.0
     assert inferred[0].created_at == expected
 

@@ -153,7 +153,7 @@ def _validate_explicit_csv_targets(*, targets: list[Path], db_path: Path) -> str
                 "ERROR: --csv must not name a dot-prefixed file "
                 f"({csv_path}); those are not migrated manifests."
             )
-        if csv_path.suffix.lower() != ".csv":
+        if csv_path.suffix != ".csv":
             return f"ERROR: --csv entries must end with .csv; got {csv_path}."
         try:
             csv_path.relative_to(db_path)
@@ -185,8 +185,8 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     backup_root = args.backup_root.resolve()
-    db_path = backup_root / args.db_dir
-    data_path = backup_root / args.data_dir
+    db_path = (backup_root / args.db_dir).resolve()
+    data_path = (backup_root / args.data_dir).resolve()
 
     if args.csv:
         targets = [p.resolve() for p in args.csv]
@@ -253,13 +253,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    _cleanup_staging_artifacts(staging_db_path)
-
     sqlite_cfg = sqlite_db_config(str(backup_root))
     sqlite_cfg.backup_db_dir = args.db_dir
     sqlite_cfg.sqlite_filename = staging_db_path.name
 
     try:
+        _cleanup_staging_artifacts(staging_db_path)
         sqlite_db = SqliteDb(sqlite_cfg)
         with sqlite_db.connect() as conn:
             for csv_path in targets:
