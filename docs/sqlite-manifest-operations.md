@@ -293,3 +293,5 @@ For corrupt databases, use **backup/restore** and the integrity checks in this d
 ## Legacy CSV manifests
 
 If your tree still uses **legacy or non-canonical** CSV manifest row shapes, migrate before relying on the current runtime: run `uv run python -m scripts.migrate_version_csv --help` from the project environment and follow the tool’s dry-run/apply workflow. The runtime expects **canonical** CSV rows when CSV is the active backend.
+
+For the full canonical CSV to SQLite backend transition flow (including archive/rollback guidance and post-migration checks), use the operator runbook: [`docs/csv-to-sqlite-migration.md`](csv-to-sqlite-migration.md).

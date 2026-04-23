@@ -186,4 +186,8 @@ Migration is an operator-only maintenance action and should run only during a qu
 - Run apply once dry-run output is clean.
 - Validate with normal project flows after migration (`make test` for repo validation, and a real `verify-integrity`/`restore` on migrated data as needed).
 
-Concurrency locks are out of scope for Phase 4.1; this is a documented operational policy.
+Concurrency locks are currently out of scope; this remains a documented operational policy.
+
+## Next step: migrate canonical CSV to SQLite
+
+After manifests are canonical, operators can migrate the backup tree to the SQLite manifest backend with `scripts.migrate_manifest_csv_to_sqlite`. Use the end-to-end runbook: [`docs/csv-to-sqlite-migration.md`](csv-to-sqlite-migration.md).

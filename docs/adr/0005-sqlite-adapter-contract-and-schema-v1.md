@@ -75,4 +75,4 @@ This document captures stable architectural decisions that tests, migration work
 - [ADR-0002: Version lifecycle, transactions, and default visibility](0002-version-lifecycle-and-transactions.md)
 - [ADR-0003: `list_versions` ordering and `most_recent_version`](0003-version-ordering-and-most-recent.md)
 - [ADR-0004: `created_at` inference when migrating CSV -> SQLite](0004-migration-created-at-inference.md)
-- [SQLite support assessment (phased)](../plans/sqlite-support-assessment.md)
+- [CSV to SQLite migration runbook](../csv-to-sqlite-migration.md)
