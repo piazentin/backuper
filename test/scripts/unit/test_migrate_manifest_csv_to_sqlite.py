@@ -241,17 +241,20 @@ def test_main_rejects_explicit_csv_outside_selected_db_dir(
     first.write_text('"d","x",""\n', encoding="utf-8")
     second.write_text('"d","y",""\n', encoding="utf-8")
 
-    assert main(
-        [
-            str(backup_root),
-            "--db-dir",
-            "db1",
-            "--csv",
-            str(first),
-            "--csv",
-            str(second),
-        ]
-    ) == 1
+    assert (
+        main(
+            [
+                str(backup_root),
+                "--db-dir",
+                "db1",
+                "--csv",
+                str(first),
+                "--csv",
+                str(second),
+            ]
+        )
+        == 1
+    )
     err = capsys.readouterr().err
     assert "must be inside" in err
     assert not (db1 / "manifest.sqlite3.migrating").exists()
