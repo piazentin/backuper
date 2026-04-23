@@ -50,6 +50,7 @@ def test_parse_args_defaults(tmp_path: Path) -> None:
     assert ns.data_dir == "data"
     assert ns.csv is None
     assert ns.dry_run is False
+    assert ns.validate is False
     assert ns.force is False
     assert ns.verbose is False
 
@@ -69,6 +70,7 @@ def test_parse_args_csv_repeatable_and_flags(tmp_path: Path) -> None:
             "--csv",
             str(b),
             "--dry-run",
+            "--validate",
             "--force",
             "-v",
         ]
@@ -77,6 +79,7 @@ def test_parse_args_csv_repeatable_and_flags(tmp_path: Path) -> None:
     assert ns.data_dir == "blobs"
     assert ns.csv == [a, b]
     assert ns.dry_run is True
+    assert ns.validate is True
     assert ns.force is True
     assert ns.verbose is True
 
@@ -391,10 +394,34 @@ def test_main_invalid_manifest_exits_one(
     db = tmp_path / "db"
     db.mkdir()
     (db / "bad.csv").write_text('"f","only","three"\n', encoding="utf-8")
-    assert main([str(tmp_path), "--dry-run"]) == 1
+    assert main([str(tmp_path), "--dry-run", "--validate"]) == 1
     err = capsys.readouterr().err
     assert "ERROR:" in err
     assert "migrate_version_csv" in err
+
+
+def test_main_dry_run_without_validate_skips_csv_parse(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``--dry-run`` alone lists targets without reading manifest bodies."""
+    db = tmp_path / "db"
+    db.mkdir()
+    (db / "bad.csv").write_text('"f","only","three"\n', encoding="utf-8")
+    assert main([str(tmp_path), "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "Dry-run" in out
+    assert "bad.csv" in out
+
+
+def test_main_validate_without_dry_run_errors(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db = tmp_path / "db"
+    db.mkdir()
+    (tmp_path / "data").mkdir()
+    (db / "v.csv").write_text('"d","x",""\n', encoding="utf-8")
+    assert main([str(tmp_path), "--validate"]) == 1
+    assert "only meaningful with --dry-run" in capsys.readouterr().err
 
 
 def test_created_at_infers_from_parsable_version_stem(tmp_path: Path) -> None:

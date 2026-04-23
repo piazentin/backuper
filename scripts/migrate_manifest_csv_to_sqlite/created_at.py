@@ -17,14 +17,14 @@ _VERSION_STEM_FORMAT = "%Y-%m-%dT%H%M%S"
 class InferredVersionCreatedAt:
     manifest_path: Path
     version_name: str
-    # UTC epoch seconds (REAL), millisecond resolution; matches SqliteBackupDatabase.
+    # UTC epoch seconds (REAL), millisecond resolution (migration path).
     created_at: float
 
 
 def infer_created_at_for_manifests(
     manifests: Iterable[Path],
 ) -> list[InferredVersionCreatedAt]:
-    """Infer ``created_at`` per ADR-0004 (quantized epoch seconds for SQLite).
+    """Infer ``created_at`` per ADR-0004 (epoch seconds, ms quantization).
 
     - Parsable ``YYYY-MM-DDTHHMMSS`` stems are interpreted in the migration host's
       local timezone and normalized to UTC.
@@ -71,7 +71,7 @@ def _try_parse_version_stem_to_utc_epoch_seconds(stem: str) -> float | None:
 
 
 def _quantize_epoch_seconds(epoch_seconds: float) -> float:
-    """Match SQLite adapter: ``REAL`` epoch seconds at millisecond resolution."""
+    """``REAL`` epoch seconds at millisecond resolution for stable tie-breaking."""
     return float(round(epoch_seconds * 1000)) / 1000.0
 
 

@@ -22,7 +22,6 @@ from backuper.models import MalformedBackupCsvError
 from scripts.migrate_manifest_csv_to_sqlite.canonical_parse import (
     CanonicalCsvDir,
     CanonicalCsvFile,
-    CanonicalFsObject,
     parse_canonical_version_csv,
 )
 from scripts.migrate_manifest_csv_to_sqlite.created_at import (
@@ -83,6 +82,14 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="Report planned actions without staging, publishing, or archiving",
+    )
+    p.add_argument(
+        "--validate",
+        action="store_true",
+        help=(
+            "With --dry-run: read and validate every CSV manifest first (slower; "
+            "catches malformed data). Ignored without --dry-run."
+        ),
     )
     p.add_argument(
         "--force",
@@ -205,19 +212,6 @@ def main(argv: list[str] | None = None) -> int:
         print("No CSV manifest files found.", file=sys.stderr)
         return 0
 
-    parsed_manifests: dict[Path, list[CanonicalFsObject]] = {}
-    for csv_path in targets:
-        try:
-            parsed_manifests[csv_path] = parse_canonical_version_csv(csv_path)
-        except MalformedBackupCsvError as exc:
-            print(f"ERROR: {exc}", file=sys.stderr)
-            return 1
-
-    inferred_created_at = infer_created_at_for_manifests(targets)
-    created_at_by_manifest = {
-        item.manifest_path.resolve(): item.created_at for item in inferred_created_at
-    }
-
     live_db_path = db_path / _LIVE_SQLITE_FILENAME
     staging_db_path = db_path / f"{_LIVE_SQLITE_FILENAME}{_STAGING_SQLITE_SUFFIX}"
 
@@ -228,15 +222,39 @@ def main(argv: list[str] | None = None) -> int:
             args.db_dir,
             args.data_dir,
         )
-        _LOG.info("--force=%s --dry-run=%s", args.force, args.dry_run)
+        _LOG.info(
+            "--force=%s --dry-run=%s --validate=%s",
+            args.force,
+            args.dry_run,
+            args.validate,
+        )
         for csv_path in targets:
             _LOG.info("manifest: %s", csv_path)
 
     if args.dry_run:
+        if args.validate:
+            for csv_path in targets:
+                try:
+                    parse_canonical_version_csv(csv_path)
+                except MalformedBackupCsvError as exc:
+                    print(f"ERROR: {exc}", file=sys.stderr)
+                    return 1
         print("Dry-run: would migrate the following manifests (no writes):")
         for csv_path in targets:
             print(f"  {csv_path}")
         return 0
+
+    if args.validate:
+        print(
+            "ERROR: --validate is only meaningful with --dry-run.",
+            file=sys.stderr,
+        )
+        return 1
+
+    inferred_created_at = infer_created_at_for_manifests(targets)
+    created_at_by_manifest = {
+        item.manifest_path.resolve(): item.created_at for item in inferred_created_at
+    }
 
     if not data_path.exists() or not data_path.is_dir():
         print(
@@ -262,13 +280,17 @@ def main(argv: list[str] | None = None) -> int:
         sqlite_db = SqliteDb(sqlite_cfg)
         with sqlite_db.connect() as conn:
             for csv_path in targets:
+                try:
+                    fs_objects = parse_canonical_version_csv(csv_path)
+                except MalformedBackupCsvError as exc:
+                    print(f"ERROR: {exc}", file=sys.stderr)
+                    raise
                 version_name = csv_path.stem
                 created_at = created_at_by_manifest[csv_path]
                 conn.execute(
                     SQL_INSERT_VERSION,
                     (version_name, _VERSION_STATE_COMPLETED, created_at),
                 )
-                fs_objects = parsed_manifests[csv_path]
                 for entry in fs_objects:
                     if isinstance(entry, CanonicalCsvFile):
                         conn.execute(

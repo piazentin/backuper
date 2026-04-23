@@ -4,10 +4,9 @@ import csv
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
-from backuper.components.csv_db import _csvrow_to_model, _DirEntry, _StoredFile
 from backuper.models import MalformedBackupCsvError
+from backuper.utils.paths import normalize_path
 
 _LOG = logging.getLogger(__name__)
 
@@ -36,15 +35,43 @@ class CanonicalCsvFile:
 CanonicalFsObject = CanonicalCsvDir | CanonicalCsvFile
 
 
-def _stored_file_to_canonical(stored_file: _StoredFile) -> CanonicalCsvFile:
-    return CanonicalCsvFile(
-        restore_path=stored_file.restore_path,
-        sha1hash=stored_file.sha1hash,
-        stored_location=stored_file.stored_location,
-        is_compressed=stored_file.is_compressed,
-        size=stored_file.size,
-        mtime=stored_file.mtime,
-    )
+def _canonical_csv_row_to_fs_object(row: list[str]) -> CanonicalFsObject:
+    """Map one canonical manifest row to a typed entry (mirrors runtime CSV semantics)."""
+    if not row:
+        raise MalformedBackupCsvError("Empty CSV row")
+    kind = row[0]
+    if kind == "d":
+        return CanonicalCsvDir(name=normalize_path(row[1]))
+    if kind == "f":
+        if len(row) >= 7:
+            _, restore_path, sha1hash, stored_location, is_compressed, size, mtime = (
+                row[:7]
+            )
+            try:
+                parsed_size = int(size) if size else 0
+            except ValueError as e:
+                raise MalformedBackupCsvError(
+                    f"Invalid file CSV row: size field is not a valid integer: {size!r}"
+                ) from e
+            try:
+                parsed_mtime = float(mtime) if mtime else 0.0
+            except ValueError as e:
+                raise MalformedBackupCsvError(
+                    f"Invalid file CSV row: mtime field is not a valid float: {mtime!r}"
+                ) from e
+            return CanonicalCsvFile(
+                restore_path=restore_path,
+                sha1hash=sha1hash,
+                stored_location=stored_location,
+                is_compressed=is_compressed == "True",
+                size=parsed_size,
+                mtime=parsed_mtime,
+            )
+        raise MalformedBackupCsvError(
+            f"Unsupported file CSV row: expected at least 7 columns "
+            f"(only the first 7 fields are used when more are present), got {len(row)}"
+        )
+    raise MalformedBackupCsvError(f"Unknown CSV row type: {kind!r}")
 
 
 def parse_canonical_version_csv(manifest_path: str | Path) -> list[CanonicalFsObject]:
@@ -87,13 +114,9 @@ def parse_canonical_version_csv(manifest_path: str | Path) -> list[CanonicalFsOb
                         f"{_CANONICAL_ONLY_HINT}"
                     )
             try:
-                model = _csvrow_to_model(row)
+                parsed.append(_canonical_csv_row_to_fs_object(row))
             except MalformedBackupCsvError as exc:
                 raise MalformedBackupCsvError(
                     f"{path}: CSV record {record_index}: {exc} {_CANONICAL_ONLY_HINT}"
                 ) from exc
-            if isinstance(model, _DirEntry):
-                parsed.append(CanonicalCsvDir(name=model.normalized_path()))
-            else:
-                parsed.append(_stored_file_to_canonical(cast(_StoredFile, model)))
     return parsed

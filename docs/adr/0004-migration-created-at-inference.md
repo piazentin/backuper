@@ -27,7 +27,7 @@ SQLite stores **`created_at`** per version ([ADR-0003](0003-version-ordering-and
 
    This matches the CLI default version string from [`argparser.py`](../../src/backuper/entrypoints/cli/argparser.py): `datetime.now().strftime("%Y-%m-%dT%H%M%S")` (local timezone context for `now()`).
 
-   When the version name matches this pattern, **`created_at`** is derived by **parsing** the stem into calendar and wall-clock components, then interpreting them as **local civil time in the migration host’s default timezone** (the same zone `datetime.now()` would use on that host at migration time). That **timezone-aware** instant is **normalized to UTC** and stored as **Unix epoch seconds** in SQLite’s **`REAL`** column, **quantized to millisecond resolution** (`round(seconds * 1000) / 1000`), matching `SqliteBackupDatabase.create_version` / `time.time()` (same quantization rules as mtime fallback).
+   When the version name matches this pattern, **`created_at`** is derived by **parsing** the stem into calendar and wall-clock components, then interpreting them as **local civil time in the migration host’s default timezone** (the same zone `datetime.now()` would use on that host at migration time). That **timezone-aware** instant is **normalized to UTC** and stored as **Unix epoch seconds** in SQLite’s **`REAL`** column, **quantized to millisecond resolution** (`round(seconds * 1000) / 1000`) for stable ordering. The live SQLite adapter’s `SqliteBackupDatabase.create_version` currently persists `time.time()` as a float **without** this explicit rounding step; both remain epoch seconds in the same column and sort together as fractional seconds.
 
    **Trade-off:** The stem does not record which timezone produced the original backup filename. **`created_at`** from parsing is therefore **stable for a given migration run** but may **differ** if the same tree is migrated on another machine with a different default offset (or different historical DST rules) for the same stem. **`mtime`** fallback is similarly host-dependent. Operators needing predictable cross-host migration should run migration in a controlled environment or rely on **`mtime`** when stems are ambiguous.
 
@@ -35,7 +35,7 @@ SQLite stores **`created_at`** per version ([ADR-0003](0003-version-ordering-and
    If the version name is **not** parsable under the rule above, set **`created_at`** from the **CSV file’s last modification time** (`mtime`).
 
 3. **Storage precision**  
-   Persist **`created_at`** as **UTC epoch seconds** in the **`REAL`** column, at **millisecond quantization**, identical to the live SQLite adapter. Prefer **UTC** consistently for inferred instants.
+   Persist **`created_at`** as **UTC epoch seconds** in the **`REAL`** column, at **millisecond quantization** for migration-produced rows. Prefer **UTC** consistently for inferred instants.
 
 4. **Collisions**  
    If two versions normalize to the **same** **`created_at`** (including migration edge cases), break ties by **lexicographic order on version name** (same tie-break as [ADR-0003](0003-version-ordering-and-most-recent.md)).
