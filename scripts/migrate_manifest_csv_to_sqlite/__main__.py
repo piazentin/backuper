@@ -146,6 +146,37 @@ def _archive_migrated_csv_manifests(
     return archive_root
 
 
+def _validate_explicit_csv_targets(*, targets: list[Path], db_path: Path) -> str | None:
+    for csv_path in targets:
+        if csv_path.name.startswith("."):
+            return (
+                "ERROR: --csv must not name a dot-prefixed file "
+                f"({csv_path}); those are not migrated manifests."
+            )
+        if csv_path.suffix.lower() != ".csv":
+            return f"ERROR: --csv entries must end with .csv; got {csv_path}."
+        try:
+            csv_path.relative_to(db_path)
+        except ValueError:
+            return f"ERROR: --csv paths must be inside {db_path}; got {csv_path}."
+
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for csv_path in targets:
+        name = csv_path.name
+        if name in seen:
+            duplicates.add(name)
+        seen.add(name)
+    if duplicates:
+        return (
+            "ERROR: duplicate --csv basenames are not allowed because archival "
+            "uses filename-only destinations: "
+            f"{', '.join(sorted(duplicates))}"
+        )
+
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     logging.basicConfig(
@@ -154,17 +185,17 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     backup_root = args.backup_root.resolve()
+    db_path = backup_root / args.db_dir
+    data_path = backup_root / args.data_dir
 
     if args.csv:
         targets = [p.resolve() for p in args.csv]
-        for csv_path in targets:
-            if csv_path.name.startswith("."):
-                print(
-                    "ERROR: --csv must not name a dot-prefixed file "
-                    f"({csv_path}); those are not migrated manifests.",
-                    file=sys.stderr,
-                )
-                return 1
+        explicit_error = _validate_explicit_csv_targets(
+            targets=targets, db_path=db_path
+        )
+        if explicit_error is not None:
+            print(explicit_error, file=sys.stderr)
+            return 1
     else:
         targets = [
             p.resolve() for p in discover_csv_manifests(backup_root, args.db_dir)
@@ -187,7 +218,6 @@ def main(argv: list[str] | None = None) -> int:
         item.manifest_path.resolve(): item.created_at for item in inferred_created_at
     }
 
-    db_path = backup_root / args.db_dir
     live_db_path = db_path / _LIVE_SQLITE_FILENAME
     staging_db_path = db_path / f"{_LIVE_SQLITE_FILENAME}{_STAGING_SQLITE_SUFFIX}"
 
@@ -207,6 +237,13 @@ def main(argv: list[str] | None = None) -> int:
         for csv_path in targets:
             print(f"  {csv_path}")
         return 0
+
+    if not data_path.exists() or not data_path.is_dir():
+        print(
+            f"ERROR: data directory does not exist under backup root: {data_path}",
+            file=sys.stderr,
+        )
+        return 1
 
     if live_db_path.exists() and not args.force:
         print(
@@ -263,6 +300,7 @@ def main(argv: list[str] | None = None) -> int:
                 if sidecar.exists():
                     sidecar.unlink()
         staging_db_path.replace(live_db_path)
+        _cleanup_staging_artifacts(staging_db_path)
     except Exception as exc:
         _cleanup_staging_artifacts(staging_db_path)
         print(f"ERROR: failed to build SQLite manifest: {exc}", file=sys.stderr)

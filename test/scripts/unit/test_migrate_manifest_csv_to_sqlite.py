@@ -136,6 +136,7 @@ def test_main_apply_writes_live_sqlite_manifest(
 ) -> None:
     db = tmp_path / "db"
     db.mkdir()
+    (tmp_path / "data").mkdir()
     (db / "v.csv").write_text(
         '"f","f.txt","abc","aa/bb/abc.zip","False","3","1.0"\n"d","dir/",""\n',
         encoding="utf-8",
@@ -144,6 +145,8 @@ def test_main_apply_writes_live_sqlite_manifest(
     assert capsys.readouterr().err == ""
     live_db = db / "manifest.sqlite3"
     assert live_db.exists()
+    assert not Path(f"{db / 'manifest.sqlite3.migrating'}-wal").exists()
+    assert not Path(f"{db / 'manifest.sqlite3.migrating'}-shm").exists()
     with sqlite3.connect(live_db) as conn:
         user_version = conn.execute("PRAGMA user_version").fetchone()
         assert user_version is not None
@@ -171,7 +174,9 @@ def test_main_apply_writes_live_sqlite_manifest(
 def test_main_explicit_csv_dry_run(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    csv_path = tmp_path / "elsewhere.csv"
+    db = tmp_path / "db"
+    db.mkdir()
+    csv_path = db / "elsewhere.csv"
     csv_path.write_text('"d","x",""\n', encoding="utf-8")
     assert main([str(tmp_path), "--csv", str(csv_path), "--dry-run"]) == 0
     out = capsys.readouterr().out
@@ -183,6 +188,7 @@ def test_main_refuses_when_live_manifest_exists_without_force(
 ) -> None:
     db = tmp_path / "db"
     db.mkdir()
+    (tmp_path / "data").mkdir()
     (db / "v.csv").write_text('"d","x",""\n', encoding="utf-8")
     (db / "manifest.sqlite3").write_text("existing", encoding="utf-8")
 
@@ -197,6 +203,7 @@ def test_main_force_rebuilds_existing_live_manifest(
 ) -> None:
     db = tmp_path / "db"
     db.mkdir()
+    (tmp_path / "data").mkdir()
     (db / "v.csv").write_text('"d","x",""\n', encoding="utf-8")
     live_db = db / "manifest.sqlite3"
     live_db.write_text("old-content", encoding="utf-8")
@@ -220,7 +227,7 @@ def test_main_dry_run_leaves_no_sqlite_artifacts(
     assert not (db / "manifest.sqlite3.migrating").exists()
 
 
-def test_main_cleans_staging_file_when_build_fails(
+def test_main_rejects_explicit_csv_outside_selected_db_dir(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     backup_root = tmp_path / "backup"
@@ -228,29 +235,78 @@ def test_main_cleans_staging_file_when_build_fails(
     db2 = backup_root / "db2"
     db1.mkdir(parents=True)
     db2.mkdir(parents=True)
+    (backup_root / "data").mkdir()
     first = db1 / "same.csv"
     second = db2 / "same.csv"
     first.write_text('"d","x",""\n', encoding="utf-8")
     second.write_text('"d","y",""\n', encoding="utf-8")
 
-    assert (
-        main(
-            [
-                str(backup_root),
-                "--db-dir",
-                "db1",
-                "--csv",
-                str(first),
-                "--csv",
-                str(second),
-            ]
-        )
-        == 1
-    )
+    assert main(
+        [
+            str(backup_root),
+            "--db-dir",
+            "db1",
+            "--csv",
+            str(first),
+            "--csv",
+            str(second),
+        ]
+    ) == 1
     err = capsys.readouterr().err
-    assert "failed to build" in err
+    assert "must be inside" in err
     assert not (db1 / "manifest.sqlite3.migrating").exists()
     assert not (db1 / "manifest.sqlite3").exists()
+
+
+def test_main_rejects_explicit_csv_outside_db_dir(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "data").mkdir()
+    (tmp_path / "db").mkdir()
+    outside = tmp_path / "outside.csv"
+    outside.write_text('"d","x",""\n', encoding="utf-8")
+    assert main([str(tmp_path), "--csv", str(outside)]) == 1
+    err = capsys.readouterr().err
+    assert "inside" in err
+
+
+def test_main_rejects_explicit_csv_non_csv_suffix(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "data").mkdir()
+    db = tmp_path / "db"
+    db.mkdir()
+    wrong = db / "version.txt"
+    wrong.write_text('"d","x",""\n', encoding="utf-8")
+    assert main([str(tmp_path), "--csv", str(wrong)]) == 1
+    err = capsys.readouterr().err
+    assert "must end with .csv" in err
+
+
+def test_main_rejects_duplicate_explicit_csv_basenames(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "backup"
+    db = root / "db"
+    db.mkdir(parents=True)
+    (root / "data").mkdir()
+    same = db / "same.csv"
+    same.write_text('"d","x",""\n', encoding="utf-8")
+    duplicate_ref = db / "child" / ".." / "same.csv"
+    assert main([str(root), "--csv", str(same), "--csv", str(duplicate_ref)]) == 1
+    err = capsys.readouterr().err
+    assert "duplicate --csv basenames" in err
+
+
+def test_main_apply_requires_existing_data_dir(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db = tmp_path / "db"
+    db.mkdir()
+    (db / "v.csv").write_text('"d","x",""\n', encoding="utf-8")
+    assert main([str(tmp_path)]) == 1
+    err = capsys.readouterr().err
+    assert "data directory does not exist" in err
 
 
 def test_parse_canonical_minimal_dirs_and_files(tmp_path: Path) -> None:
