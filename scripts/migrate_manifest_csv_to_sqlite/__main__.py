@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import secrets
 import sqlite3
 import sys
 from datetime import UTC, datetime
@@ -36,7 +37,7 @@ _VERSION_STATE_COMPLETED = "completed"
 _CSV_ARCHIVE_DIRNAME = "_migrated_from_csv"
 
 _RUNBOOK_EPILOG = """\
-Runbook: docs/csv-to-sqlite-migration.md (TBD — operator guide will land with Phase 4).
+Runbook: docs/csv-to-sqlite-migration.md
 Run during a maintenance window when no backup command is active. After migration,
 run verify-integrity and optionally restore as documented in the runbook.
 """
@@ -112,14 +113,28 @@ def _cleanup_staging_artifacts(staging_db_path: Path) -> None:
 
 
 def _new_archive_run_id() -> str:
-    return datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%S")
+    return f"{stamp}Z_{secrets.token_hex(4)}"
 
 
 def _archive_migrated_csv_manifests(
     *, targets: list[Path], db_path: Path, archive_dirname: str = _CSV_ARCHIVE_DIRNAME
 ) -> Path:
-    archive_root = db_path / archive_dirname / _new_archive_run_id()
-    archive_root.mkdir(parents=True, exist_ok=False)
+    archive_parent = db_path / archive_dirname
+    last_err: OSError | None = None
+    for _ in range(16):
+        archive_root = archive_parent / _new_archive_run_id()
+        try:
+            archive_root.mkdir(parents=True, exist_ok=False)
+            break
+        except FileExistsError as exc:
+            last_err = exc
+    else:
+        assert last_err is not None
+        raise RuntimeError(
+            "Could not allocate a unique CSV archive directory under "
+            f"{archive_parent} after repeated attempts."
+        ) from last_err
     for csv_path in targets:
         destination = archive_root / csv_path.name
         if destination.exists():
@@ -142,6 +157,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.csv:
         targets = [p.resolve() for p in args.csv]
+        for csv_path in targets:
+            if csv_path.name.startswith("."):
+                print(
+                    "ERROR: --csv must not name a dot-prefixed file "
+                    f"({csv_path}); those are not migrated manifests.",
+                    file=sys.stderr,
+                )
+                return 1
     else:
         targets = [
             p.resolve() for p in discover_csv_manifests(backup_root, args.db_dir)
@@ -161,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
 
     inferred_created_at = infer_created_at_for_manifests(targets)
     created_at_by_manifest = {
-        item.manifest_path.resolve(): item.created_at_ms for item in inferred_created_at
+        item.manifest_path.resolve(): item.created_at for item in inferred_created_at
     }
 
     db_path = backup_root / args.db_dir
@@ -204,10 +227,10 @@ def main(argv: list[str] | None = None) -> int:
         with sqlite_db.connect() as conn:
             for csv_path in targets:
                 version_name = csv_path.stem
-                created_at_ms = created_at_by_manifest[csv_path]
+                created_at = created_at_by_manifest[csv_path]
                 conn.execute(
                     SQL_INSERT_VERSION,
-                    (version_name, _VERSION_STATE_COMPLETED, created_at_ms),
+                    (version_name, _VERSION_STATE_COMPLETED, created_at),
                 )
                 fs_objects = parsed_manifests[csv_path]
                 for entry in fs_objects:
@@ -240,16 +263,34 @@ def main(argv: list[str] | None = None) -> int:
                 if sidecar.exists():
                     sidecar.unlink()
         staging_db_path.replace(live_db_path)
+    except Exception as exc:
+        _cleanup_staging_artifacts(staging_db_path)
+        print(f"ERROR: failed to build SQLite manifest: {exc}", file=sys.stderr)
+        return 1
+
+    try:
         with sqlite3.connect(live_db_path) as live_conn:
             live_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except Exception as exc:
+        print(
+            "WARNING: SQLite manifest was published but live WAL checkpoint failed: "
+            f"{exc}. Run verify-integrity; if needed, open the DB and run "
+            "PRAGMA wal_checkpoint(TRUNCATE).",
+            file=sys.stderr,
+        )
+
+    try:
         _archive_migrated_csv_manifests(
             targets=targets,
             db_path=db_path,
         )
     except Exception as exc:
-        _cleanup_staging_artifacts(staging_db_path)
-        print(f"ERROR: failed to build SQLite manifest: {exc}", file=sys.stderr)
-        return 1
+        print(
+            "WARNING: CSV archival failed after SQLite publish; manifest.sqlite3 "
+            f"is active at {live_db_path}. Move or archive the CSV manifests "
+            f"manually if needed: {exc}",
+            file=sys.stderr,
+        )
 
     return 0
 

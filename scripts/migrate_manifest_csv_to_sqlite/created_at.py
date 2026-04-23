@@ -16,13 +16,14 @@ _VERSION_STEM_FORMAT = "%Y-%m-%dT%H%M%S"
 class InferredVersionCreatedAt:
     manifest_path: Path
     version_name: str
-    created_at_ms: float
+    # UTC epoch seconds (REAL), millisecond resolution; matches SqliteBackupDatabase.
+    created_at: float
 
 
 def infer_created_at_for_manifests(
     manifests: Iterable[Path],
 ) -> list[InferredVersionCreatedAt]:
-    """Infer ``created_at`` (UTC epoch ms) per ADR-0004.
+    """Infer ``created_at`` per ADR-0004 (quantized epoch seconds for SQLite).
 
     - Parsable ``YYYY-MM-DDTHHMMSS`` stems are interpreted in the migration host's
       local timezone and normalized to UTC.
@@ -35,25 +36,25 @@ def infer_created_at_for_manifests(
         if manifest.name.startswith("."):
             continue
         version_name = manifest.stem
-        parsed_ms = _try_parse_version_stem_to_utc_epoch_ms(version_name)
-        if parsed_ms is not None:
-            created_at_ms = parsed_ms
+        parsed_s = _try_parse_version_stem_to_utc_epoch_seconds(version_name)
+        if parsed_s is not None:
+            created_at = parsed_s
         else:
-            created_at_ms = _to_epoch_millis(manifest.stat().st_mtime)
+            created_at = _quantize_epoch_seconds(manifest.stat().st_mtime)
         inferred.append(
             InferredVersionCreatedAt(
                 manifest_path=manifest,
                 version_name=version_name,
-                created_at_ms=created_at_ms,
+                created_at=created_at,
             )
         )
 
-    inferred.sort(key=lambda item: (item.created_at_ms, item.version_name))
+    inferred.sort(key=lambda item: (item.created_at, item.version_name))
     _log_collisions(inferred)
     return inferred
 
 
-def _try_parse_version_stem_to_utc_epoch_ms(stem: str) -> float | None:
+def _try_parse_version_stem_to_utc_epoch_seconds(stem: str) -> float | None:
     try:
         local_civil = datetime.strptime(stem, _VERSION_STEM_FORMAT)
     except ValueError:
@@ -63,26 +64,26 @@ def _try_parse_version_stem_to_utc_epoch_ms(stem: str) -> float | None:
     if local_tz is None:
         return None
     as_utc = local_civil.replace(tzinfo=local_tz).astimezone(UTC)
-    return _to_epoch_millis(as_utc.timestamp())
+    return _quantize_epoch_seconds(as_utc.timestamp())
 
 
-def _to_epoch_millis(epoch_seconds: float) -> float:
-    # Keep integer-ms precision in REAL storage.
-    return float(round(epoch_seconds * 1000))
+def _quantize_epoch_seconds(epoch_seconds: float) -> float:
+    """Match SQLite adapter: ``REAL`` epoch seconds at millisecond resolution."""
+    return float(round(epoch_seconds * 1000)) / 1000.0
 
 
 def _log_collisions(inferred: list[InferredVersionCreatedAt]) -> None:
     by_created_at: dict[float, list[str]] = defaultdict(list)
     for item in inferred:
-        by_created_at[item.created_at_ms].append(item.version_name)
+        by_created_at[item.created_at].append(item.version_name)
 
-    for created_at_ms, versions in by_created_at.items():
+    for created_at_s, versions in by_created_at.items():
         if len(versions) < 2:
             continue
         ordered = sorted(versions)
         _LOG.warning(
-            "created_at collision at %sms for versions %s; tie-break order is lexicographic by version name: %s",
-            int(created_at_ms),
+            "created_at collision at %s for versions %s; tie-break order is lexicographic by version name: %s",
+            created_at_s,
             versions,
             ordered,
         )

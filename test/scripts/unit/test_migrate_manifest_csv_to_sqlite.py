@@ -80,7 +80,7 @@ def test_parse_args_csv_repeatable_and_flags(tmp_path: Path) -> None:
     assert ns.verbose is True
 
 
-def test_help_epilog_mentions_runbook_tbd() -> None:
+def test_help_epilog_mentions_runbook() -> None:
     from scripts.migrate_manifest_csv_to_sqlite import __main__ as mm
 
     buf = io.StringIO()
@@ -94,6 +94,7 @@ def test_help_epilog_mentions_runbook_tbd() -> None:
     text = buf.getvalue()
     assert "docs/csv-to-sqlite-migration.md" in text
     assert "verify-integrity" in text
+    assert "TBD" not in text
 
 
 def test_main_no_manifests_exits_zero(
@@ -117,6 +118,19 @@ def test_main_dry_run_lists_targets(
     assert "v.csv" in out
 
 
+def test_main_rejects_dot_prefixed_explicit_csv(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db = tmp_path / "db"
+    db.mkdir()
+    pending = db / ".pending__v.csv"
+    pending.write_text('"d","x",""\n', encoding="utf-8")
+    assert main([str(tmp_path), "--csv", str(pending)]) == 1
+    err = capsys.readouterr().err
+    assert "dot-prefixed" in err
+    assert not (db / "manifest.sqlite3").exists()
+
+
 def test_main_apply_writes_live_sqlite_manifest(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -138,6 +152,12 @@ def test_main_apply_writes_live_sqlite_manifest(
             "SELECT name, state FROM versions ORDER BY name ASC"
         ).fetchall()
         assert versions == [("v", "completed")]
+        created_row = conn.execute(
+            "SELECT created_at FROM versions WHERE name = 'v'"
+        ).fetchone()
+        assert created_row is not None
+        assert created_row[0] < 1e11
+
         file_rows = conn.execute(
             "SELECT restore_path FROM version_files WHERE version_name = 'v' ORDER BY id ASC"
         ).fetchall()
@@ -313,13 +333,9 @@ def test_created_at_infers_from_parsable_version_stem(tmp_path: Path) -> None:
 
     local_tz = datetime.now().astimezone().tzinfo
     assert local_tz is not None
-    expected = float(
-        round(
-            datetime(2026, 2, 1, 9, 44, 41, tzinfo=local_tz).astimezone(UTC).timestamp()
-            * 1000
-        )
-    )
-    assert inferred[0].created_at_ms == expected
+    ts = datetime(2026, 2, 1, 9, 44, 41, tzinfo=local_tz).astimezone(UTC).timestamp()
+    expected = float(round(ts * 1000)) / 1000.0
+    assert inferred[0].created_at == expected
 
 
 def test_created_at_falls_back_to_manifest_mtime_for_non_parsable_stem(
@@ -333,7 +349,7 @@ def test_created_at_falls_back_to_manifest_mtime_for_non_parsable_stem(
     inferred = infer_created_at_for_manifests([manifest])
     assert len(inferred) == 1
     assert inferred[0].version_name == "release-v2"
-    assert inferred[0].created_at_ms == float(round(mtime * 1000))
+    assert inferred[0].created_at == float(round(mtime * 1000)) / 1000.0
 
 
 def test_created_at_logs_collision_and_uses_lexicographic_tie_break(
@@ -351,7 +367,7 @@ def test_created_at_logs_collision_and_uses_lexicographic_tie_break(
         inferred = infer_created_at_for_manifests([z_manifest, a_manifest])
 
     assert [item.version_name for item in inferred] == ["aaa", "zzz"]
-    assert inferred[0].created_at_ms == inferred[1].created_at_ms
+    assert inferred[0].created_at == inferred[1].created_at
     assert "created_at collision" in caplog.text
     assert "lexicographic" in caplog.text
 
