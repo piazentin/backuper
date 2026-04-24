@@ -3,19 +3,37 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
 from backuper.commands import NewCommand, UpdateCommand, VerifyIntegrityCommand
-from backuper.components.csv_db import CsvDb
-from backuper.config import CsvDbConfig
+from backuper.config import SqliteDbConfig
 from backuper.entrypoints.cli import run_new, run_update, run_verify_integrity
 from backuper.models import CliUsageError, VersionNotFoundError
 
 
-@pytest.fixture(autouse=True)
-def _force_csv_backend(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FORCE_CSV_DB", "1")
+def _manifest_sqlite(backup: Path) -> Path:
+    cfg = SqliteDbConfig(backup_dir=str(backup))
+    return backup / cfg.backup_db_dir / cfg.sqlite_filename
+
+
+def _first_file_row(backup: Path, version: str) -> sqlite3.Row:
+    path = _manifest_sqlite(backup)
+    with sqlite3.connect(path) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            """
+            SELECT restore_path, storage_location, compression
+            FROM version_files
+            WHERE version_name = ?
+            ORDER BY id ASC
+            LIMIT 1
+            """,
+            (version,),
+        ).fetchone()
+    assert row is not None
+    return row
 
 
 def _seed_backup(destination: Path, source: Path, *, version: str = "v1") -> None:
@@ -91,10 +109,8 @@ def test_run_verify_integrity_json_with_errors(
     source = tmp_path / "src"
     _seed_backup(backup, source, version="v1")
 
-    db = CsvDb(CsvDbConfig(backup_dir=str(backup)))
-    version = db.get_version_by_name("v1")
-    stored_file = db.get_files_for_version(version)[0]
-    stored_blob = backup / "data" / stored_file.stored_location
+    row = _first_file_row(backup, "v1")
+    stored_blob = backup / "data" / row["storage_location"]
     stored_blob.unlink()
     capsys.readouterr()
 
@@ -107,33 +123,34 @@ def test_run_verify_integrity_json_with_errors(
     assert json.loads(captured.out) == {"errors": errors}
 
 
-def test_run_verify_integrity_reports_manifest_mismatch_when_csv_metadata_wrong_but_blob_exists(
+def test_run_verify_integrity_reports_manifest_mismatch_when_metadata_wrong_but_blob_exists(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Wrong stored_location / is_compressed in CSV while blob exists confuses restore."""
+    """Wrong storage_location / compression in manifest while blob exists."""
     backup = tmp_path / "backup"
     source = tmp_path / "src"
     source.mkdir()
     (source / "big.txt").write_text("x" * 2048, encoding="utf-8")
     run_new(NewCommand(version="v1", source=str(source), location=str(backup)))
 
-    db = CsvDb(CsvDbConfig(backup_dir=str(backup)))
-    version = db.get_version_by_name("v1")
-    stored_file = db.get_files_for_version(version)[0]
-    assert stored_file.is_compressed
-    assert stored_file.stored_location.endswith(".zip")
+    row = _first_file_row(backup, "v1")
+    stored_location = str(row["storage_location"])
+    restore_path = str(row["restore_path"])
+    assert str(row["compression"]) == "zip"
+    assert stored_location.endswith(".zip")
 
-    db_cfg = CsvDbConfig(backup_dir=str(backup))
-    csv_path = backup / db_cfg.backup_db_dir / f"v1{db_cfg.csv_file_extension}"
-    text = csv_path.read_text(encoding="utf-8")
-    bad_loc = stored_file.stored_location.removesuffix(".zip")
-    text = text.replace(
-        f'"{stored_file.stored_location}"',
-        f'"{bad_loc}"',
-        1,
-    )
-    text = text.replace(',"True",', ',"False",', 1)
-    csv_path.write_text(text, encoding="utf-8")
+    bad_loc = stored_location.removesuffix(".zip")
+    db_path = _manifest_sqlite(backup)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            UPDATE version_files
+            SET storage_location = ?, compression = 'none'
+            WHERE version_name = ? AND restore_path = ?
+            """,
+            (bad_loc, "v1", restore_path),
+        )
+        conn.commit()
 
     capsys.readouterr()
     errors = run_verify_integrity(
@@ -142,7 +159,7 @@ def test_run_verify_integrity_reports_manifest_mismatch_when_csv_metadata_wrong_
     out = capsys.readouterr().out
     assert len(errors) == 1
     assert "Manifest metadata mismatch" in errors[0]
-    assert stored_file.restore_path in errors[0]
+    assert restore_path in errors[0]
     assert errors[0] in out
     assert "No errors found!" not in out
 
@@ -154,10 +171,9 @@ def test_run_verify_integrity_reports_missing_blobs(
     source = tmp_path / "src"
     _seed_backup(backup, source, version="v1")
 
-    db = CsvDb(CsvDbConfig(backup_dir=str(backup)))
-    version = db.get_version_by_name("v1")
-    stored_file = db.get_files_for_version(version)[0]
-    stored_blob = backup / "data" / stored_file.stored_location
+    row = _first_file_row(backup, "v1")
+    restore_path = Path(str(row["restore_path"]))
+    stored_blob = backup / "data" / row["storage_location"]
     stored_blob.unlink()
     capsys.readouterr()
 
@@ -169,7 +185,7 @@ def test_run_verify_integrity_reports_missing_blobs(
 
     assert len(errors) == 1
     assert errors[0].startswith("Missing hash ")
-    assert stored_file.restore_path in errors[0]
+    assert str(restore_path) in errors[0]
     assert " in v1" in errors[0]
     assert errors[0] in stdout
 
@@ -183,11 +199,9 @@ def test_run_verify_integrity_all_versions_aggregates_missing_blobs(
     _seed_backup(backup, source_v1, version="v1")
     _seed_backup_version(backup, source_v2, version="v2")
 
-    db = CsvDb(CsvDbConfig(backup_dir=str(backup)))
     for version_name in ("v1", "v2"):
-        version = db.get_version_by_name(version_name)
-        stored_file = db.get_files_for_version(version)[0]
-        stored_blob = backup / "data" / stored_file.stored_location
+        row = _first_file_row(backup, version_name)
+        stored_blob = backup / "data" / row["storage_location"]
         stored_blob.unlink()
     capsys.readouterr()
 

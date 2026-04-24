@@ -64,11 +64,7 @@ def run_new(command: NewCommand) -> None:
                 path_filter=GitIgnorePathFilter(user_patterns=user_patterns)
             ),
             analyzer=BackupAnalyzerImpl(),
-            db=create_backup_database(
-                destination,
-                operation="write",
-                index_status=print,
-            ),
+            db=create_backup_database(destination, operation="write"),
             filestore=_local_filestore(destination),
             reporter=StdoutAnalysisReporter(),
         )
@@ -96,11 +92,7 @@ def run_update(command: UpdateCommand) -> None:
                 path_filter=GitIgnorePathFilter(user_patterns=user_patterns)
             ),
             analyzer=BackupAnalyzerImpl(),
-            db=create_backup_database(
-                destination,
-                operation="write",
-                index_status=print,
-            ),
+            db=create_backup_database(destination, operation="write"),
             filestore=_local_filestore(destination),
             reporter=StdoutAnalysisReporter(),
         )

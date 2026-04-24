@@ -12,6 +12,9 @@ from backuper.commands import VerifyIntegrityCommand
 from backuper.components.csv_db import CsvDb, _StoredFile, _Version
 from backuper.config import CsvDbConfig
 from backuper.entrypoints.cli import run_verify_integrity
+from scripts.migrate_manifest_csv_to_sqlite.__main__ import (
+    main as migrate_manifest_sqlite_main,
+)
 from scripts.migrate_version_csv.__main__ import main
 from scripts.migrate_version_csv.atomic_output import write_migrated_atomic
 from scripts.migrate_version_csv.migrate import migrate_version_csv_text
@@ -135,9 +138,11 @@ def test_run_verify_integrity_succeeds_after_migration(backup_root: Path) -> Non
     csv_path = backup_root / "db" / "v1.csv"
     csv_path.write_text(f'"f","hello.txt","{_HELLO_SHA1}"\n', encoding="utf-8")
     assert main([str(backup_root), "--csv", str(csv_path)]) == 0
-    run_verify_integrity(
+    assert migrate_manifest_sqlite_main([str(backup_root)]) == 0
+    errors = run_verify_integrity(
         VerifyIntegrityCommand(location=str(backup_root), version="v1")
     )
+    assert errors == []
 
 
 def test_write_migrated_atomic_idempotent_on_canonical_text(

@@ -1,40 +1,36 @@
 from __future__ import annotations
 
-import os
 import sqlite3
-from collections.abc import Callable
 from contextlib import closing
 from pathlib import Path
 from typing import Literal
 
-from backuper.components.csv_db import CsvBackupDatabase, CsvDb
 from backuper.components.sqlite_db import (
     SqliteBackupDatabase,
     SqliteDb,
     configure_sqlite_read_probe_connection,
 )
-from backuper.config import CsvDbConfig, SqliteDbConfig, sqlite_db_config
+from backuper.config import SqliteDbConfig, sqlite_db_config
 from backuper.models import CliUsageError
 from backuper.ports import BackupDatabase
 
-_FORCE_CSV_DB_ENV = "FORCE_CSV_DB"
 _SQLITE_REQUIRED_TABLES = {"versions", "version_files", "version_directories"}
-# Prefix helps operators grep stderr and distinguish manifest wiring from generic usage errors.
 _SQLITE_CLI_PREFIX = "SQLite manifest: "
+_LEGACY_LAYOUT_GUARD = (
+    _SQLITE_CLI_PREFIX
+    + "The manifest database is missing or not usable for this backup."
+)
 _RESOLUTION_GUIDANCE = (
     _SQLITE_CLI_PREFIX + "The manifest is not ready for read operations. "
-    "Run a write command (new/update) to initialize or repair the SQLite backend, "
-    "or set FORCE_CSV_DB=1 to force CSV backend selection."
+    "Run a write command (new/update) to initialize or repair the SQLite backend."
 )
 _MISSING_SQLITE_MANIFEST_GUIDANCE = (
     _SQLITE_CLI_PREFIX + "No database file found for read operations. "
-    "Run a write command (new/update) to create the SQLite backend, "
-    "or set FORCE_CSV_DB=1 to force CSV backend selection."
+    "Run a write command (new/update) to create the SQLite backend."
 )
 _SQLITE_BOOTSTRAP_GUIDANCE = (
     _SQLITE_CLI_PREFIX + "The backend could not be initialized. "
-    "Run a write command (new/update) to initialize or repair the SQLite backend, "
-    "or set FORCE_CSV_DB=1 to force CSV backend selection."
+    "Run a write command (new/update) to initialize or repair the SQLite backend."
 )
 
 
@@ -44,30 +40,16 @@ def _sqlite_manifest_path(backup_root: Path) -> Path:
 
 
 def _has_canonical_csv_manifest(backup_root: Path) -> bool:
-    config = CsvDbConfig(backup_dir=str(backup_root))
+    config = SqliteDbConfig(backup_dir=str(backup_root))
     db_dir = backup_root / config.backup_db_dir
     if not db_dir.exists() or not db_dir.is_dir():
         return False
     return any(
         candidate.is_file()
-        and candidate.suffix == config.csv_file_extension
+        and candidate.suffix == ".csv"
         and not candidate.name.startswith(".")
         for candidate in db_dir.iterdir()
     )
-
-
-def _is_force_csv_enabled() -> bool:
-    return os.getenv(_FORCE_CSV_DB_ENV) == "1"
-
-
-def _resolve_backend(backup_root: Path) -> Literal["csv", "sqlite"]:
-    if _is_force_csv_enabled():
-        return "csv"
-    if _sqlite_manifest_path(backup_root).exists():
-        return "sqlite"
-    if _has_canonical_csv_manifest(backup_root):
-        return "csv"
-    return "sqlite"
 
 
 def _validate_sqlite_manifest_for_read(sqlite_manifest_path: Path) -> None:
@@ -95,17 +77,11 @@ def create_backup_database(
     backup_root: Path,
     *,
     operation: Literal["read", "write"] = "write",
-    index_status: Callable[[str], None] | None = None,
 ) -> BackupDatabase:
     """Build a backup database adapter based on backend resolution policy."""
-    backend = _resolve_backend(backup_root)
-    if backend == "csv":
-        return CsvBackupDatabase(
-            CsvDb(CsvDbConfig(backup_dir=str(backup_root))),
-            index_status=index_status,
-        )
-
     sqlite_manifest_path = _sqlite_manifest_path(backup_root)
+    if _has_canonical_csv_manifest(backup_root) and not sqlite_manifest_path.exists():
+        raise CliUsageError(_LEGACY_LAYOUT_GUARD)
     if operation == "read":
         _validate_sqlite_manifest_for_read(sqlite_manifest_path)
     try:
