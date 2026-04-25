@@ -8,11 +8,15 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 STATE_PATH = SKILL_ROOT / ".loop-state.json"
-COPILOT_LOGINS = {"copilot", "copilot-pull-request-reviewer[bot]", "copilot-pull-request-reviewer"}
+COPILOT_LOGINS = {
+    "copilot",
+    "copilot-pull-request-reviewer[bot]",
+    "copilot-pull-request-reviewer",
+}
 COPILOT_REVIEWER_STATE_AWAITING = "awaiting"
 COPILOT_REVIEWER_STATE_NOT_AWAITING = "not_awaiting"
 DEFAULT_GH_COMMAND_TIMEOUT_SECONDS = 60
@@ -30,7 +34,9 @@ class LoopError(Exception):
     pass
 
 
-def run_command(cmd: List[str], timeout_seconds: int) -> subprocess.CompletedProcess[str]:
+def run_command(
+    cmd: list[str], timeout_seconds: int
+) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "Never"
@@ -44,12 +50,16 @@ def run_command(cmd: List[str], timeout_seconds: int) -> subprocess.CompletedPro
             env=env,
         )
     except subprocess.TimeoutExpired as exc:
-        raise LoopError(f"Command timed out after {timeout_seconds} seconds: {' '.join(cmd)}") from exc
+        raise LoopError(
+            f"Command timed out after {timeout_seconds} seconds: {' '.join(cmd)}"
+        ) from exc
     except OSError as exc:
         raise LoopError(f"Failed to execute command: {' '.join(cmd)}\n{exc}") from exc
 
 
-def format_failed_command(cmd: List[str], result: subprocess.CompletedProcess[str]) -> str:
+def format_failed_command(
+    cmd: list[str], result: subprocess.CompletedProcess[str]
+) -> str:
     stdout = (result.stdout or "").strip()
     stderr = (result.stderr or "").strip()
     return (
@@ -59,7 +69,7 @@ def format_failed_command(cmd: List[str], result: subprocess.CompletedProcess[st
     )
 
 
-def run_gh_json(args: List[str]) -> Any:
+def run_gh_json(args: list[str]) -> Any:
     cmd = ["gh", *args]
     result = run_command(cmd, timeout_seconds=DEFAULT_GH_COMMAND_TIMEOUT_SECONDS)
     if result.returncode != 0:
@@ -70,10 +80,12 @@ def run_gh_json(args: List[str]) -> Any:
     try:
         return json.loads(stdout)
     except json.JSONDecodeError as exc:
-        raise LoopError(f"Command returned non-JSON output: {' '.join(cmd)}\n{stdout}") from exc
+        raise LoopError(
+            f"Command returned non-JSON output: {' '.join(cmd)}\n{stdout}"
+        ) from exc
 
 
-def run_gh(args: List[str]) -> str:
+def run_gh(args: list[str]) -> str:
     cmd = ["gh", *args]
     result = run_command(cmd, timeout_seconds=DEFAULT_GH_COMMAND_TIMEOUT_SECONDS)
     if result.returncode != 0:
@@ -81,12 +93,12 @@ def run_gh(args: List[str]) -> str:
     return result.stdout.strip()
 
 
-def run_gh_allow_error(args: List[str]) -> subprocess.CompletedProcess[str]:
+def run_gh_allow_error(args: list[str]) -> subprocess.CompletedProcess[str]:
     cmd = ["gh", *args]
     return run_command(cmd, timeout_seconds=DEFAULT_GH_COMMAND_TIMEOUT_SECONDS)
 
 
-def run_git(args: List[str]) -> str:
+def run_git(args: list[str]) -> str:
     cmd = ["git", *args]
     result = run_command(cmd, timeout_seconds=DEFAULT_GIT_COMMAND_TIMEOUT_SECONDS)
     if result.returncode != 0:
@@ -95,7 +107,11 @@ def run_git(args: List[str]) -> str:
 
 
 def utc_now_minus_seconds_iso(seconds: int) -> str:
-    return (dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=seconds)).replace(microsecond=0).isoformat()
+    return (
+        (dt.datetime.now(dt.UTC) - dt.timedelta(seconds=seconds))
+        .replace(microsecond=0)
+        .isoformat()
+    )
 
 
 def parse_iso(ts: str) -> dt.datetime:
@@ -103,7 +119,7 @@ def parse_iso(ts: str) -> dt.datetime:
     return dt.datetime.fromisoformat(normalized)
 
 
-def is_copilot_reviewer(reviewer: Dict[str, Any]) -> bool:
+def is_copilot_reviewer(reviewer: dict[str, Any]) -> bool:
     login = (reviewer.get("login") or "").lower()
     slug = (reviewer.get("slug") or "").lower()
     # Keep request matching permissive: review requests can surface as user/bot/team.
@@ -114,16 +130,18 @@ def ensure_state_dir() -> None:
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
-def save_state(state: Dict[str, Any]) -> None:
+def save_state(state: dict[str, Any]) -> None:
     tmp_path = STATE_PATH.with_suffix(f"{STATE_PATH.suffix}.tmp")
-    write_exc: Optional[Exception] = None
+    write_exc: Exception | None = None
     try:
         ensure_state_dir()
         tmp_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
         tmp_path.replace(STATE_PATH)
     except OSError as exc:
         write_exc = exc
-        raise LoopError(f"Failed to save state file {STATE_PATH} via temporary file {tmp_path}: {exc}") from exc
+        raise LoopError(
+            f"Failed to save state file {STATE_PATH} via temporary file {tmp_path}: {exc}"
+        ) from exc
     finally:
         try:
             if tmp_path.exists():
@@ -136,10 +154,10 @@ def save_state(state: Dict[str, Any]) -> None:
 
 
 def iso_now() -> str:
-    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    return dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
 
 
-def default_state_extensions() -> Dict[str, Any]:
+def default_state_extensions() -> dict[str, Any]:
     return {
         "state_version": STATE_VERSION,
         "migration_applied_at": None,
@@ -158,7 +176,7 @@ def default_state_extensions() -> Dict[str, Any]:
     }
 
 
-def ensure_iteration_bucket(state: Dict[str, Any], iteration: int) -> Dict[str, Any]:
+def ensure_iteration_bucket(state: dict[str, Any], iteration: int) -> dict[str, Any]:
     artifacts = state.setdefault("iteration_artifacts", {})
     key = str(iteration)
     bucket = artifacts.get(key)
@@ -171,17 +189,20 @@ def ensure_iteration_bucket(state: Dict[str, Any], iteration: int) -> Dict[str, 
     return bucket
 
 
-def migrate_state(state: Dict[str, Any]) -> Dict[str, Any]:
+def migrate_state(state: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(state, dict):
         raise LoopError(f"State file {STATE_PATH} must contain a JSON object.")
     migrated = copy.deepcopy(state)
     defaults = default_state_extensions()
-    notes: List[str] = []
+    notes: list[str] = []
     for key, default in defaults.items():
         if key not in migrated:
             migrated[key] = copy.deepcopy(default)
             notes.append(f"defaulted:{key}")
-    if not isinstance(migrated.get("max_iterations"), int) or migrated["max_iterations"] <= 0:
+    if (
+        not isinstance(migrated.get("max_iterations"), int)
+        or migrated["max_iterations"] <= 0
+    ):
         migrated["max_iterations"] = 10
         notes.append("recovered:max_iterations")
     loop_count = migrated.get("loop_count")
@@ -189,11 +210,16 @@ def migrate_state(state: Dict[str, Any]) -> Dict[str, Any]:
         loop_count = 0
         migrated["loop_count"] = 0
         notes.append("recovered:loop_count")
-    if not isinstance(migrated.get("current_iteration"), int) or migrated["current_iteration"] <= 0:
+    if (
+        not isinstance(migrated.get("current_iteration"), int)
+        or migrated["current_iteration"] <= 0
+    ):
         migrated["current_iteration"] = loop_count + 1
         notes.append("recovered:current_iteration_from_loop_count")
     if not isinstance(migrated.get("iteration_artifacts"), dict):
-        raise LoopError(f"State file {STATE_PATH} has fatal shape error: iteration_artifacts must be an object.")
+        raise LoopError(
+            f"State file {STATE_PATH} has fatal shape error: iteration_artifacts must be an object."
+        )
 
     bucket = ensure_iteration_bucket(migrated, int(migrated["current_iteration"]))
     if migrated.get("roles_completed"):
@@ -215,7 +241,7 @@ def migrate_state(state: Dict[str, Any]) -> Dict[str, Any]:
     return migrated
 
 
-def load_state() -> Dict[str, Any]:
+def load_state() -> dict[str, Any]:
     if not STATE_PATH.exists():
         raise LoopError(f"State file not found: {STATE_PATH}")
     try:
@@ -230,31 +256,33 @@ def load_state() -> Dict[str, Any]:
     return migrated
 
 
-def get_current_bucket(state: Dict[str, Any]) -> Dict[str, Any]:
+def get_current_bucket(state: dict[str, Any]) -> dict[str, Any]:
     return ensure_iteration_bucket(state, int(state.get("current_iteration", 1)))
 
 
-def sync_current_iteration_role_views(state: Dict[str, Any]) -> None:
+def sync_current_iteration_role_views(state: dict[str, Any]) -> None:
     bucket = get_current_bucket(state)
     state["roles_completed"] = list(bucket.get("roles_completed", []))
     state["role_agent_ids"] = dict(bucket.get("role_agent_ids", {}))
 
 
-def ensure_within_iteration_cap(state: Dict[str, Any]) -> None:
+def ensure_within_iteration_cap(state: dict[str, Any]) -> None:
     current = int(state.get("current_iteration", 1))
     max_iterations = int(state.get("max_iterations", 10))
     if current > max_iterations:
-        raise LoopError(f"{FINALIZE_CAP_EXCEEDED}: current_iteration={current} exceeds max_iterations={max_iterations}")
+        raise LoopError(
+            f"{FINALIZE_CAP_EXCEEDED}: current_iteration={current} exceeds max_iterations={max_iterations}"
+        )
 
 
-def state_has_implementation_push(state: Dict[str, Any]) -> bool:
+def state_has_implementation_push(state: dict[str, Any]) -> bool:
     impl = get_current_bucket(state).get("artifacts", {}).get("implementation")
     if not isinstance(impl, dict):
         return False
     return bool(impl.get("push_completed")) and bool(impl.get("pushed_sha"))
 
 
-def require_implementation_push(state: Dict[str, Any]) -> None:
+def require_implementation_push(state: dict[str, Any]) -> None:
     if not state_has_implementation_push(state):
         raise LoopError(
             "Implementation artifact is missing push proof for the active iteration. "
@@ -262,7 +290,7 @@ def require_implementation_push(state: Dict[str, Any]) -> None:
         )
 
 
-def clear_copilot_cycle_state(state: Dict[str, Any]) -> None:
+def clear_copilot_cycle_state(state: dict[str, Any]) -> None:
     state["copilot_requested_at"] = None
     state["copilot_review_baseline_at"] = None
     state["last_seen_review_event_at"] = None
@@ -272,7 +300,7 @@ def clear_copilot_cycle_state(state: Dict[str, Any]) -> None:
     state["unresolved_after_post_fix_review"] = None
 
 
-def advance_iteration_or_fail(state: Dict[str, Any]) -> None:
+def advance_iteration_or_fail(state: dict[str, Any]) -> None:
     next_iteration = int(state.get("current_iteration", 1)) + 1
     max_iterations = int(state.get("max_iterations", 10))
     if next_iteration > max_iterations:
@@ -292,13 +320,13 @@ def advance_iteration_or_fail(state: Dict[str, Any]) -> None:
 
 
 def record_role_artifact(
-    state: Dict[str, Any],
+    state: dict[str, Any],
     role: str,
     agent_id: str,
-    artifact: Dict[str, Any],
+    artifact: dict[str, Any],
     replace: bool,
-    replace_reason: Optional[str],
-) -> Dict[str, Any]:
+    replace_reason: str | None,
+) -> dict[str, Any]:
     if role not in ROLE_SEQUENCE:
         raise LoopError(f"Unknown role: {role}")
     ensure_within_iteration_cap(state)
@@ -306,7 +334,11 @@ def record_role_artifact(
     artifacts = dict(bucket.get("artifacts", {}))
     roles_completed = list(bucket.get("roles_completed", []))
     role_agent_ids = dict(bucket.get("role_agent_ids", {}))
-    expected_role = ROLE_SEQUENCE[len(roles_completed)] if len(roles_completed) < len(ROLE_SEQUENCE) else None
+    expected_role = (
+        ROLE_SEQUENCE[len(roles_completed)]
+        if len(roles_completed) < len(ROLE_SEQUENCE)
+        else None
+    )
     if role not in roles_completed and expected_role != role:
         raise LoopError(f"Role order violation: expected {expected_role}, got {role}")
     if role in artifacts and not replace:
@@ -338,8 +370,8 @@ def record_role_artifact(
     return payload
 
 
-def collect_invariant_failures(state: Dict[str, Any]) -> List[str]:
-    failures: List[str] = []
+def collect_invariant_failures(state: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
     ensure_iteration_bucket(state, int(state.get("current_iteration", 1)))
     current = int(state.get("current_iteration", 1))
     max_iterations = int(state.get("max_iterations", 10))
@@ -354,7 +386,9 @@ def collect_invariant_failures(state: Dict[str, Any]) -> List[str]:
     for role in ROLE_SEQUENCE:
         if role not in artifacts:
             failures.append(f"missing_role:{role}")
-    ids = [role_agent_ids.get(role) for role in ROLE_SEQUENCE if role_agent_ids.get(role)]
+    ids = [
+        role_agent_ids.get(role) for role in ROLE_SEQUENCE if role_agent_ids.get(role)
+    ]
     if len(ids) != len(set(ids)):
         failures.append("duplicate_role_agent_id")
     impl = artifacts.get("implementation") or {}
@@ -363,7 +397,7 @@ def collect_invariant_failures(state: Dict[str, Any]) -> List[str]:
     return failures
 
 
-def require_state_keys(state: Dict[str, Any], required_keys: List[str]) -> None:
+def require_state_keys(state: dict[str, Any], required_keys: list[str]) -> None:
     missing = [key for key in required_keys if key not in state]
     if missing:
         raise LoopError(
@@ -379,22 +413,30 @@ def ensure_changes_pushed() -> None:
         )
 
     try:
-        upstream = run_git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+        upstream = run_git(
+            ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]
+        )
     except LoopError as exc:
         raise LoopError(
             "Commit barrier failed: current branch has no upstream. Push with -u before continuing."
         ) from exc
 
-    ahead_behind = run_git(["rev-list", "--left-right", "--count", f"{upstream}...HEAD"])
+    ahead_behind = run_git(
+        ["rev-list", "--left-right", "--count", f"{upstream}...HEAD"]
+    )
     parts = ahead_behind.split()
     if len(parts) != 2:
-        raise LoopError(f"Commit barrier failed: unexpected ahead/behind output: {ahead_behind}")
+        raise LoopError(
+            f"Commit barrier failed: unexpected ahead/behind output: {ahead_behind}"
+        )
 
     try:
         behind_count = int(parts[0])
         ahead_count = int(parts[1])
     except ValueError as exc:
-        raise LoopError(f"Commit barrier failed: unexpected ahead/behind output: {ahead_behind}") from exc
+        raise LoopError(
+            f"Commit barrier failed: unexpected ahead/behind output: {ahead_behind}"
+        ) from exc
     if ahead_count > 0:
         raise LoopError(
             f"Commit barrier failed: local branch is ahead by {ahead_count} commit(s). Push before GitHub actions."
@@ -405,7 +447,7 @@ def ensure_changes_pushed() -> None:
         )
 
 
-def ensure_on_pr_branch(state: Dict[str, Any]) -> None:
+def ensure_on_pr_branch(state: dict[str, Any]) -> None:
     expected_branch = state.get("pr_branch")
     current_branch = run_git(["rev-parse", "--abbrev-ref", "HEAD"])
     if expected_branch and current_branch != expected_branch:
@@ -414,7 +456,7 @@ def ensure_on_pr_branch(state: Dict[str, Any]) -> None:
         )
 
 
-def graphql(query: str, fields: Dict[str, Any]) -> Any:
+def graphql(query: str, fields: dict[str, Any]) -> Any:
     args = ["api", "graphql", "-f", f"query={query}"]
     for key, value in fields.items():
         if value is None:
@@ -422,7 +464,9 @@ def graphql(query: str, fields: Dict[str, Any]) -> Any:
         args.extend(["-F", f"{key}={value}"])
     payload = run_gh_json(args)
     if not isinstance(payload, dict):
-        raise LoopError(f"GraphQL returned an unexpected response type: {type(payload).__name__}")
+        raise LoopError(
+            f"GraphQL returned an unexpected response type: {type(payload).__name__}"
+        )
 
     errors = payload.get("errors")
     if errors:
@@ -431,7 +475,9 @@ def graphql(query: str, fields: Dict[str, Any]) -> Any:
             for error in errors:
                 if isinstance(error, dict):
                     message = error.get("message")
-                    messages.append(message if message else json.dumps(error, sort_keys=True))
+                    messages.append(
+                        message if message else json.dumps(error, sort_keys=True)
+                    )
                 else:
                     messages.append(str(error))
             error_text = "; ".join(messages)
@@ -440,12 +486,14 @@ def graphql(query: str, fields: Dict[str, Any]) -> Any:
         raise LoopError(f"GraphQL query failed: {error_text}. Query: {query.strip()}")
 
     if "data" not in payload or payload["data"] is None:
-        raise LoopError(f"GraphQL response did not include data. Query: {query.strip()}")
+        raise LoopError(
+            f"GraphQL response did not include data. Query: {query.strip()}"
+        )
 
     return payload
 
 
-def get_pr_context(owner: str, repo: str, pr_ref: str) -> Dict[str, Any]:
+def get_pr_context(owner: str, repo: str, pr_ref: str) -> dict[str, Any]:
     repo_full = f"{owner}/{repo}"
     data = run_gh_json(
         [
@@ -474,7 +522,9 @@ def get_pr_context(owner: str, repo: str, pr_ref: str) -> Dict[str, Any]:
     }
 
 
-def fetch_unresolved_threads(owner: str, repo: str, pr_number: int) -> List[Dict[str, Any]]:
+def fetch_unresolved_threads(
+    owner: str, repo: str, pr_number: int
+) -> list[dict[str, Any]]:
     query = """
 query($owner:String!,$repo:String!,$number:Int!,$threadsCursor:String){
   repository(owner:$owner,name:$repo){
@@ -495,17 +545,25 @@ query($owner:String!,$repo:String!,$number:Int!,$threadsCursor:String){
   }
 }
 """
-    threads: List[Dict[str, Any]] = []
-    cursor: Optional[str] = None
+    threads: list[dict[str, Any]] = []
+    cursor: str | None = None
     while True:
-        payload = graphql(query, {"owner": owner, "repo": repo, "number": pr_number, "threadsCursor": cursor})
+        payload = graphql(
+            query,
+            {
+                "owner": owner,
+                "repo": repo,
+                "number": pr_number,
+                "threadsCursor": cursor,
+            },
+        )
         page = payload["data"]["repository"]["pullRequest"]["reviewThreads"]
         threads.extend(page["nodes"])
         if not page["pageInfo"]["hasNextPage"]:
             break
         cursor = page["pageInfo"]["endCursor"]
 
-    unresolved: List[Dict[str, Any]] = []
+    unresolved: list[dict[str, Any]] = []
     for thread in threads:
         # Include outdated threads so operators can explicitly reply/resolve every
         # unresolved review comment in the loop.
@@ -537,9 +595,11 @@ query($owner:String!,$repo:String!,$number:Int!,$cursor:String){
   }
 }
 """
-    cursor: Optional[str] = None
+    cursor: str | None = None
     while True:
-        payload = graphql(query, {"owner": owner, "repo": repo, "number": pr_number, "cursor": cursor})
+        payload = graphql(
+            query, {"owner": owner, "repo": repo, "number": pr_number, "cursor": cursor}
+        )
         requests = payload["data"]["repository"]["pullRequest"]["reviewRequests"]
         nodes = requests["nodes"]
         for node in nodes:
@@ -560,9 +620,18 @@ def get_copilot_reviewer_state(owner: str, repo: str, pr_number: int) -> str:
     return COPILOT_REVIEWER_STATE_NOT_AWAITING
 
 
-def get_copilot_reviews(owner: str, repo: str, pr_number: int, since_ts: str) -> List[Dict[str, Any]]:
-    paged = run_gh_json(["api", "--paginate", "--slurp", f"repos/{owner}/{repo}/pulls/{pr_number}/reviews"])
-    reviews: List[Dict[str, Any]] = []
+def get_copilot_reviews(
+    owner: str, repo: str, pr_number: int, since_ts: str
+) -> list[dict[str, Any]]:
+    paged = run_gh_json(
+        [
+            "api",
+            "--paginate",
+            "--slurp",
+            f"repos/{owner}/{repo}/pulls/{pr_number}/reviews",
+        ]
+    )
+    reviews: list[dict[str, Any]] = []
     if isinstance(paged, list):
         for page in paged:
             if isinstance(page, list):
@@ -579,9 +648,18 @@ def get_copilot_reviews(owner: str, repo: str, pr_number: int, since_ts: str) ->
     return found
 
 
-def get_latest_copilot_review_submitted_at(owner: str, repo: str, pr_number: int) -> Optional[str]:
-    paged = run_gh_json(["api", "--paginate", "--slurp", f"repos/{owner}/{repo}/pulls/{pr_number}/reviews"])
-    reviews: List[Dict[str, Any]] = []
+def get_latest_copilot_review_submitted_at(
+    owner: str, repo: str, pr_number: int
+) -> str | None:
+    paged = run_gh_json(
+        [
+            "api",
+            "--paginate",
+            "--slurp",
+            f"repos/{owner}/{repo}/pulls/{pr_number}/reviews",
+        ]
+    )
+    reviews: list[dict[str, Any]] = []
     if isinstance(paged, list):
         for page in paged:
             if isinstance(page, list):
@@ -589,7 +667,7 @@ def get_latest_copilot_review_submitted_at(owner: str, repo: str, pr_number: int
             elif isinstance(page, dict):
                 reviews.append(page)
 
-    latest: Optional[str] = None
+    latest: str | None = None
     for review in reviews:
         user = ((review.get("user") or {}).get("login", "") or "").lower()
         submitted_at = review.get("submitted_at")
@@ -636,7 +714,9 @@ def with_retries(func, deadline: float, max_retries: int = 3):
 
 def cmd_init(args: argparse.Namespace) -> None:
     pr_context = get_pr_context(args.owner, args.repo, args.pr)
-    unresolved = fetch_unresolved_threads(args.owner, args.repo, pr_context["pr_number"])
+    unresolved = fetch_unresolved_threads(
+        args.owner, args.repo, pr_context["pr_number"]
+    )
     state = {
         "run_id": f"pr-{pr_context['pr_number']}-{int(time.time())}",
         "loop_count": 0,
@@ -656,7 +736,12 @@ def cmd_init(args: argparse.Namespace) -> None:
     state.update(default_state_extensions())
     ensure_iteration_bucket(state, 1)
     save_state(state)
-    print(json.dumps({"state_path": str(STATE_PATH), "unresolved_count": len(unresolved)}, indent=2))
+    print(
+        json.dumps(
+            {"state_path": str(STATE_PATH), "unresolved_count": len(unresolved)},
+            indent=2,
+        )
+    )
 
 
 def cmd_request_copilot(_: argparse.Namespace) -> None:
@@ -686,20 +771,43 @@ def cmd_request_copilot(_: argparse.Namespace) -> None:
         )
     state["last_processed_head_sha"] = current_pr_head
     # Capture current latest Copilot review so poll waits for a newer one.
-    state["copilot_review_baseline_at"] = get_latest_copilot_review_submitted_at(owner, repo, pr_number)
+    state["copilot_review_baseline_at"] = get_latest_copilot_review_submitted_at(
+        owner, repo, pr_number
+    )
 
     request_anchor = utc_now_minus_seconds_iso(120)
     requested = has_copilot_request(owner, repo, pr_number)
     if not requested:
-        result = run_gh_allow_error(["pr", "edit", str(pr_number), "--repo", repo_full, "--add-reviewer", "@copilot"])
+        result = run_gh_allow_error(
+            [
+                "pr",
+                "edit",
+                str(pr_number),
+                "--repo",
+                repo_full,
+                "--add-reviewer",
+                "@copilot",
+            ]
+        )
         if result.returncode != 0:
             stdout_text = (result.stdout or "").strip()
             stderr_text = (result.stderr or "").strip()
-            combined_output = "\n".join(part for part in [stdout_text, stderr_text] if part)
+            combined_output = "\n".join(
+                part for part in [stdout_text, stderr_text] if part
+            )
             err = combined_output.lower()
             if "already" not in err and "exists" not in err:
                 fake_result = subprocess.CompletedProcess(
-                    args=["gh", "pr", "edit", str(pr_number), "--repo", repo_full, "--add-reviewer", "@copilot"],
+                    args=[
+                        "gh",
+                        "pr",
+                        "edit",
+                        str(pr_number),
+                        "--repo",
+                        repo_full,
+                        "--add-reviewer",
+                        "@copilot",
+                    ],
                     returncode=result.returncode,
                     stdout=stdout_text,
                     stderr=stderr_text,
@@ -713,14 +821,19 @@ def cmd_request_copilot(_: argparse.Namespace) -> None:
             immediate_reviews = [
                 review
                 for review in immediate_reviews
-                if review.get("submitted_at") and parse_iso(review["submitted_at"]) > parse_iso(baseline_ts)
+                if review.get("submitted_at")
+                and parse_iso(review["submitted_at"]) > parse_iso(baseline_ts)
             ]
         if not immediate_reviews:
             raise LoopError(
                 "Post-condition failed: Copilot reviewer is not awaiting review after request-copilot, "
                 "and no new Copilot review was detected."
             )
-        newest = max(review["submitted_at"] for review in immediate_reviews if review.get("submitted_at"))
+        newest = max(
+            review["submitted_at"]
+            for review in immediate_reviews
+            if review.get("submitted_at")
+        )
         state["last_seen_review_event_at"] = newest
         immediate_review_found = True
     # Always refresh the request anchor so polling only considers reviews
@@ -749,7 +862,15 @@ def cmd_poll_copilot(args: argparse.Namespace) -> None:
     state = load_state()
     require_state_keys(
         state,
-        ["owner", "repo", "pr_number", "pr_branch", "last_processed_head_sha", "loop_count", "known_thread_ids"],
+        [
+            "owner",
+            "repo",
+            "pr_number",
+            "pr_branch",
+            "last_processed_head_sha",
+            "loop_count",
+            "known_thread_ids",
+        ],
     )
     ensure_within_iteration_cap(state)
     ensure_on_pr_branch(state)
@@ -772,7 +893,7 @@ def cmd_poll_copilot(args: argparse.Namespace) -> None:
     interval_seconds = args.interval_minutes * 60
 
     attempts = 0
-    found_reviews: List[Dict[str, Any]] = []
+    found_reviews: list[dict[str, Any]] = []
     initial_reviewer_state = with_retries(
         lambda: get_copilot_reviewer_state(owner, repo, pr_number),
         deadline=deadline,
@@ -817,17 +938,24 @@ def cmd_poll_copilot(args: argparse.Namespace) -> None:
         # for the active cycle, so treat this as poll completion and then fetch
         # review artifacts/threads for loop decisions.
         found_reviews = with_retries(
-            lambda: get_copilot_reviews(owner, repo, pr_number, state["copilot_requested_at"]),
+            lambda: get_copilot_reviews(
+                owner, repo, pr_number, state["copilot_requested_at"]
+            ),
             deadline=deadline,
         )
         if baseline_ts:
             found_reviews = [
                 review
                 for review in found_reviews
-                if review.get("submitted_at") and parse_iso(review["submitted_at"]) > parse_iso(baseline_ts)
+                if review.get("submitted_at")
+                and parse_iso(review["submitted_at"]) > parse_iso(baseline_ts)
             ]
         if found_reviews:
-            newest = max(review["submitted_at"] for review in found_reviews if review.get("submitted_at"))
+            newest = max(
+                review["submitted_at"]
+                for review in found_reviews
+                if review.get("submitted_at")
+            )
             state["last_seen_review_event_at"] = newest
         else:
             state["last_seen_review_event_at"] = None
@@ -837,7 +965,9 @@ def cmd_poll_copilot(args: argparse.Namespace) -> None:
             save_state(state)
             raise LoopError(state["escalation_reason"])
 
-        unresolved = with_retries(lambda: fetch_unresolved_threads(owner, repo, pr_number), deadline=deadline)
+        unresolved = with_retries(
+            lambda: fetch_unresolved_threads(owner, repo, pr_number), deadline=deadline
+        )
         state["known_thread_ids"] = [t["id"] for t in unresolved]
         state["last_processed_head_sha"] = polled_sha
         if unresolved:
@@ -855,7 +985,8 @@ def cmd_poll_copilot(args: argparse.Namespace) -> None:
                     "new_unresolved_count": len(unresolved),
                     "loop_should_restart": len(unresolved) > 0,
                     "loop_count": state["loop_count"],
-                    "loop_limit_reached": int(state.get("loop_count", 0)) >= int(state.get("max_iterations", 10)),
+                    "loop_limit_reached": int(state.get("loop_count", 0))
+                    >= int(state.get("max_iterations", 10)),
                 },
                 indent=2,
             )
@@ -876,10 +1007,21 @@ def cmd_record_triage(args: argparse.Namespace) -> None:
         "unresolved_decisions": args.unresolved_decisions,
         "action_plan": args.action_plan,
     }
-    payload = record_role_artifact(state, "triage", args.agent_id, artifact, args.replace, args.replace_reason)
+    payload = record_role_artifact(
+        state, "triage", args.agent_id, artifact, args.replace, args.replace_reason
+    )
     state["invariant_failures"] = []
     save_state(state)
-    print(json.dumps({"iteration": state["current_iteration"], "role": "triage", "artifact": payload}, indent=2))
+    print(
+        json.dumps(
+            {
+                "iteration": state["current_iteration"],
+                "role": "triage",
+                "artifact": payload,
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_record_implementation(args: argparse.Namespace) -> None:
@@ -887,19 +1029,35 @@ def cmd_record_implementation(args: argparse.Namespace) -> None:
     if args.push_completed and not args.pushed_sha:
         raise LoopError("--pushed-sha is required when --push-completed is set.")
     artifact = {
-        "checks_run": [part.strip() for part in args.checks_run.split(",") if part.strip()],
+        "checks_run": [
+            part.strip() for part in args.checks_run.split(",") if part.strip()
+        ],
         "checks_passed": args.checks_passed,
         "push_completed": args.push_completed,
         "pushed_sha": args.pushed_sha,
     }
     payload = record_role_artifact(
-        state, "implementation", args.agent_id, artifact, args.replace, args.replace_reason
+        state,
+        "implementation",
+        args.agent_id,
+        artifact,
+        args.replace,
+        args.replace_reason,
     )
     if args.push_completed and args.pushed_sha:
         state["last_fix_sha"] = args.pushed_sha
     state["invariant_failures"] = []
     save_state(state)
-    print(json.dumps({"iteration": state["current_iteration"], "role": "implementation", "artifact": payload}, indent=2))
+    print(
+        json.dumps(
+            {
+                "iteration": state["current_iteration"],
+                "role": "implementation",
+                "artifact": payload,
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_record_self_review(args: argparse.Namespace) -> None:
@@ -908,10 +1066,21 @@ def cmd_record_self_review(args: argparse.Namespace) -> None:
         "gate": args.gate,
         "notes": args.notes,
     }
-    payload = record_role_artifact(state, "self_review", args.agent_id, artifact, args.replace, args.replace_reason)
+    payload = record_role_artifact(
+        state, "self_review", args.agent_id, artifact, args.replace, args.replace_reason
+    )
     state["invariant_failures"] = []
     save_state(state)
-    print(json.dumps({"iteration": state["current_iteration"], "role": "self_review", "artifact": payload}, indent=2))
+    print(
+        json.dumps(
+            {
+                "iteration": state["current_iteration"],
+                "role": "self_review",
+                "artifact": payload,
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_verify_invariants(_: argparse.Namespace) -> None:
@@ -933,7 +1102,9 @@ def cmd_verify_invariants(_: argparse.Namespace) -> None:
     )
 
 
-def run_finalize_cycle(state: Dict[str, Any], interval_minutes: int, timeout_minutes: int, target_sha: str) -> Dict[str, Any]:
+def run_finalize_cycle(
+    state: dict[str, Any], interval_minutes: int, timeout_minutes: int, target_sha: str
+) -> dict[str, Any]:
     owner = state["owner"]
     repo = state["repo"]
     pr_number = state["pr_number"]
@@ -942,7 +1113,15 @@ def run_finalize_cycle(state: Dict[str, Any], interval_minutes: int, timeout_min
     requested = has_copilot_request(owner, repo, pr_number)
     if not requested:
         repo_full = f"{owner}/{repo}"
-        edit_cmd = ["pr", "edit", str(pr_number), "--repo", repo_full, "--add-reviewer", "@copilot"]
+        edit_cmd = [
+            "pr",
+            "edit",
+            str(pr_number),
+            "--repo",
+            repo_full,
+            "--add-reviewer",
+            "@copilot",
+        ]
         result = run_gh_allow_error(edit_cmd)
         if result.returncode != 0:
             raise LoopError(format_failed_command(["gh", *edit_cmd], result))
@@ -955,7 +1134,11 @@ def run_finalize_cycle(state: Dict[str, Any], interval_minutes: int, timeout_min
     while time.time() <= deadline:
         current_sha = get_pr_context(owner, repo, str(pr_number))["head_sha"]
         if current_sha != target_sha:
-            return {"status": FINALIZE_DRIFTED, "target_sha": target_sha, "current_sha": current_sha}
+            return {
+                "status": FINALIZE_DRIFTED,
+                "target_sha": target_sha,
+                "current_sha": current_sha,
+            }
         reviewer_state = get_copilot_reviewer_state(owner, repo, pr_number)
         if reviewer_state == COPILOT_REVIEWER_STATE_AWAITING:
             if time.time() + interval_seconds > deadline:
@@ -964,28 +1147,43 @@ def run_finalize_cycle(state: Dict[str, Any], interval_minutes: int, timeout_min
             continue
         reviews = get_copilot_reviews(owner, repo, pr_number, query_anchor)
         reviews = [
-            review for review in reviews if review.get("submitted_at") and parse_iso(review["submitted_at"]) > parse_iso(request_anchor)
+            review
+            for review in reviews
+            if review.get("submitted_at")
+            and parse_iso(review["submitted_at"]) > parse_iso(request_anchor)
         ]
         if not reviews:
             if time.time() + interval_seconds > deadline:
                 break
             time.sleep(interval_seconds)
             continue
-        newest = max(review["submitted_at"] for review in reviews if review.get("submitted_at"))
+        newest = max(
+            review["submitted_at"] for review in reviews if review.get("submitted_at")
+        )
         state["post_fix_review_completed_at"] = newest
         state["post_fix_review_sha"] = target_sha
         unresolved = fetch_unresolved_threads(owner, repo, pr_number)
         state["unresolved_after_post_fix_review"] = len(unresolved)
         save_state(state)
         if unresolved:
-            return {"status": FINALIZE_NEEDS_LOOP, "unresolved_count": len(unresolved), "target_sha": target_sha}
-        return {"status": FINALIZE_SUCCESS, "unresolved_count": 0, "target_sha": target_sha}
+            return {
+                "status": FINALIZE_NEEDS_LOOP,
+                "unresolved_count": len(unresolved),
+                "target_sha": target_sha,
+            }
+        return {
+            "status": FINALIZE_SUCCESS,
+            "unresolved_count": 0,
+            "target_sha": target_sha,
+        }
     return {"status": FINALIZE_TIMEOUT, "target_sha": target_sha}
 
 
 def cmd_finalize(args: argparse.Namespace) -> None:
     state = load_state()
-    require_state_keys(state, ["owner", "repo", "pr_number", "pr_branch", "last_processed_head_sha"])
+    require_state_keys(
+        state, ["owner", "repo", "pr_number", "pr_branch", "last_processed_head_sha"]
+    )
     ensure_on_pr_branch(state)
     ensure_changes_pushed()
     ensure_within_iteration_cap(state)
@@ -993,7 +1191,9 @@ def cmd_finalize(args: argparse.Namespace) -> None:
     if failures:
         state["invariant_failures"] = failures
         save_state(state)
-        raise LoopError(f"Invariant check failed before finalize: {', '.join(failures)}")
+        raise LoopError(
+            f"Invariant check failed before finalize: {', '.join(failures)}"
+        )
     require_implementation_push(state)
     if args.interval_minutes <= 0:
         raise LoopError("--interval-minutes must be > 0")
@@ -1006,12 +1206,28 @@ def cmd_finalize(args: argparse.Namespace) -> None:
     impl_sha = impl.get("pushed_sha")
     if not impl_sha:
         raise LoopError("Implementation artifact is missing pushed_sha.")
-    head_sha = args.head_sha or get_pr_context(state["owner"], state["repo"], str(state["pr_number"]))["head_sha"]
+    head_sha = (
+        args.head_sha
+        or get_pr_context(state["owner"], state["repo"], str(state["pr_number"]))[
+            "head_sha"
+        ]
+    )
     if head_sha != impl_sha:
-        print(json.dumps({"status": FINALIZE_DRIFTED, "target_sha": impl_sha, "head_sha": head_sha}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "status": FINALIZE_DRIFTED,
+                    "target_sha": impl_sha,
+                    "head_sha": head_sha,
+                },
+                indent=2,
+            )
+        )
         return
 
-    result = run_finalize_cycle(state, args.interval_minutes, args.timeout_minutes, impl_sha)
+    result = run_finalize_cycle(
+        state, args.interval_minutes, args.timeout_minutes, impl_sha
+    )
     status = result["status"]
     if status == FINALIZE_NEEDS_LOOP:
         advance_iteration_or_fail(state)
@@ -1023,15 +1239,25 @@ def cmd_finalize(args: argparse.Namespace) -> None:
     if status == FINALIZE_SUCCESS and impl_recorded_at:
         requested_at = state.get("post_fix_review_requested_at")
         completed_at = state.get("post_fix_review_completed_at")
-        if not requested_at or not completed_at or parse_iso(requested_at) <= parse_iso(impl_recorded_at) or parse_iso(
-            completed_at
-        ) <= parse_iso(impl_recorded_at):
+        if (
+            not requested_at
+            or not completed_at
+            or parse_iso(requested_at) <= parse_iso(impl_recorded_at)
+            or parse_iso(completed_at) <= parse_iso(impl_recorded_at)
+        ):
             status = FINALIZE_NEEDS_LOOP
-            state["invariant_failures"] = state.get("invariant_failures", []) + ["post_fix_review_not_fresh"]
+            state["invariant_failures"] = state.get("invariant_failures", []) + [
+                "post_fix_review_not_fresh"
+            ]
             advance_iteration_or_fail(state)
 
     save_state(state)
-    print(json.dumps({**result, "status": status, "iteration": state["current_iteration"]}, indent=2))
+    print(
+        json.dumps(
+            {**result, "status": status, "iteration": state["current_iteration"]},
+            indent=2,
+        )
+    )
 
 
 def cmd_validate_scenarios(_: argparse.Namespace) -> None:
@@ -1044,9 +1270,23 @@ def cmd_validate_scenarios(_: argparse.Namespace) -> None:
         "invariant_failures": [],
     }
     state = migrate_state(base)
-    record_role_artifact(state, "triage", "agent-triage", {"action_plan": "ok", "unresolved_decisions": "ok"}, False, None)
+    record_role_artifact(
+        state,
+        "triage",
+        "agent-triage",
+        {"action_plan": "ok", "unresolved_decisions": "ok"},
+        False,
+        None,
+    )
     try:
-        record_role_artifact(state, "self_review", "agent-review", {"gate": "pass", "notes": "bad order"}, False, None)
+        record_role_artifact(
+            state,
+            "self_review",
+            "agent-review",
+            {"gate": "pass", "notes": "bad order"},
+            False,
+            None,
+        )
         raise LoopError("expected out-of-order rejection")
     except LoopError:
         pass
@@ -1054,7 +1294,12 @@ def cmd_validate_scenarios(_: argparse.Namespace) -> None:
         state,
         "implementation",
         "agent-impl",
-        {"checks_run": ["project-ci-command"], "checks_passed": True, "push_completed": True, "pushed_sha": "abc123"},
+        {
+            "checks_run": ["project-ci-command"],
+            "checks_passed": True,
+            "push_completed": True,
+            "pushed_sha": "abc123",
+        },
         False,
         None,
     )
@@ -1070,11 +1315,20 @@ def cmd_validate_scenarios(_: argparse.Namespace) -> None:
         raise LoopError("expected duplicate-agent rejection")
     except LoopError:
         pass
-    record_role_artifact(state, "self_review", "agent-review", {"gate": "pass", "notes": "ok"}, False, None)
+    record_role_artifact(
+        state,
+        "self_review",
+        "agent-review",
+        {"gate": "pass", "notes": "ok"},
+        False,
+        None,
+    )
     failures = collect_invariant_failures(state)
     if failures:
         raise LoopError(f"expected no failures for happy path, got: {failures}")
-    cap_state = migrate_state({"current_iteration": 10, "max_iterations": 10, "iteration_artifacts": {}})
+    cap_state = migrate_state(
+        {"current_iteration": 10, "max_iterations": 10, "iteration_artifacts": {}}
+    )
     try:
         advance_iteration_or_fail(cap_state)
         raise LoopError("expected cap_exceeded at iteration 11")
@@ -1085,24 +1339,34 @@ def cmd_validate_scenarios(_: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Stateful runner for PR review loop skill")
+    parser = argparse.ArgumentParser(
+        description="Stateful runner for PR review loop skill"
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    init_parser = subparsers.add_parser("init", help="Initialize loop state and unresolved thread snapshot")
+    init_parser = subparsers.add_parser(
+        "init", help="Initialize loop state and unresolved thread snapshot"
+    )
     init_parser.add_argument("--owner", required=True)
     init_parser.add_argument("--repo", required=True)
     init_parser.add_argument("--pr", required=True, help="PR number, URL, or branch")
     init_parser.set_defaults(func=cmd_init)
 
-    request_parser = subparsers.add_parser("request-copilot", help="Request Copilot review idempotently")
+    request_parser = subparsers.add_parser(
+        "request-copilot", help="Request Copilot review idempotently"
+    )
     request_parser.set_defaults(func=cmd_request_copilot)
 
-    poll_parser = subparsers.add_parser("poll-copilot", help="Poll for Copilot review with timeout")
+    poll_parser = subparsers.add_parser(
+        "poll-copilot", help="Poll for Copilot review with timeout"
+    )
     poll_parser.add_argument("--interval-minutes", type=int, default=3)
     poll_parser.add_argument("--timeout-minutes", type=int, default=15)
     poll_parser.set_defaults(func=cmd_poll_copilot)
 
-    triage_parser = subparsers.add_parser("record-triage", help="Record triage artifact for active iteration")
+    triage_parser = subparsers.add_parser(
+        "record-triage", help="Record triage artifact for active iteration"
+    )
     triage_parser.add_argument("--agent-id", required=True)
     triage_parser.add_argument("--unresolved-decisions", required=True)
     triage_parser.add_argument("--action-plan", required=True)
@@ -1111,10 +1375,13 @@ def build_parser() -> argparse.ArgumentParser:
     triage_parser.set_defaults(func=cmd_record_triage)
 
     implementation_parser = subparsers.add_parser(
-        "record-implementation", help="Record implementation artifact for active iteration"
+        "record-implementation",
+        help="Record implementation artifact for active iteration",
     )
     implementation_parser.add_argument("--agent-id", required=True)
-    implementation_parser.add_argument("--checks-run", required=True, help="Comma-separated commands")
+    implementation_parser.add_argument(
+        "--checks-run", required=True, help="Comma-separated commands"
+    )
     implementation_parser.add_argument("--checks-passed", action="store_true")
     implementation_parser.add_argument("--push-completed", action="store_true")
     implementation_parser.add_argument("--pushed-sha")
@@ -1122,24 +1389,34 @@ def build_parser() -> argparse.ArgumentParser:
     implementation_parser.add_argument("--replace-reason")
     implementation_parser.set_defaults(func=cmd_record_implementation)
 
-    self_review_parser = subparsers.add_parser("record-self-review", help="Record self-review gate artifact")
+    self_review_parser = subparsers.add_parser(
+        "record-self-review", help="Record self-review gate artifact"
+    )
     self_review_parser.add_argument("--agent-id", required=True)
-    self_review_parser.add_argument("--gate", required=True, choices=["pass", "fail", "blocked"])
+    self_review_parser.add_argument(
+        "--gate", required=True, choices=["pass", "fail", "blocked"]
+    )
     self_review_parser.add_argument("--notes", required=True)
     self_review_parser.add_argument("--replace", action="store_true")
     self_review_parser.add_argument("--replace-reason")
     self_review_parser.set_defaults(func=cmd_record_self_review)
 
-    verify_parser = subparsers.add_parser("verify-invariants", help="Verify current iteration invariants")
+    verify_parser = subparsers.add_parser(
+        "verify-invariants", help="Verify current iteration invariants"
+    )
     verify_parser.set_defaults(func=cmd_verify_invariants)
 
-    finalize_parser = subparsers.add_parser("finalize", help="Run final post-fix Copilot gate for active iteration")
+    finalize_parser = subparsers.add_parser(
+        "finalize", help="Run final post-fix Copilot gate for active iteration"
+    )
     finalize_parser.add_argument("--head-sha")
     finalize_parser.add_argument("--interval-minutes", type=int, default=3)
     finalize_parser.add_argument("--timeout-minutes", type=int, default=15)
     finalize_parser.set_defaults(func=cmd_finalize)
 
-    validate_parser = subparsers.add_parser("validate-scenarios", help="Run script-level validation scenarios")
+    validate_parser = subparsers.add_parser(
+        "validate-scenarios", help="Run script-level validation scenarios"
+    )
     validate_parser.set_defaults(func=cmd_validate_scenarios)
     return parser
 

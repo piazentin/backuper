@@ -5,7 +5,6 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import List
 
 DEFAULT_GIT_COMMAND_TIMEOUT_SECONDS = 30
 DEFAULT_GIT_PUSH_TIMEOUT_SECONDS = 120
@@ -15,7 +14,9 @@ class BarrierError(Exception):
     pass
 
 
-def format_failed_command(cmd: List[str], result: subprocess.CompletedProcess[str]) -> str:
+def format_failed_command(
+    cmd: list[str], result: subprocess.CompletedProcess[str]
+) -> str:
     stdout = (result.stdout or "").strip()
     stderr = (result.stderr or "").strip()
     return (
@@ -25,7 +26,7 @@ def format_failed_command(cmd: List[str], result: subprocess.CompletedProcess[st
     )
 
 
-def get_timeout_seconds_for_command(args: List[str]) -> int:
+def get_timeout_seconds_for_command(args: list[str]) -> int:
     command = args[0] if args else ""
     env_var_name = "GIT_COMMAND_TIMEOUT_SECONDS"
     default_timeout = DEFAULT_GIT_COMMAND_TIMEOUT_SECONDS
@@ -41,7 +42,7 @@ def get_timeout_seconds_for_command(args: List[str]) -> int:
         ) from exc
 
 
-def run_git(args: List[str]) -> str:
+def run_git(args: list[str]) -> str:
     cmd = ["git", *args]
     timeout_seconds = get_timeout_seconds_for_command(args)
     env = os.environ.copy()
@@ -57,9 +58,13 @@ def run_git(args: List[str]) -> str:
             stdin=subprocess.DEVNULL,
         )
     except subprocess.TimeoutExpired as exc:
-        raise BarrierError(f"Command timed out after {timeout_seconds} seconds: {' '.join(cmd)}") from exc
+        raise BarrierError(
+            f"Command timed out after {timeout_seconds} seconds: {' '.join(cmd)}"
+        ) from exc
     except OSError as exc:
-        raise BarrierError(f"Failed to execute command: {' '.join(cmd)}\n{exc}") from exc
+        raise BarrierError(
+            f"Failed to execute command: {' '.join(cmd)}\n{exc}"
+        ) from exc
 
     if result.returncode != 0:
         raise BarrierError(format_failed_command(cmd, result))
@@ -69,14 +74,22 @@ def run_git(args: List[str]) -> str:
 def ensure_push_synced() -> None:
     status_porcelain = run_git(["status", "--porcelain"])
     if status_porcelain:
-        raise BarrierError("Commit barrier failed: working tree is not clean after push.")
+        raise BarrierError(
+            "Commit barrier failed: working tree is not clean after push."
+        )
 
     try:
-        upstream = run_git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+        upstream = run_git(
+            ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]
+        )
     except BarrierError as exc:
-        raise BarrierError("Commit barrier failed: current branch has no upstream after push.") from exc
+        raise BarrierError(
+            "Commit barrier failed: current branch has no upstream after push."
+        ) from exc
 
-    ahead_behind = run_git(["rev-list", "--left-right", "--count", f"{upstream}...HEAD"])
+    ahead_behind = run_git(
+        ["rev-list", "--left-right", "--count", f"{upstream}...HEAD"]
+    )
     parts = ahead_behind.split()
     if len(parts) != 2:
         raise BarrierError(f"Unexpected ahead/behind output: {ahead_behind}")
@@ -87,9 +100,13 @@ def ensure_push_synced() -> None:
     except ValueError as exc:
         raise BarrierError(f"Unexpected ahead/behind output: {ahead_behind}") from exc
     if ahead_count > 0:
-        raise BarrierError(f"Commit barrier failed: local branch still ahead by {ahead_count} commit(s).")
+        raise BarrierError(
+            f"Commit barrier failed: local branch still ahead by {ahead_count} commit(s)."
+        )
     if behind_count > 0:
-        raise BarrierError(f"Commit barrier failed: local branch behind by {behind_count} commit(s).")
+        raise BarrierError(
+            f"Commit barrier failed: local branch behind by {behind_count} commit(s)."
+        )
 
 
 def cmd_run(args: argparse.Namespace) -> None:
@@ -100,7 +117,9 @@ def cmd_run(args: argparse.Namespace) -> None:
     try:
         commit_message = message_path.read_text().strip()
     except (OSError, UnicodeDecodeError) as exc:
-        raise BarrierError(f"Failed to read commit message file {message_path}: {exc}") from exc
+        raise BarrierError(
+            f"Failed to read commit message file {message_path}: {exc}"
+        ) from exc
     if not commit_message:
         raise BarrierError(f"Commit message file is empty: {message_path}")
 
