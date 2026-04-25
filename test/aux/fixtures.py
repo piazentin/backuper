@@ -117,11 +117,13 @@ update_backup_with_zip = {"dirs": update_dirs, "stored_files": update_stored_fil
 
 
 def _stored_file_matches_row(stored: _StoredFile, row: sqlite3.Row) -> bool:
+    row_restore_path = normalize_path(str(row["restore_path"]))
+    expected_restore_path = normalize_path(stored.restore_path)
     loc = str(row["storage_location"]).replace("\\", "/")
     exp_loc = stored.stored_location.replace("\\", "/")
     is_zip = str(row["compression"]) == "zip"
     return (
-        str(row["restore_path"]) == stored.restore_path
+        row_restore_path == expected_restore_path
         and str(row["hash_digest"]) == stored.sha1hash
         and loc == exp_loc
         and is_zip == stored.is_compressed
