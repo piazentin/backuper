@@ -58,10 +58,6 @@ select = [
 # E501: line length (`ruff format` handles code; long strings/asserts may remain)
 ignore = ["E501"]
 
-[tool.ruff.lint.per-file-ignores]
-# Module-level Union[] aliases (PEP 604 `|` is evaluated at import time on Python <3.10)
-"src/backuper/components/csv_db.py" = ["UP007"]
-
 [tool.importlinter]
 root_packages = ["backuper"]
 

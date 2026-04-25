@@ -1,4 +1,30 @@
-from backuper.components.csv_db import _DirEntry, _StoredFile
+from __future__ import annotations
+
+import sqlite3
+from dataclasses import dataclass
+from pathlib import Path
+
+from backuper.config import SqliteDbConfig
+from backuper.utils.paths import normalize_path
+
+
+@dataclass(frozen=True)
+class _DirEntry:
+    name: str
+
+    def normalized_path(self) -> str:
+        return normalize_path(self.name)
+
+
+@dataclass(frozen=True)
+class _StoredFile:
+    restore_path: str
+    sha1hash: str
+    stored_location: str
+    is_compressed: bool
+    size: int = 0
+    mtime: float = 0.0
+
 
 stored_text_file1 = _StoredFile(
     "text_file1.txt",
@@ -88,3 +114,59 @@ update_backup = {
     "stored_files": update_stored_files,
 }
 update_backup_with_zip = {"dirs": update_dirs, "stored_files": update_stored_files_zip}
+
+
+def _stored_file_matches_row(stored: _StoredFile, row: sqlite3.Row) -> bool:
+    loc = str(row["storage_location"]).replace("\\", "/")
+    exp_loc = stored.stored_location.replace("\\", "/")
+    is_zip = str(row["compression"]) == "zip"
+    return (
+        str(row["restore_path"]) == stored.restore_path
+        and str(row["hash_digest"]) == stored.sha1hash
+        and loc == exp_loc
+        and is_zip == stored.is_compressed
+    )
+
+
+def assert_sqlite_manifest_matches_fixture(
+    backup_root: Path | str,
+    version_name: str,
+    expected: dict[str, set[_DirEntry] | set[_StoredFile]],
+) -> None:
+    """Assert ``manifest.sqlite3`` content for ``version_name`` matches fixture sets."""
+    root = Path(backup_root)
+    cfg = SqliteDbConfig(backup_dir=str(root))
+    db_path = root / cfg.backup_db_dir / cfg.sqlite_filename
+    assert db_path.is_file(), f"expected SQLite manifest at {db_path}"
+
+    expected_dirs = expected["dirs"]
+    expected_files = expected["stored_files"]
+    assert isinstance(expected_dirs, set)
+    assert isinstance(expected_files, set)
+
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        dir_rows = conn.execute(
+            """
+            SELECT restore_path FROM version_directories
+            WHERE version_name = ? ORDER BY id
+            """,
+            (version_name,),
+        ).fetchall()
+        file_rows = conn.execute(
+            """
+            SELECT restore_path, hash_digest, storage_location, compression, size, mtime
+            FROM version_files
+            WHERE version_name = ? ORDER BY id
+            """,
+            (version_name,),
+        ).fetchall()
+
+    got_dir_norms = {normalize_path(str(r["restore_path"])) for r in dir_rows}
+    expected_dir_norms = {d.normalized_path() for d in expected_dirs}
+    assert got_dir_norms == expected_dir_norms
+
+    assert len(file_rows) == len(expected_files)
+    for row in file_rows:
+        if not any(_stored_file_matches_row(sf, row) for sf in expected_files):
+            raise AssertionError(f"unexpected manifest file row {dict(row)}")

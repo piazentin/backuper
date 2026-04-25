@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from backuper.models import MalformedBackupCsvError
+from backuper.models import MalformedManifestRowError
 from backuper.utils.paths import normalize_path
 
 _LOG = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ CanonicalFsObject = CanonicalCsvDir | CanonicalCsvFile
 def _canonical_csv_row_to_fs_object(row: list[str]) -> CanonicalFsObject:
     """Map one canonical manifest row to a typed entry (mirrors runtime CSV semantics)."""
     if not row:
-        raise MalformedBackupCsvError("Empty CSV row")
+        raise MalformedManifestRowError("Empty CSV row")
     kind = row[0]
     if kind == "d":
         return CanonicalCsvDir(name=normalize_path(row[1]))
@@ -50,13 +50,13 @@ def _canonical_csv_row_to_fs_object(row: list[str]) -> CanonicalFsObject:
             try:
                 parsed_size = int(size) if size else 0
             except ValueError as e:
-                raise MalformedBackupCsvError(
+                raise MalformedManifestRowError(
                     f"Invalid file CSV row: size field is not a valid integer: {size!r}"
                 ) from e
             try:
                 parsed_mtime = float(mtime) if mtime else 0.0
             except ValueError as e:
-                raise MalformedBackupCsvError(
+                raise MalformedManifestRowError(
                     f"Invalid file CSV row: mtime field is not a valid float: {mtime!r}"
                 ) from e
             return CanonicalCsvFile(
@@ -67,17 +67,17 @@ def _canonical_csv_row_to_fs_object(row: list[str]) -> CanonicalFsObject:
                 size=parsed_size,
                 mtime=parsed_mtime,
             )
-        raise MalformedBackupCsvError(
+        raise MalformedManifestRowError(
             f"Unsupported file CSV row: expected at least 7 columns "
             f"(only the first 7 fields are used when more are present), got {len(row)}"
         )
-    raise MalformedBackupCsvError(f"Unknown CSV row type: {kind!r}")
+    raise MalformedManifestRowError(f"Unknown CSV row type: {kind!r}")
 
 
 def parse_canonical_version_csv(manifest_path: str | Path) -> list[CanonicalFsObject]:
     path = Path(manifest_path)
     if not path.is_file():
-        raise MalformedBackupCsvError(f"Manifest is not a file: {path}")
+        raise MalformedManifestRowError(f"Manifest is not a file: {path}")
 
     if path.stat().st_size == 0:
         _LOG.warning("Version manifest is empty (0 bytes): %s", path)
@@ -96,7 +96,7 @@ def parse_canonical_version_csv(manifest_path: str | Path) -> list[CanonicalFsOb
             kind = row[0]
             if kind == "d":
                 if len(row) != 3:
-                    raise MalformedBackupCsvError(
+                    raise MalformedManifestRowError(
                         f"{path}: CSV record {record_index}: directory row must have "
                         f"exactly 3 columns (canonical format); got {len(row)}. "
                         f"{_CANONICAL_ONLY_HINT}"
@@ -104,19 +104,19 @@ def parse_canonical_version_csv(manifest_path: str | Path) -> list[CanonicalFsOb
             elif kind == "f":
                 if len(row) < 7:
                     if len(row) in (3, 5):
-                        raise MalformedBackupCsvError(
+                        raise MalformedManifestRowError(
                             f"{path}: CSV record {record_index}: legacy short file row "
                             f"({len(row)} columns). {_CANONICAL_ONLY_HINT}"
                         )
-                    raise MalformedBackupCsvError(
+                    raise MalformedManifestRowError(
                         f"{path}: CSV record {record_index}: file row must have at least "
                         f"7 columns (canonical format); got {len(row)}. "
                         f"{_CANONICAL_ONLY_HINT}"
                     )
             try:
                 parsed.append(_canonical_csv_row_to_fs_object(row))
-            except MalformedBackupCsvError as exc:
-                raise MalformedBackupCsvError(
+            except MalformedManifestRowError as exc:
+                raise MalformedManifestRowError(
                     f"{path}: CSV record {record_index}: {exc} {_CANONICAL_ONLY_HINT}"
                 ) from exc
     return parsed

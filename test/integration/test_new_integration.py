@@ -1,8 +1,8 @@
 """
-NEW-command integration tests: on-disk layout and CSV rows for `new_backup`.
+NEW-command integration tests: on-disk layout and manifest rows for `new_backup`.
 
 Assertions mirror the former `test/legacy/test_backup.py` coverage for
-`test_new_backup` and `test_new_backup_with_zip` (data layout and DB rows).
+`test_new_backup` and `test_new_backup_with_zip` (data layout and manifest rows).
 """
 
 from __future__ import annotations
@@ -14,17 +14,12 @@ import pytest
 import test.aux as aux
 import test.aux.fixtures as fixtures
 from backuper.components.backup_analyzer import BackupAnalyzerImpl
-from backuper.components.csv_db import (
-    CsvBackupDatabase,
-    CsvDb,
-    _StoredFile,
-    _Version,
-)
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
 from backuper.components.path_ignore import GitIgnorePathFilter
 from backuper.components.reporter import NoOpAnalysisReporter
-from backuper.config import CsvDbConfig, FilestoreConfig
+from backuper.components.sqlite_db import SqliteBackupDatabase, SqliteDb
+from backuper.config import FilestoreConfig, SqliteDbConfig
 from backuper.controllers.backup import new_backup
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -46,38 +41,6 @@ def _copy_new_source_tree(tmp_path: Path) -> Path:
     return dest
 
 
-def _assert_stored_file_in_expected_set(
-    stored_file: _StoredFile,
-    expected_files: set,
-) -> None:
-    for expected in expected_files:
-        if (
-            expected.sha1hash == stored_file.sha1hash
-            and expected.restore_path == stored_file.restore_path
-            and expected.is_compressed == stored_file.is_compressed
-            and expected.stored_location == stored_file.stored_location
-        ):
-            return
-    raise AssertionError(
-        f"CSV file row [{stored_file.restore_path!r}] not in expected set"
-    )
-
-
-def _assert_csv_reader_matches_fixture(
-    backup_dir: str, version_name: str, expected: dict
-) -> None:
-    """Implementation-produced CSV must match fixture expectations."""
-    impl_db = CsvDb(CsvDbConfig(backup_dir=backup_dir))
-    version = _Version(version_name)
-    dirs = impl_db.get_dirs_for_version(version)
-    assert set(dirs) == expected["dirs"]
-
-    files = impl_db.get_files_for_version(version)
-    assert len(files) == len(expected["stored_files"])
-    for stored_file in files:
-        _assert_stored_file_in_expected_set(stored_file, expected["stored_files"])
-
-
 @pytest.fixture
 def new_source_path(tmp_path: Path) -> Path:
     yield _copy_new_source_tree(tmp_path)
@@ -90,7 +53,7 @@ async def test_new_backup_integration_zip_disabled(
     destination = tmp_path / "new_backup"
     destination.mkdir()
 
-    db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(destination))))
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(destination))))
     await new_backup(
         new_source_path,
         "testing",
@@ -112,8 +75,8 @@ async def test_new_backup_integration_zip_disabled(
     for name in data_filenames:
         assert name in _NEW_HASH_PATHS
 
-    _assert_csv_reader_matches_fixture(
-        str(destination), "testing", fixtures.new_backup_db
+    fixtures.assert_sqlite_manifest_matches_fixture(
+        destination, "testing", fixtures.new_backup_db
     )
 
 
@@ -124,7 +87,7 @@ async def test_new_backup_integration_zip_enabled(
     destination = tmp_path / "new_backup_zip"
     destination.mkdir()
 
-    db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(destination))))
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(destination))))
     await new_backup(
         new_source_path,
         "testing",
@@ -146,6 +109,6 @@ async def test_new_backup_integration_zip_enabled(
     for name in data_filenames:
         assert name.removesuffix(".zip") in _NEW_HASH_PATHS
 
-    _assert_csv_reader_matches_fixture(
-        str(destination), "testing", fixtures.new_backup_with_zip_db
+    fixtures.assert_sqlite_manifest_matches_fixture(
+        destination, "testing", fixtures.new_backup_with_zip_db
     )

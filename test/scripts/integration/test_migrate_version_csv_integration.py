@@ -1,16 +1,17 @@
 """
-Integration tests: legacy CSV manifests migrate to canonical shape and remain readable
-by runtime ``CsvDb`` / ``verify-integrity``-style flows.
+Integration tests: legacy CSV manifests migrate to canonical shape and can be
+imported into SQLite for verify-integrity-style flows.
 """
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
 from backuper.commands import VerifyIntegrityCommand
-from backuper.components.csv_db import CsvDb, _StoredFile, _Version
-from backuper.config import CsvDbConfig
+from backuper.components.sqlite_db import SqliteBackupDatabase, SqliteDb
+from backuper.config import SqliteDbConfig
 from backuper.entrypoints.cli import run_verify_integrity
 from scripts.migrate_manifest_csv_to_sqlite.__main__ import (
     main as migrate_manifest_sqlite_main,
@@ -29,8 +30,26 @@ def _write_blob(data_root: Path) -> None:
     blob.write_bytes(b"hello")
 
 
-def _csv_db(backup_root: Path) -> CsvDb:
-    return CsvDb(CsvDbConfig(backup_dir=str(backup_root)))
+def _backup_database(backup_root: Path) -> SqliteBackupDatabase:
+    return SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(backup_root))))
+
+
+async def _list_version_entries(
+    backup_root: Path, version_name: str
+) -> tuple[list, list]:
+    backup_database = _backup_database(backup_root)
+    files = []
+    directories = []
+    async for entry in backup_database.list_files(version_name):
+        if entry.is_directory:
+            directories.append(entry)
+        else:
+            files.append(entry)
+    return files, directories
+
+
+def _migrate_csv_then_sqlite(backup_root: Path) -> None:
+    assert migrate_manifest_sqlite_main([str(backup_root)]) == 0
 
 
 @pytest.fixture
@@ -42,7 +61,7 @@ def backup_root(tmp_path: Path) -> Path:
     return root
 
 
-def test_migrate_three_column_then_csv_db_reads_files(backup_root: Path) -> None:
+def test_migrate_three_column_then_sqlite_reads_files(backup_root: Path) -> None:
     csv_path = backup_root / "db" / "v1.csv"
     csv_path.write_text(
         f'"d","subdir",""\n"f","hello.txt","{_HELLO_SHA1}"\n',
@@ -58,30 +77,28 @@ def test_migrate_three_column_then_csv_db_reads_files(backup_root: Path) -> None
         )
         == 0
     )
-    db = _csv_db(backup_root)
-    files = db.get_files_for_version(_Version("v1"))
+    _migrate_csv_then_sqlite(backup_root)
+    files, dirs = asyncio.run(_list_version_entries(backup_root, "v1"))
     assert len(files) == 1
-    sf = files[0]
-    assert isinstance(sf, _StoredFile)
-    assert sf.restore_path == "hello.txt"
-    assert sf.sha1hash == _HELLO_SHA1
-    assert sf.stored_location.replace("\\", "/") == _STORED
-    assert sf.is_compressed is False
-    assert sf.size == 5
-    dirs = db.get_dirs_for_version(_Version("v1"))
+    r = files[0]
+    assert r.relative_path.as_posix() == "hello.txt"
+    assert r.hash == _HELLO_SHA1
+    assert str(r.stored_location).replace("\\", "/") == _STORED
+    assert r.is_compressed is False
+    assert r.size == 5
     assert len(dirs) == 1
-    assert dirs[0].normalized_path() == "subdir"
+    assert dirs[0].relative_path.as_posix() == "subdir"
 
 
-def test_migrate_five_column_then_csv_db_reads_files(backup_root: Path) -> None:
+def test_migrate_five_column_then_sqlite_reads_files(backup_root: Path) -> None:
     csv_path = backup_root / "db" / "v1.csv"
     csv_path.write_text(
         f'"f","hello.txt","{_HELLO_SHA1}","{_STORED}","False"\n',
         encoding="utf-8",
     )
     assert main([str(backup_root), "--csv", str(csv_path)]) == 0
-    db = _csv_db(backup_root)
-    files = db.get_files_for_version(_Version("v1"))
+    _migrate_csv_then_sqlite(backup_root)
+    files, _ = asyncio.run(_list_version_entries(backup_root, "v1"))
     assert len(files) == 1
     assert files[0].size == 5
 
@@ -97,8 +114,10 @@ def test_migrate_seven_column_extra_columns_ignored(backup_root: Path) -> None:
     text = csv_path.read_text(encoding="utf-8")
     assert "__extra_a__" not in text
     assert "__extra_b__" not in text
-    db = _csv_db(backup_root)
-    assert db.get_files_for_version(_Version("v1"))[0].size == 5
+    _migrate_csv_then_sqlite(backup_root)
+    files, _ = asyncio.run(_list_version_entries(backup_root, "v1"))
+    assert len(files) == 1
+    assert files[0].size == 5
 
 
 def test_migrate_idempotent_second_run_unchanged(backup_root: Path) -> None:

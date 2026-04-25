@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 from backuper.components.backup_analyzer import BackupAnalyzerImpl
-from backuper.components.csv_db import CsvBackupDatabase, CsvDb
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
 from backuper.components.path_ignore import GitIgnorePathFilter
 from backuper.components.reporter import NoOpAnalysisReporter
-from backuper.config import CsvDbConfig, FilestoreConfig
+from backuper.components.sqlite_db import SqliteBackupDatabase, SqliteDb
+from backuper.config import FilestoreConfig, SqliteDbConfig
 from backuper.controllers.backup import new_backup
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -38,7 +38,7 @@ def _copy_ignore_fixture(tmp_path: Path) -> Path:
 async def _run_backup_and_list_manifest_paths(
     source: Path, destination: Path, *, user_patterns: tuple[str, ...] = ()
 ) -> set[Path]:
-    db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(destination))))
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(destination))))
     await new_backup(
         source,
         "ignore-testing",

@@ -34,13 +34,6 @@ ZIP_SKIP_EXTENSIONS = {
 ZIP_MIN_FILESIZE_IN_BYTES = 1024  # 1KB
 
 
-@dataclass
-class CsvDbConfig:
-    backup_dir: str
-    backup_db_dir: str = "db"
-    csv_file_extension: str = ".csv"
-
-
 BACKUPER_SQLITE_SYNCHRONOUS_ENV = "BACKUPER_SQLITE_SYNCHRONOUS"
 
 _SQLITE_SYNCHRONOUS_SYMBOLIC = {"off": 0, "normal": 1, "full": 2, "extra": 3}

@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
-from backuper.models import MalformedBackupCsvError
+from backuper.models import MalformedManifestRowError
 from scripts.migrate_manifest_csv_to_sqlite.__main__ import _parse_args, main
 from scripts.migrate_manifest_csv_to_sqlite.canonical_parse import (
     CanonicalCsvDir,
@@ -352,7 +352,7 @@ def test_parse_canonical_minimal_dirs_and_files(tmp_path: Path) -> None:
 def test_parse_canonical_rejects_legacy_short_file_row(tmp_path: Path) -> None:
     p = tmp_path / "legacy.csv"
     p.write_text('"f","a.txt","hashonly"\n', encoding="utf-8")
-    with pytest.raises(MalformedBackupCsvError) as ei:
+    with pytest.raises(MalformedManifestRowError) as ei:
         parse_canonical_version_csv(p)
     msg = str(ei.value)
     assert "legacy short file row" in msg
@@ -363,7 +363,7 @@ def test_parse_canonical_rejects_legacy_short_file_row(tmp_path: Path) -> None:
 def test_parse_canonical_rejects_unknown_row_kind(tmp_path: Path) -> None:
     p = tmp_path / "bad.csv"
     p.write_text('"x","nope",""\n', encoding="utf-8")
-    with pytest.raises(MalformedBackupCsvError) as ei:
+    with pytest.raises(MalformedManifestRowError) as ei:
         parse_canonical_version_csv(p)
     assert "Unknown CSV row type" in str(ei.value)
     assert "migrate_version_csv" in str(ei.value)
@@ -372,7 +372,7 @@ def test_parse_canonical_rejects_unknown_row_kind(tmp_path: Path) -> None:
 def test_parse_canonical_error_includes_manifest_path(tmp_path: Path) -> None:
     p = tmp_path / "bad.csv"
     p.write_text('"d","only",""\n"q","bad",""\n', encoding="utf-8")
-    with pytest.raises(MalformedBackupCsvError) as ei:
+    with pytest.raises(MalformedManifestRowError) as ei:
         parse_canonical_version_csv(p)
     assert str(p) in str(ei.value)
     assert "CSV record 2" in str(ei.value)
