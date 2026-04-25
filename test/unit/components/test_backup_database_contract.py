@@ -2,9 +2,8 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from backuper.components.csv_db import CsvBackupDatabase, CsvDb
 from backuper.components.sqlite_db import SqliteBackupDatabase, SqliteDb
-from backuper.config import CsvDbConfig, SqliteDbConfig
+from backuper.config import SqliteDbConfig
 from backuper.models import BackedUpFileEntry, FileEntry, VersionNotFoundError
 from backuper.ports import BackupDatabase
 
@@ -35,10 +34,8 @@ def _entry(
     )
 
 
-@pytest.fixture(params=["csv", "sqlite"])
-def backup_database(request: pytest.FixtureRequest, tmp_path: Path) -> BackupDatabase:
-    if request.param == "csv":
-        return CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(tmp_path))))
+@pytest.fixture
+def backup_database(tmp_path: Path) -> BackupDatabase:
     return SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(tmp_path))))
 
 

@@ -17,7 +17,7 @@ from backuper.components.sqlite_db import (
     SqliteDb,
 )
 from backuper.config import sqlite_db_config
-from backuper.models import MalformedBackupCsvError
+from backuper.models import MalformedManifestRowError
 
 from scripts.migrate_manifest_csv_to_sqlite.canonical_parse import (
     CanonicalCsvDir,
@@ -236,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
             for csv_path in targets:
                 try:
                     parse_canonical_version_csv(csv_path)
-                except MalformedBackupCsvError as exc:
+                except MalformedManifestRowError as exc:
                     print(f"ERROR: {exc}", file=sys.stderr)
                     return 1
         print("Dry-run: would migrate the following manifests (no writes):")
@@ -282,7 +282,7 @@ def main(argv: list[str] | None = None) -> int:
             for csv_path in targets:
                 try:
                     fs_objects = parse_canonical_version_csv(csv_path)
-                except MalformedBackupCsvError as exc:
+                except MalformedManifestRowError as exc:
                     print(f"ERROR: {exc}", file=sys.stderr)
                     raise
                 version_name = csv_path.stem

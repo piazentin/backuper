@@ -8,7 +8,7 @@ from .exceptions import (
     CliUsageError as CliUsageError,
 )
 from .exceptions import (
-    MalformedBackupCsvError as MalformedBackupCsvError,
+    MalformedManifestRowError as MalformedManifestRowError,
 )
 from .exceptions import (
     RestorePathError as RestorePathError,

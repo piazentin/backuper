@@ -4,12 +4,12 @@ from uuid import UUID
 
 import pytest
 from backuper.components.backup_analyzer import BackupAnalyzerImpl
-from backuper.components.csv_db import CsvBackupDatabase, CsvDb
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
 from backuper.components.path_ignore import NullPathFilter
 from backuper.components.reporter import NoOpAnalysisReporter
-from backuper.config import CsvDbConfig, FilestoreConfig
+from backuper.components.sqlite_db import SqliteBackupDatabase, SqliteDb
+from backuper.config import FilestoreConfig, SqliteDbConfig
 from backuper.controllers.backup import (
     _iterate_analyzed_entries,
     add_version,
@@ -42,7 +42,7 @@ async def test_create_backup_writes_data_store_and_metadata(tmp_path: Path) -> N
     backup_root = tmp_path / "backup"
     version = "20260329093000"
 
-    db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(backup_root))))
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(backup_root))))
     filestore = LocalFileStore(
         FilestoreConfig(
             backup_dir=str(backup_root),
@@ -89,7 +89,7 @@ async def test_add_version_raises_when_version_already_exists(tmp_path: Path) ->
     backup_root = tmp_path / "backup"
     version = "v1"
 
-    db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(backup_root))))
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(backup_root))))
     filestore = LocalFileStore(
         FilestoreConfig(
             backup_dir=str(backup_root),
@@ -248,7 +248,7 @@ async def test_new_backup_with_reporter_reports_summary_and_progress(
     backup_root = tmp_path / "backup"
     version = "ux1"
 
-    db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(backup_root))))
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(backup_root))))
     filestore = LocalFileStore(
         FilestoreConfig(
             backup_dir=str(backup_root),
@@ -295,7 +295,7 @@ async def test_backup_progress_throttled_when_just_over_hundred_files(
     backup_root = tmp_path / "backup"
     version = "v101"
 
-    db = CsvBackupDatabase(CsvDb(CsvDbConfig(backup_dir=str(backup_root))))
+    db = SqliteBackupDatabase(SqliteDb(SqliteDbConfig(backup_dir=str(backup_root))))
     filestore = LocalFileStore(
         FilestoreConfig(
             backup_dir=str(backup_root),

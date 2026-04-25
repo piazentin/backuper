@@ -11,8 +11,8 @@ class CliUsageError(UserFacingError):
     """Invalid paths, destinations, or other CLI-level preconditions."""
 
 
-class MalformedBackupCsvError(UserFacingError):
-    """CSV row could not be parsed or is invalid for the backup database."""
+class MalformedManifestRowError(UserFacingError):
+    """A manifest row could not be parsed or is invalid (including migration CSV input)."""
 
     def __init__(self, message: str, *, detail: str | None = None) -> None:
         self.detail = detail

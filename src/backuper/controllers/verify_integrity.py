@@ -28,8 +28,8 @@ async def _missing_stored_files(
             errors.append(
                 f"Manifest metadata mismatch for {file_entry.relative_path} in "
                 f"{version}: stored_location {loc!r} is missing or inconsistent, but "
-                f"blob for hash {h} exists under raw or zipped layout (CSV may not "
-                f"match on-disk compression or path)"
+                f"blob for hash {h} exists under raw or zipped layout "
+                f"(stored metadata does not match on-disk path or compression)"
             )
         elif not blob_ok:
             errors.append(
