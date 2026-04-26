@@ -3,7 +3,7 @@
 Operator guide for migrating an existing backup tree from per-version CSV manifests to `manifest.sqlite3`.
 
 Use this runbook only during a maintenance window with a single active writer for the target backup root.
-Migration scripts are tooling-only entrypoints: they reuse selected shared `backuper` modules but are intentionally isolated from runtime CLI orchestration layers.
+Migration scripts are tooling-only scripts: they reuse selected shared `backuper` modules but are intentionally isolated from runtime CLI orchestration layers.
 
 ## Prerequisites
 
