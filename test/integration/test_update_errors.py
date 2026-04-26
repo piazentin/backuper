@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 from backuper.commands import NewCommand, UpdateCommand
-from backuper.entrypoints.wiring import create_destination_write_lock
 from backuper.entrypoints.cli import run_new, run_update
+from backuper.entrypoints.wiring import create_destination_write_lock
 from backuper.models import CliUsageError, VersionAlreadyExistsError
 
 

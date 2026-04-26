@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import os
 from contextlib import AbstractContextManager
 from io import BufferedRandom
-import os
 from pathlib import Path
 from types import TracebackType
 
@@ -58,11 +58,15 @@ class LocalDestinationWriteLock(DestinationWriteLock):
 if os.name == "nt":
     import msvcrt
 
+    _locking = getattr(msvcrt, "locking")
+    _lk_nblck = getattr(msvcrt, "LK_NBLCK")
+    _lk_unlck = getattr(msvcrt, "LK_UNLCK")
+
     def _acquire_non_blocking_exclusive(fd: int) -> None:
-        msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        _locking(fd, _lk_nblck, 1)
 
     def _release(fd: int) -> None:
-        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        _locking(fd, _lk_unlck, 1)
 else:
     import fcntl
 

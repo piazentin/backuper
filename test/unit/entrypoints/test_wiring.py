@@ -7,7 +7,10 @@ import pytest
 from backuper.components.destination_lock import LocalDestinationWriteLock
 from backuper.components.sqlite_db import SqliteBackupDatabase
 from backuper.config import BACKUPER_SQLITE_SYNCHRONOUS_ENV, SqliteDbConfig
-from backuper.entrypoints.wiring import create_backup_database, create_destination_write_lock
+from backuper.entrypoints.wiring import (
+    create_backup_database,
+    create_destination_write_lock,
+)
 from backuper.models import CliUsageError
 from backuper.ports import BackupDatabase, DestinationWriteLock
 

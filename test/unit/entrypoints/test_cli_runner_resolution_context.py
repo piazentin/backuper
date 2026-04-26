@@ -11,8 +11,8 @@ from backuper.commands import (
     UpdateCommand,
     VerifyIntegrityCommand,
 )
-from backuper.entrypoints.cli import runner
 from backuper.components.destination_lock import DestinationLockContendedError
+from backuper.entrypoints.cli import runner
 from backuper.models import CliUsageError
 
 # Matches production resolver wording closely enough for pytest `match=`; do not import
@@ -105,7 +105,9 @@ def test_run_new_creates_destination_before_entering_destination_lock(
     (source / "a.txt").write_text("payload", encoding="utf-8")
     destination_lock = _RecordingDestinationLock()
 
-    monkeypatch.setattr(runner, "create_destination_write_lock", lambda: destination_lock)
+    monkeypatch.setattr(
+        runner, "create_destination_write_lock", lambda: destination_lock
+    )
 
     runner.run_new(
         NewCommand(version="v1", source=str(source), location=str(destination)),
@@ -124,9 +126,13 @@ def test_run_update_maps_destination_lock_contention_to_cli_usage_error(
     destination.mkdir()
     (source / "a.txt").write_text("payload", encoding="utf-8")
 
-    monkeypatch.setattr(runner, "create_destination_write_lock", _ContendedDestinationLock)
+    monkeypatch.setattr(
+        runner, "create_destination_write_lock", _ContendedDestinationLock
+    )
 
-    with pytest.raises(CliUsageError, match=r"already being modified by another active writer"):
+    with pytest.raises(
+        CliUsageError, match=r"already being modified by another active writer"
+    ):
         runner.run_update(
             UpdateCommand(version="v2", source=str(source), location=str(destination)),
         )
@@ -140,9 +146,13 @@ def test_run_new_maps_destination_lock_contention_to_cli_usage_error(
     source.mkdir()
     (source / "a.txt").write_text("payload", encoding="utf-8")
 
-    monkeypatch.setattr(runner, "create_destination_write_lock", _ContendedDestinationLock)
+    monkeypatch.setattr(
+        runner, "create_destination_write_lock", _ContendedDestinationLock
+    )
 
-    with pytest.raises(CliUsageError, match=r"already being modified by another active writer"):
+    with pytest.raises(
+        CliUsageError, match=r"already being modified by another active writer"
+    ):
         runner.run_new(
             NewCommand(version="v1", source=str(source), location=str(destination)),
         )

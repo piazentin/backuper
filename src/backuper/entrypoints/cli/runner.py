@@ -61,7 +61,9 @@ def run_new(command: NewCommand) -> None:
     try:
         destination.mkdir(parents=True, exist_ok=False)
     except FileExistsError as exc:
-        raise CliUsageError(f"destination path {command.location} already exists") from exc
+        raise CliUsageError(
+            f"destination path {command.location} already exists"
+        ) from exc
 
     user_patterns = build_user_ignore_patterns(
         ignore_patterns=command.ignore_patterns,
