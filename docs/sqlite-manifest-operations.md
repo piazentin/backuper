@@ -75,9 +75,18 @@ That is the engine `backuper` uses. If you also use the standalone `sqlite3` CLI
 - **One writer** at a time: a single active `backuper` process performing backup/write work against a given manifest database.
 - **Multiple readers** are compatible in principle under **WAL** (e.g. read-only `sqlite3` or reporting tools).
 
+### Destination write lock (`new` / `update`)
+
+`backuper` enforces a process-level **destination single-writer lock** for write commands (`new`, `update`) at the backup-root level.
+
+- Lock acquisition is **exclusive** and **non-blocking**: if another active writer already holds the destination lock, the command fails fast with a user-facing lock-contention error.
+- The lock is implemented via a lock file (`.backuper.lock`) in the destination root, but **file presence is not ownership** by itself; active ownership is determined by the held OS-level lock.
+- Lock behavior is intended to be **cross-platform** (including Windows-safe semantics) so concurrent writer attempts are rejected consistently.
+- `restore` and `verify-integrity` are read flows and do not acquire this destination write lock.
+
 ### Concurrent `backuper` processes
 
-Running two **writers** (e.g. two `new`/`update` runs) against the **same** backup tree is **not** a supported configuration. Expect lock contention: SQLite may return **`SQLITE_BUSY`** after the configured **`busy_timeout`** (5000 ms) elapses.
+Running two **writers** (e.g. two `new`/`update` runs) against the **same** backup tree is **not** a supported configuration. Runtime commands now fail fast on destination-lock contention before normal write flow proceeds.
 
 ### External tools while `backuper` runs
 
@@ -278,6 +287,7 @@ The CLI does not add verbose SQLite “health hints” beyond normal logging.
 
 | Symptom | Likely cause | Action |
 |---------|----------------|--------|
+| Destination lock contention error for `new` / `update` | Another active writer already holds the destination lock | Ensure only one active writer per backup root; retry after the active run finishes. |
 | `SQLITE_BUSY` / timeouts | Another writer or heavy contention | Ensure **one writer**; see **Concurrent `backuper` processes** above; retry after a quiet window. |
 | Errors opening DB / “read-only” failures | Read-only mount or permissions | Fix mount/permissions (see **Writable manifest** above). |
 | No new completed version after crash | `pending` version only | **Re-run** backup; optional SQL to inspect `pending` (see **Pending version after crash**). |
