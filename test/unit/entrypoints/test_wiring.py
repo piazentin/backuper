@@ -4,11 +4,15 @@ import sqlite3
 from pathlib import Path
 
 import pytest
+from backuper.components.destination_lock import LocalDestinationWriteLock
 from backuper.components.sqlite_db import SqliteBackupDatabase
 from backuper.config import BACKUPER_SQLITE_SYNCHRONOUS_ENV, SqliteDbConfig
-from backuper.entrypoints.wiring import create_backup_database
+from backuper.entrypoints.wiring import (
+    create_backup_database,
+    create_destination_write_lock,
+)
 from backuper.models import CliUsageError
-from backuper.ports import BackupDatabase
+from backuper.ports import BackupDatabase, DestinationWriteLock
 
 
 @pytest.mark.asyncio
@@ -26,6 +30,13 @@ def test_create_backup_database_defaults_to_sqlite_for_new_tree(tmp_path: Path) 
     db = create_backup_database(tmp_path, operation="write")
 
     assert isinstance(db, SqliteBackupDatabase)
+
+
+def test_create_destination_write_lock_returns_destination_write_lock() -> None:
+    lock = create_destination_write_lock()
+
+    assert isinstance(lock, DestinationWriteLock)
+    assert isinstance(lock, LocalDestinationWriteLock)
 
 
 def test_create_backup_database_invalid_sqlite_synchronous_env_is_cli_usage_error(

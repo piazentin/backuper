@@ -2,12 +2,26 @@
 
 from __future__ import annotations
 
+import multiprocessing
+from multiprocessing.synchronize import Event as MultiprocessingEvent
 from pathlib import Path
 
 import pytest
 from backuper.commands import NewCommand, UpdateCommand
 from backuper.entrypoints.cli import run_new, run_update
+from backuper.entrypoints.wiring import create_destination_write_lock
 from backuper.models import CliUsageError, VersionAlreadyExistsError
+
+
+def _hold_destination_lock(
+    lock_root: str,
+    ready: MultiprocessingEvent,
+    release: MultiprocessingEvent,
+) -> None:
+    destination_lock = create_destination_write_lock()
+    with destination_lock.acquire(Path(lock_root)):
+        ready.set()
+        release.wait(timeout=10)
 
 
 def test_run_update_raises_when_source_missing(tmp_path: Path) -> None:
@@ -48,6 +62,7 @@ def test_run_new_raises_when_ignore_file_missing(tmp_path: Path) -> None:
         match=r'ignore file ".*missing\.ignore" is missing or not a regular file',
     ):
         run_new(cmd)
+    assert not dst.exists()
 
 
 def test_run_update_raises_when_ignore_file_missing(tmp_path: Path) -> None:
@@ -84,3 +99,36 @@ def test_run_update_raises_when_version_already_in_database(tmp_path: Path) -> N
         VersionAlreadyExistsError, match="already a backup versioned with the name"
     ):
         run_update(cmd)
+
+
+def test_run_update_fails_fast_when_destination_locked(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "f.txt").write_text("x", encoding="utf-8")
+    backup = tmp_path / "backup"
+    run_new(NewCommand("v1", str(src), str(backup)))
+
+    cmd = UpdateCommand(version="v2", source=str(src), location=str(backup))
+    ready = multiprocessing.Event()
+    release = multiprocessing.Event()
+    lock_holder = multiprocessing.Process(
+        target=_hold_destination_lock, args=(str(backup), ready, release)
+    )
+    lock_holder.start()
+
+    try:
+        assert ready.wait(timeout=5), "lock holder process did not acquire lock in time"
+        with pytest.raises(
+            CliUsageError,
+            match=(
+                "destination path .* is already being modified by another active writer"
+            ),
+        ):
+            run_update(cmd)
+    finally:
+        release.set()
+        lock_holder.join(timeout=5)
+        if lock_holder.is_alive():
+            lock_holder.terminate()
+            lock_holder.join(timeout=5)
+    assert lock_holder.exitcode == 0
