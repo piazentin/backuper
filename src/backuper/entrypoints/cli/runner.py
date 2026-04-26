@@ -68,10 +68,10 @@ def run_new(command: NewCommand) -> None:
         raise CliUsageError(
             f"destination path {command.location} already exists"
         ) from exc
-    print(f"Creating new backup from {command.source} into {command.location}")
     destination_lock = create_destination_write_lock()
     try:
         with destination_lock.acquire(destination):
+            print(f"Creating new backup from {command.source} into {command.location}")
             asyncio.run(
                 new_backup(
                     source,
@@ -103,10 +103,12 @@ def run_update(command: UpdateCommand) -> None:
         ignore_patterns=command.ignore_patterns,
         ignore_files=command.ignore_files,
     )
-    print(f"Updating backup at {command.location} with new version {command.version}")
     destination_lock = create_destination_write_lock()
     try:
         with destination_lock.acquire(destination):
+            print(
+                f"Updating backup at {command.location} with new version {command.version}"
+            )
             asyncio.run(
                 add_version(
                     source,

@@ -35,7 +35,8 @@ class _ContendedDestinationLock:
     @contextmanager
     def acquire(self, destination_root: Path) -> Iterator[None]:
         raise DestinationLockContendedError
-        yield
+        if False:
+            yield
 
 
 @pytest.fixture

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import multiprocessing
+from multiprocessing.synchronize import Event as MultiprocessingEvent
 from pathlib import Path
 
 import pytest
@@ -13,7 +14,9 @@ from backuper.models import CliUsageError, VersionAlreadyExistsError
 
 
 def _hold_destination_lock(
-    lock_root: str, ready: multiprocessing.Event, release: multiprocessing.Event
+    lock_root: str,
+    ready: MultiprocessingEvent,
+    release: MultiprocessingEvent,
 ) -> None:
     destination_lock = create_destination_write_lock()
     with destination_lock.acquire(Path(lock_root)):
