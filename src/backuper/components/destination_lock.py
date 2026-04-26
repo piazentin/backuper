@@ -1,18 +1,16 @@
 from __future__ import annotations
 
+import errno
 import os
 from contextlib import AbstractContextManager
 from io import BufferedRandom
 from pathlib import Path
 from types import TracebackType
 
+from backuper.models import DestinationLockContendedError
 from backuper.ports import DestinationWriteLock
 
 _LOCK_FILENAME = ".backuper.lock"
-
-
-class DestinationLockContendedError(Exception):
-    """Raised when another active writer already holds the destination lock."""
 
 
 class _DestinationLockHandle(AbstractContextManager[None]):
@@ -29,7 +27,9 @@ class _DestinationLockHandle(AbstractContextManager[None]):
         except OSError as exc:
             self._lock_file.close()
             self._lock_file = None
-            raise DestinationLockContendedError from exc
+            if _is_lock_contention_error(exc):
+                raise DestinationLockContendedError from exc
+            raise
         return None
 
     def __exit__(
@@ -53,6 +53,12 @@ class LocalDestinationWriteLock(DestinationWriteLock):
 
     def acquire(self, destination_root: Path) -> AbstractContextManager[None]:
         return _DestinationLockHandle(destination_root / _LOCK_FILENAME)
+
+
+def _is_lock_contention_error(exc: OSError) -> bool:
+    if exc.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+        return True
+    return os.name == "nt" and getattr(exc, "winerror", None) == 33
 
 
 if os.name == "nt":

@@ -8,6 +8,9 @@ from .exceptions import (
     CliUsageError as CliUsageError,
 )
 from .exceptions import (
+    DestinationLockContendedError as DestinationLockContendedError,
+)
+from .exceptions import (
     MalformedManifestRowError as MalformedManifestRowError,
 )
 from .exceptions import (

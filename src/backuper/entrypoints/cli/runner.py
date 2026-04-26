@@ -11,7 +11,6 @@ from backuper.commands import (
     VerifyIntegrityCommand,
 )
 from backuper.components.backup_analyzer import BackupAnalyzerImpl
-from backuper.components.destination_lock import DestinationLockContendedError
 from backuper.components.file_reader import LocalFileReader
 from backuper.components.filestore import LocalFileStore
 from backuper.components.path_ignore import GitIgnorePathFilter
@@ -25,7 +24,7 @@ from backuper.entrypoints.wiring import (
     create_backup_database,
     create_destination_write_lock,
 )
-from backuper.models import CliUsageError
+from backuper.models import CliUsageError, DestinationLockContendedError
 
 _DESTINATION_LOCK_GUIDANCE = (
     "destination path {location} is already being modified by another active writer"
@@ -58,17 +57,17 @@ def run_new(command: NewCommand) -> None:
         raise CliUsageError(f"source path {command.source} does not exist")
     if destination.exists():
         raise CliUsageError(f"destination path {command.location} already exists")
+
+    user_patterns = build_user_ignore_patterns(
+        ignore_patterns=command.ignore_patterns,
+        ignore_files=command.ignore_files,
+    )
     try:
         destination.mkdir(parents=True, exist_ok=False)
     except FileExistsError as exc:
         raise CliUsageError(
             f"destination path {command.location} already exists"
         ) from exc
-
-    user_patterns = build_user_ignore_patterns(
-        ignore_patterns=command.ignore_patterns,
-        ignore_files=command.ignore_files,
-    )
     print(f"Creating new backup from {command.source} into {command.location}")
     destination_lock = create_destination_write_lock()
     try:

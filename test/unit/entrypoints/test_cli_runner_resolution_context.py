@@ -11,9 +11,8 @@ from backuper.commands import (
     UpdateCommand,
     VerifyIntegrityCommand,
 )
-from backuper.components.destination_lock import DestinationLockContendedError
 from backuper.entrypoints.cli import runner
-from backuper.models import CliUsageError
+from backuper.models import CliUsageError, DestinationLockContendedError
 
 # Matches production resolver wording closely enough for pytest `match=`; do not import
 # private `_RESOLUTION_GUIDANCE` from wiring.

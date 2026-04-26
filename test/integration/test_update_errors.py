@@ -49,6 +49,7 @@ def test_run_new_raises_when_ignore_file_missing(tmp_path: Path) -> None:
         match=r'ignore file ".*missing\.ignore" is missing or not a regular file',
     ):
         run_new(cmd)
+    assert not dst.exists()
 
 
 def test_run_update_raises_when_ignore_file_missing(tmp_path: Path) -> None:

@@ -11,6 +11,10 @@ class CliUsageError(UserFacingError):
     """Invalid paths, destinations, or other CLI-level preconditions."""
 
 
+class DestinationLockContendedError(UserFacingError):
+    """Raised when a destination write lock cannot be acquired immediately."""
+
+
 class MalformedManifestRowError(UserFacingError):
     """A manifest row could not be parsed or is invalid (including migration CSV input)."""
 
