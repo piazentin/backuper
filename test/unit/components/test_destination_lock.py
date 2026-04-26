@@ -52,3 +52,19 @@ def test_destination_lock_handle_maps_contention_oserror(
     with pytest.raises(DestinationLockContendedError):
         with handle:
             pass
+
+
+def test_seek_to_lock_offset_uses_start_of_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[int, int, int]] = []
+
+    def _fake_lseek(fd: int, offset: int, whence: int) -> int:
+        calls.append((fd, offset, whence))
+        return 0
+
+    monkeypatch.setattr(destination_lock.os, "lseek", _fake_lseek)
+
+    destination_lock._seek_to_lock_offset(17)
+
+    assert calls == [(17, 0, destination_lock.os.SEEK_SET)]

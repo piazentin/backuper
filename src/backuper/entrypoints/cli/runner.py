@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -28,6 +29,9 @@ from backuper.models import CliUsageError, DestinationLockContendedError
 
 _DESTINATION_LOCK_GUIDANCE = (
     "destination path {location} is already being modified by another active writer"
+)
+_DESTINATION_LOCK_FAILURE_GUIDANCE = (
+    "destination path {location} could not be locked for writing: {detail}"
 )
 
 
@@ -69,6 +73,7 @@ def run_new(command: NewCommand) -> None:
             f"destination path {command.location} already exists"
         ) from exc
     destination_lock = create_destination_write_lock()
+    destination_created = True
     try:
         with destination_lock.acquire(destination):
             print(f"Creating new backup from {command.source} into {command.location}")
@@ -86,8 +91,20 @@ def run_new(command: NewCommand) -> None:
                 )
             )
     except DestinationLockContendedError as exc:
+        if destination_created and destination.exists():
+            with contextlib.suppress(OSError):
+                destination.rmdir()
         raise CliUsageError(
             _DESTINATION_LOCK_GUIDANCE.format(location=command.location)
+        ) from exc
+    except OSError as exc:
+        if destination_created and destination.exists():
+            with contextlib.suppress(OSError):
+                destination.rmdir()
+        raise CliUsageError(
+            _DESTINATION_LOCK_FAILURE_GUIDANCE.format(
+                location=command.location, detail=str(exc)
+            )
         ) from exc
 
 
@@ -125,6 +142,12 @@ def run_update(command: UpdateCommand) -> None:
     except DestinationLockContendedError as exc:
         raise CliUsageError(
             _DESTINATION_LOCK_GUIDANCE.format(location=command.location)
+        ) from exc
+    except OSError as exc:
+        raise CliUsageError(
+            _DESTINATION_LOCK_FAILURE_GUIDANCE.format(
+                location=command.location, detail=str(exc)
+            )
         ) from exc
 
 

@@ -60,6 +60,10 @@ def _is_lock_contention_error(exc: OSError) -> bool:
     return os.name == "nt" and getattr(exc, "winerror", None) == 33
 
 
+def _seek_to_lock_offset(fd: int) -> None:
+    os.lseek(fd, 0, os.SEEK_SET)
+
+
 if os.name == "nt":
     import msvcrt
 
@@ -68,9 +72,11 @@ if os.name == "nt":
     _lk_unlck = getattr(msvcrt, "LK_UNLCK")
 
     def _acquire_non_blocking_exclusive(fd: int) -> None:
+        _seek_to_lock_offset(fd)
         _locking(fd, _lk_nblck, 1)
 
     def _release(fd: int) -> None:
+        _seek_to_lock_offset(fd)
         _locking(fd, _lk_unlck, 1)
 else:
     import fcntl

@@ -39,6 +39,14 @@ class _ContendedDestinationLock:
             yield
 
 
+class _FailingDestinationLock:
+    @contextmanager
+    def acquire(self, destination_root: Path) -> Iterator[None]:
+        raise OSError("permission denied")
+        if False:
+            yield
+
+
 @pytest.fixture
 def _patch_write_flows(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _noop_new_backup(*args, **kwargs) -> None:  # type: ignore[no-untyped-def]
@@ -155,6 +163,45 @@ def test_run_new_maps_destination_lock_contention_to_cli_usage_error(
     ):
         runner.run_new(
             NewCommand(version="v1", source=str(source), location=str(destination)),
+        )
+    assert not destination.exists()
+
+
+def test_run_new_maps_non_contention_lock_error_to_cli_usage_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _patch_write_flows: None
+) -> None:
+    source = tmp_path / "src"
+    destination = tmp_path / "backup"
+    source.mkdir()
+    (source / "a.txt").write_text("payload", encoding="utf-8")
+
+    monkeypatch.setattr(
+        runner, "create_destination_write_lock", _FailingDestinationLock
+    )
+
+    with pytest.raises(CliUsageError, match=r"could not be locked for writing"):
+        runner.run_new(
+            NewCommand(version="v1", source=str(source), location=str(destination)),
+        )
+    assert not destination.exists()
+
+
+def test_run_update_maps_non_contention_lock_error_to_cli_usage_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _patch_write_flows: None
+) -> None:
+    source = tmp_path / "src"
+    destination = tmp_path / "backup"
+    source.mkdir()
+    destination.mkdir()
+    (source / "a.txt").write_text("payload", encoding="utf-8")
+
+    monkeypatch.setattr(
+        runner, "create_destination_write_lock", _FailingDestinationLock
+    )
+
+    with pytest.raises(CliUsageError, match=r"could not be locked for writing"):
+        runner.run_update(
+            UpdateCommand(version="v2", source=str(source), location=str(destination)),
         )
 
 
