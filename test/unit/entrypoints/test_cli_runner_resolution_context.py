@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -10,11 +12,31 @@ from backuper.commands import (
     VerifyIntegrityCommand,
 )
 from backuper.entrypoints.cli import runner
+from backuper.components.destination_lock import DestinationLockContendedError
 from backuper.models import CliUsageError
 
 # Matches production resolver wording closely enough for pytest `match=`; do not import
 # private `_RESOLUTION_GUIDANCE` from wiring.
 _READ_FAILURE_STUB = "SQLite manifest: stub not ready for read"
+
+
+class _RecordingDestinationLock:
+    def __init__(self) -> None:
+        self.acquired_destinations: list[Path] = []
+        self.destination_exists_on_acquire: list[bool] = []
+
+    @contextmanager
+    def acquire(self, destination_root: Path) -> Iterator[None]:
+        self.acquired_destinations.append(destination_root)
+        self.destination_exists_on_acquire.append(destination_root.exists())
+        yield
+
+
+class _ContendedDestinationLock:
+    @contextmanager
+    def acquire(self, destination_root: Path) -> Iterator[None]:
+        raise DestinationLockContendedError
+        yield
 
 
 @pytest.fixture
@@ -72,6 +94,58 @@ def test_run_update_resolves_database_with_write_operation(
     )
 
     assert calls == ["write"]
+
+
+def test_run_new_creates_destination_before_entering_destination_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _patch_write_flows: None
+) -> None:
+    source = tmp_path / "src"
+    destination = tmp_path / "backup"
+    source.mkdir()
+    (source / "a.txt").write_text("payload", encoding="utf-8")
+    destination_lock = _RecordingDestinationLock()
+
+    monkeypatch.setattr(runner, "create_destination_write_lock", lambda: destination_lock)
+
+    runner.run_new(
+        NewCommand(version="v1", source=str(source), location=str(destination)),
+    )
+
+    assert destination_lock.acquired_destinations == [destination]
+    assert destination_lock.destination_exists_on_acquire == [True]
+
+
+def test_run_update_maps_destination_lock_contention_to_cli_usage_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _patch_write_flows: None
+) -> None:
+    source = tmp_path / "src"
+    destination = tmp_path / "backup"
+    source.mkdir()
+    destination.mkdir()
+    (source / "a.txt").write_text("payload", encoding="utf-8")
+
+    monkeypatch.setattr(runner, "create_destination_write_lock", _ContendedDestinationLock)
+
+    with pytest.raises(CliUsageError, match=r"already being modified by another active writer"):
+        runner.run_update(
+            UpdateCommand(version="v2", source=str(source), location=str(destination)),
+        )
+
+
+def test_run_new_maps_destination_lock_contention_to_cli_usage_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _patch_write_flows: None
+) -> None:
+    source = tmp_path / "src"
+    destination = tmp_path / "backup"
+    source.mkdir()
+    (source / "a.txt").write_text("payload", encoding="utf-8")
+
+    monkeypatch.setattr(runner, "create_destination_write_lock", _ContendedDestinationLock)
+
+    with pytest.raises(CliUsageError, match=r"already being modified by another active writer"):
+        runner.run_new(
+            NewCommand(version="v1", source=str(source), location=str(destination)),
+        )
 
 
 def test_run_restore_uses_read_operation_and_raises_actionable_guidance(

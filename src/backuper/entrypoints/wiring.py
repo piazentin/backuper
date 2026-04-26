@@ -5,6 +5,7 @@ from contextlib import closing
 from pathlib import Path
 from typing import Literal
 
+from backuper.components.destination_lock import LocalDestinationWriteLock
 from backuper.components.sqlite_db import (
     SqliteBackupDatabase,
     SqliteDb,
@@ -12,7 +13,7 @@ from backuper.components.sqlite_db import (
 )
 from backuper.config import SqliteDbConfig, sqlite_db_config
 from backuper.models import CliUsageError
-from backuper.ports import BackupDatabase
+from backuper.ports import BackupDatabase, DestinationWriteLock
 
 _SQLITE_REQUIRED_TABLES = {"versions", "version_files", "version_directories"}
 _SQLITE_CLI_PREFIX = "SQLite manifest: "
@@ -93,3 +94,7 @@ def create_backup_database(
         return SqliteBackupDatabase(SqliteDb(config))
     except sqlite3.Error as exc:
         raise CliUsageError(_SQLITE_BOOTSTRAP_GUIDANCE) from exc
+
+
+def create_destination_write_lock() -> DestinationWriteLock:
+    return LocalDestinationWriteLock()

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from backuper.commands import NewCommand, UpdateCommand
+from backuper.entrypoints.wiring import create_destination_write_lock
 from backuper.entrypoints.cli import run_new, run_update
 from backuper.models import CliUsageError, VersionAlreadyExistsError
 
@@ -84,3 +85,23 @@ def test_run_update_raises_when_version_already_in_database(tmp_path: Path) -> N
         VersionAlreadyExistsError, match="already a backup versioned with the name"
     ):
         run_update(cmd)
+
+
+def test_run_update_fails_fast_when_destination_locked(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "f.txt").write_text("x", encoding="utf-8")
+    backup = tmp_path / "backup"
+    run_new(NewCommand("v1", str(src), str(backup)))
+
+    destination_lock = create_destination_write_lock()
+    cmd = UpdateCommand(version="v2", source=str(src), location=str(backup))
+
+    with destination_lock.acquire(backup):
+        with pytest.raises(
+            CliUsageError,
+            match=(
+                "destination path .* is already being modified by another active writer"
+            ),
+        ):
+            run_update(cmd)
