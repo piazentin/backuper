@@ -13,7 +13,7 @@ This document is the operator reference for the **SQLite backup manifest**: wher
   Treat safe copies as **`.backup` / `Connection.backup`**, or **checkpoint + coordinated multi-file copy**, or a **filesystem snapshot** — not “copy only the main `.sqlite3` file” without qualification, or you can miss not-yet-checkpointed data.
 - **Runtime policy:** runtime CLI commands (`new`, `update`, `verify-integrity`, `restore`) use the **SQLite manifest only**.
 - **Legacy CSV trees:** a tree that only has CSV manifests is a **pre-migration** tree, not a runtime-ready tree for current CLI operations.
-- **Mixed / partial states:** if SQLite manifest artifacts are missing, incomplete, or unreadable, runtime commands fail fast with guidance; they do not auto-repair by switching to CSV.
+- **Mixed / partial states:** runtime **reads** (`verify-integrity`, `restore`) fail fast when the SQLite manifest is missing, incomplete, or unreadable. Runtime **writes** (`new`, `update`) may bootstrap/migrate only into a SQLite manifest path and then proceed; there is no CSV runtime fallback.
 
 ---
 
@@ -292,8 +292,8 @@ For corrupt databases, use **backup/restore** and the integrity checks in this d
 
 Legacy CSV manifests are migration inputs, not an active runtime backend. If your backup tree still has CSV-only manifests, run the migration scripts before using runtime CLI operations:
 
-1. Normalize legacy rows (if needed): `uv run python -m scripts.migrate_version_csv`.
-2. Build SQLite manifest from canonical CSV: `uv run python -m scripts.migrate_manifest_csv_to_sqlite`.
+1. Normalize legacy rows (if needed): `uv run python -m scripts.migrate_version_csv /path/to/backup/root`.
+2. Build SQLite manifest from canonical CSV: `uv run python -m scripts.migrate_manifest_csv_to_sqlite /path/to/backup/root`.
 3. Validate with `verify-integrity` and a restore smoke test.
 
 For the full end-to-end procedure (including archive/rollback guidance and checks), see [`docs/csv-to-sqlite-migration.md`](csv-to-sqlite-migration.md).
