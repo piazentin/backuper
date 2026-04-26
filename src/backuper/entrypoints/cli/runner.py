@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import json
 import os
+from contextlib import AbstractContextManager
 from pathlib import Path
 
 from backuper import config as implementation_config
@@ -44,6 +45,38 @@ def _local_filestore(backup_root: Path) -> LocalFileStore:
     )
 
 
+def _acquire_destination_lock(
+    destination: Path, *, location: str
+) -> AbstractContextManager[None]:
+    lock_context = create_destination_write_lock().acquire(destination)
+    try:
+        lock_context.__enter__()
+    except DestinationLockContendedError as exc:
+        raise CliUsageError(
+            _DESTINATION_LOCK_GUIDANCE.format(location=location)
+        ) from exc
+    except OSError as exc:
+        raise CliUsageError(
+            _DESTINATION_LOCK_FAILURE_GUIDANCE.format(
+                location=location, detail=str(exc)
+            )
+        ) from exc
+    return lock_context
+
+
+def _release_destination_lock(
+    lock_context: AbstractContextManager[None], *, location: str
+) -> None:
+    try:
+        lock_context.__exit__(None, None, None)
+    except OSError as exc:
+        raise CliUsageError(
+            _DESTINATION_LOCK_FAILURE_GUIDANCE.format(
+                location=location, detail=str(exc)
+            )
+        ) from exc
+
+
 def _present_verify_integrity_stdout(errors: list[str], *, json_output: bool) -> None:
     if json_output:
         print(json.dumps({"errors": errors}))
@@ -72,40 +105,36 @@ def run_new(command: NewCommand) -> None:
         raise CliUsageError(
             f"destination path {command.location} already exists"
         ) from exc
-    destination_lock = create_destination_write_lock()
     destination_created = True
     try:
-        with destination_lock.acquire(destination):
-            print(f"Creating new backup from {command.source} into {command.location}")
-            asyncio.run(
-                new_backup(
-                    source,
-                    command.version,
-                    file_reader=LocalFileReader(
-                        path_filter=GitIgnorePathFilter(user_patterns=user_patterns)
-                    ),
-                    analyzer=BackupAnalyzerImpl(),
-                    db=create_backup_database(destination, operation="write"),
-                    filestore=_local_filestore(destination),
-                    reporter=StdoutAnalysisReporter(),
-                )
-            )
-    except DestinationLockContendedError as exc:
+        lock_context = _acquire_destination_lock(destination, location=command.location)
+    except Exception:
         if destination_created and destination.exists():
             with contextlib.suppress(OSError):
                 destination.rmdir()
-        raise CliUsageError(
-            _DESTINATION_LOCK_GUIDANCE.format(location=command.location)
-        ) from exc
-    except OSError as exc:
+        raise
+    try:
+        print(f"Creating new backup from {command.source} into {command.location}")
+        asyncio.run(
+            new_backup(
+                source,
+                command.version,
+                file_reader=LocalFileReader(
+                    path_filter=GitIgnorePathFilter(user_patterns=user_patterns)
+                ),
+                analyzer=BackupAnalyzerImpl(),
+                db=create_backup_database(destination, operation="write"),
+                filestore=_local_filestore(destination),
+                reporter=StdoutAnalysisReporter(),
+            )
+        )
+    except Exception:
         if destination_created and destination.exists():
             with contextlib.suppress(OSError):
                 destination.rmdir()
-        raise CliUsageError(
-            _DESTINATION_LOCK_FAILURE_GUIDANCE.format(
-                location=command.location, detail=str(exc)
-            )
-        ) from exc
+        raise
+    finally:
+        _release_destination_lock(lock_context, location=command.location)
 
 
 def run_update(command: UpdateCommand) -> None:
@@ -120,35 +149,26 @@ def run_update(command: UpdateCommand) -> None:
         ignore_patterns=command.ignore_patterns,
         ignore_files=command.ignore_files,
     )
-    destination_lock = create_destination_write_lock()
+    lock_context = _acquire_destination_lock(destination, location=command.location)
     try:
-        with destination_lock.acquire(destination):
-            print(
-                f"Updating backup at {command.location} with new version {command.version}"
+        print(
+            f"Updating backup at {command.location} with new version {command.version}"
+        )
+        asyncio.run(
+            add_version(
+                source,
+                command.version,
+                file_reader=LocalFileReader(
+                    path_filter=GitIgnorePathFilter(user_patterns=user_patterns)
+                ),
+                analyzer=BackupAnalyzerImpl(),
+                db=create_backup_database(destination, operation="write"),
+                filestore=_local_filestore(destination),
+                reporter=StdoutAnalysisReporter(),
             )
-            asyncio.run(
-                add_version(
-                    source,
-                    command.version,
-                    file_reader=LocalFileReader(
-                        path_filter=GitIgnorePathFilter(user_patterns=user_patterns)
-                    ),
-                    analyzer=BackupAnalyzerImpl(),
-                    db=create_backup_database(destination, operation="write"),
-                    filestore=_local_filestore(destination),
-                    reporter=StdoutAnalysisReporter(),
-                )
-            )
-    except DestinationLockContendedError as exc:
-        raise CliUsageError(
-            _DESTINATION_LOCK_GUIDANCE.format(location=command.location)
-        ) from exc
-    except OSError as exc:
-        raise CliUsageError(
-            _DESTINATION_LOCK_FAILURE_GUIDANCE.format(
-                location=command.location, detail=str(exc)
-            )
-        ) from exc
+        )
+    finally:
+        _release_destination_lock(lock_context, location=command.location)
 
 
 def run_verify_integrity(command: VerifyIntegrityCommand) -> list[str]:

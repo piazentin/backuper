@@ -205,6 +205,26 @@ def test_run_update_maps_non_contention_lock_error_to_cli_usage_error(
         )
 
 
+def test_run_update_does_not_relabel_runtime_oserror_as_lock_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _patch_write_flows: None
+) -> None:
+    source = tmp_path / "src"
+    destination = tmp_path / "backup"
+    source.mkdir()
+    destination.mkdir()
+    (source / "a.txt").write_text("payload", encoding="utf-8")
+
+    async def _raise_runtime_oserror(*args, **kwargs) -> None:  # type: ignore[no-untyped-def]
+        raise OSError("disk read failed")
+
+    monkeypatch.setattr(runner, "add_version", _raise_runtime_oserror)
+
+    with pytest.raises(OSError, match=r"disk read failed"):
+        runner.run_update(
+            UpdateCommand(version="v2", source=str(source), location=str(destination)),
+        )
+
+
 def test_run_restore_uses_read_operation_and_raises_actionable_guidance(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
