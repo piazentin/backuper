@@ -3,6 +3,7 @@
 Accepted decisions for **significant** cross-cutting design. **Bar:** document only what is worth maintaining long-term — see **[`AGENTS.md`](../../AGENTS.md#architecture-decision-records-adrs)** (when to write an ADR, optional tooling).
 
 SQLite migration/operator context: [`docs/csv-to-sqlite-migration.md`](../csv-to-sqlite-migration.md).
+Scripts import-boundary policy context: see [ADR-0007](0007-scripts-import-boundaries-lint-enforcement.md).
 
 ## ADR lifecycle and immutability
 
@@ -31,3 +32,4 @@ References:
 | [ADR-0004](0004-migration-created-at-inference.md) | 2026-04-19 | Accepted | `created_at` when migrating from CSV (parse vs mtime, collisions, dotfiles) |
 | [ADR-0005](0005-sqlite-adapter-contract-and-schema-v1.md) | 2026-04-19 | Accepted | SQLite adapter contract, schema v1 (`user_version`), CSV pending finalize behavior |
 | [ADR-0006](0006-backend-resolution-policy.md) | 2026-04-19 | Accepted | Backend precedence, `FORCE_CSV_DB=1`, mixed-manifest rule, partial-init read/write behavior |
+| [ADR-0007](0007-scripts-import-boundaries-lint-enforcement.md) | 2026-04-26 | Accepted | Scripts import boundaries enforced in existing lint flow (no extra CI step) |

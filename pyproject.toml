@@ -59,7 +59,7 @@ select = [
 ignore = ["E501"]
 
 [tool.importlinter]
-root_packages = ["backuper"]
+root_packages = ["backuper", "scripts"]
 
 [[tool.importlinter.contracts]]
 name = "Controllers must not import components"
@@ -99,4 +99,13 @@ type = "layers"
 layers = [
   "backuper.ports",
   "backuper.models",
+]
+
+[[tool.importlinter.contracts]]
+name = "Scripts must not import runtime entrypoints or controllers"
+type = "forbidden"
+source_modules = ["scripts"]
+forbidden_modules = [
+  "backuper.entrypoints",
+  "backuper.controllers",
 ]
