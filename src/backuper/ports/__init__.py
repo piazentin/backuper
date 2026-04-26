@@ -13,9 +13,6 @@ from backuper.models import (
     FileEntry,
     PutResult,
 )
-from backuper.models import (
-    DestinationLockContendedError as DestinationLockContendedError,
-)
 
 
 class FileReader(ABC):
@@ -120,8 +117,9 @@ class DestinationWriteLock(ABC):
         """Acquire a non-blocking exclusive writer lock for ``destination_root``.
 
         Implementations should fail fast when another active writer already holds
-        the destination lock by raising ``DestinationLockContendedError``, and
-        return a context manager that releases lock ownership on exit.
+        the destination lock by raising
+        ``backuper.models.DestinationLockContendedError``, and return a context
+        manager that releases lock ownership on exit.
         """
         pass
 

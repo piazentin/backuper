@@ -20,7 +20,6 @@ class _DestinationLockHandle(AbstractContextManager[None]):
 
     def __enter__(self) -> None:
         lock_path = self._lock_path
-        lock_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock_file = lock_path.open(mode="a+b")
         try:
             _acquire_non_blocking_exclusive(self._lock_file.fileno())

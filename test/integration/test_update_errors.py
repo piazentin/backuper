@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import multiprocessing
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,15 @@ from backuper.commands import NewCommand, UpdateCommand
 from backuper.entrypoints.cli import run_new, run_update
 from backuper.entrypoints.wiring import create_destination_write_lock
 from backuper.models import CliUsageError, VersionAlreadyExistsError
+
+
+def _hold_destination_lock(
+    lock_root: str, ready: multiprocessing.Event, release: multiprocessing.Event
+) -> None:
+    destination_lock = create_destination_write_lock()
+    with destination_lock.acquire(Path(lock_root)):
+        ready.set()
+        release.wait(timeout=10)
 
 
 def test_run_update_raises_when_source_missing(tmp_path: Path) -> None:
@@ -95,10 +105,16 @@ def test_run_update_fails_fast_when_destination_locked(tmp_path: Path) -> None:
     backup = tmp_path / "backup"
     run_new(NewCommand("v1", str(src), str(backup)))
 
-    destination_lock = create_destination_write_lock()
     cmd = UpdateCommand(version="v2", source=str(src), location=str(backup))
+    ready = multiprocessing.Event()
+    release = multiprocessing.Event()
+    lock_holder = multiprocessing.Process(
+        target=_hold_destination_lock, args=(str(backup), ready, release)
+    )
+    lock_holder.start()
 
-    with destination_lock.acquire(backup):
+    try:
+        assert ready.wait(timeout=5), "lock holder process did not acquire lock in time"
         with pytest.raises(
             CliUsageError,
             match=(
@@ -106,3 +122,10 @@ def test_run_update_fails_fast_when_destination_locked(tmp_path: Path) -> None:
             ),
         ):
             run_update(cmd)
+    finally:
+        release.set()
+        lock_holder.join(timeout=5)
+        if lock_holder.is_alive():
+            lock_holder.terminate()
+            lock_holder.join(timeout=5)
+    assert lock_holder.exitcode == 0
