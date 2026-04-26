@@ -16,10 +16,10 @@ This file is the canonical agent and contributor map for this repository; prefer
 
 ## Scripts import boundaries
 
-- Migration tooling under `scripts/` is intentionally limited to shared, stable runtime surfaces needed for manifest conversion and validation.
-- Allowed imports from `backuper` are: `backuper.models`, `backuper.utils`, `backuper.config`, and selected SQLite adapter wiring under `backuper.components.sqlite_db`.
-- Disallowed coupling includes runtime orchestration and delivery layers (`backuper.entrypoints`, `backuper.controllers`, and other runtime-only internals not listed above).
-- Enforcement runs through the existing lint path (`make lint` → `lint-imports` import-linter contracts). No separate CI step/job is introduced for this policy.
+- Migration tooling under `scripts/` should stay focused on shared, stable runtime surfaces needed for manifest conversion and validation.
+- Preferred imports from `backuper` are `backuper.models`, `backuper.utils`, `backuper.config`, and selected SQLite adapter wiring under `backuper.components.sqlite_db`.
+- Scripts should not couple to runtime orchestration and delivery layers such as `backuper.entrypoints` and `backuper.controllers`; avoid other `backuper.*` internals unless there is a clear migration/runtime need and the dependency is documented here.
+- Enforcement runs through the existing lint path (`make lint` → `lint-imports` import-linter contracts), which currently blocks imports from `backuper.entrypoints` and `backuper.controllers`. No separate CI step/job is introduced for this policy.
 
 ## Additional documentation
 

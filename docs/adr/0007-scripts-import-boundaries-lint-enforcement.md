@@ -16,20 +16,22 @@ The project already has a lint path in local development and CI (`make lint`), i
 
 ## Decision
 
-1. **Scripts import allowlist**
-   - `scripts/` may import `backuper.models`, `backuper.utils`, `backuper.config`, and selected SQLite manifest adapter wiring under `backuper.components.sqlite_db`.
+1. **Scripts import guidance**
+   - `scripts/` should prefer stable shared modules such as `backuper.models`, `backuper.utils`, `backuper.config`, and selected SQLite manifest adapter wiring under `backuper.components.sqlite_db`.
+   - This list documents the intended architecture for review, but it is not fully enforced by import-linter today.
 
 2. **Disallowed coupling**
    - `scripts/` must not import runtime orchestration and delivery layers such as `backuper.entrypoints` and `backuper.controllers`.
-   - `scripts/` must not depend on runtime-only internals outside the explicit allowlist above.
+   - Other runtime-only internals remain discouraged by architecture review, but are not yet covered by the current lint contract.
 
 3. **Enforcement path**
-   - Enforce boundaries through import-linter contracts executed by the existing `make lint` target.
-   - Do not introduce a dedicated CI step/job for this policy; CI continues to enforce it through the current lint job.
+   - Enforce the current import boundary through import-linter contracts executed by the existing `make lint` target.
+   - The current machine-checked contract blocks imports from `backuper.entrypoints` and `backuper.controllers`; broader guidance in this ADR remains review-only until additional contracts are added.
+   - Do not introduce a dedicated CI step/job for this policy; CI continues to enforce the current import-linter contract through the existing lint job.
 
 ## Consequences
 
-- Script/runtime boundaries are explicit and machine-checked without adding pipeline complexity.
+- The currently enforced script/runtime boundary is explicit and machine-checked without adding pipeline complexity.
 - Contributors get one enforcement entrypoint locally and in CI (`make lint`).
 - Policy evolution remains centralized in lint contracts and architecture docs instead of scattered ad hoc checks.
 

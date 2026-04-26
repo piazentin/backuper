@@ -4,7 +4,7 @@ Phased technical assessments for larger changes. Completed assessment artifacts 
 
 Active plan:
 
-- **[SQLite-only runtime (remove CSV DB from main code)](sqlite-only-runtime-milestones.md)** — milestones for wiring, tests, deletion, and docs.
+- None currently. Accepted architecture decisions are tracked in **[`docs/adr/README.md`](../adr/README.md)**.
 
 Operator runbook for the shipped migration flow: **[`docs/csv-to-sqlite-migration.md`](../csv-to-sqlite-migration.md)**.
 
