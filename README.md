@@ -4,7 +4,7 @@ Very simple backup utility
 
 ## Architecture
 
-The CLI runs [`src/backuper`](src/backuper): entrypoints are the composition root, controllers are function-only orchestration with explicit dependencies, `models/` holds shared value types and domain exceptions, `ports/` holds abstract protocols, and persistence-specific shapes (for example CSV row models in `components/csv_db`) live next to the adapters that use them. For layering, tests, and contribution notes, see **[AGENTS.md](AGENTS.md)**.
+The CLI runs [`src/backuper`](src/backuper): entrypoints are the composition root, controllers are function-only orchestration with explicit dependencies, `models/` holds shared value types and domain exceptions, `ports/` holds abstract protocols, and persistence internals stay behind adapter boundaries. For layering, tests, and contribution notes, see **[AGENTS.md](AGENTS.md)**.
 
 ## Documentation
 
@@ -75,7 +75,7 @@ backuper restore /path/to/backup/root /path/to/restore/into --version backup-ver
 
 ## Version CSV migration
 
-If an existing backup tree still has **legacy** version manifests (short `f` rows without the full seven columns the current reader expects), migrate them **before** running `new`, `update`, `verify-integrity`, or `restore` on that tree. Full rules, blob enrichment, and rollback files (`.bak`) are in **[docs/csv-migration-contract.md](docs/csv-migration-contract.md)**.
+If an existing backup tree still has **legacy** version manifests, run CSV normalization as a migration-prep step. Full rules, blob enrichment, and rollback files (`.bak`) are in **[docs/csv-migration-contract.md](docs/csv-migration-contract.md)**.
 
 From the repository root, use the dev environment so `scripts/` is importable:
 
@@ -95,7 +95,9 @@ Use `--db-dir` / `--data-dir` if your layout uses different names than `db` / `d
 
 Run migration only during a **quiet window** (no concurrent `backuper` commands against the same tree).
 
-**Concurrency:** in general, use a **single writer** per backup root for `new`, `update`, and migration. Version manifests are append-only CSV files without multi-process coordination; the filestore deduplicates identical content hashes on disk but does not make parallel backup jobs safe. See **Concurrency and single-writer expectations** in **[AGENTS.md](AGENTS.md)**.
+CSV manifests are for migration scripts and legacy tooling only. Runtime CLI commands are SQLite-manifest operations.
+
+**Concurrency:** for runtime commands, treat each backup root as **single-writer** (`new` / `update`): SQLite manifest operations use WAL with bounded busy timeouts but are not a multi-writer coordination mechanism. Keep migration tooling in maintenance windows, one active writer per tree. CSV manifests are migration-script inputs/archives, not runtime coordination primitives. See **Concurrency and single-writer expectations** in **[AGENTS.md](AGENTS.md)**.
 
 ## CSV to SQLite manifest migration
 

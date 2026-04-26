@@ -11,10 +11,9 @@ This document is the operator reference for the **SQLite backup manifest**: wher
   - `manifest.sqlite3-wal`
   - `manifest.sqlite3-shm`  
   Treat safe copies as **`.backup` / `Connection.backup`**, or **checkpoint + coordinated multi-file copy**, or a **filesystem snapshot** — not “copy only the main `.sqlite3` file” without qualification, or you can miss not-yet-checkpointed data.
-- **CSV vs SQLite:** a given tree uses **either** the CSV manifest **or** the SQLite manifest as the active store, **never both as concurrent writers**. Detection is based on files under the backup tree.
-- **Which backend wins:** for a **new** tree with no manifest artifacts, **SQLite** is used. If **both** SQLite artifacts and **canonical** CSV manifests exist, **SQLite** is selected. **`FORCE_CSV_DB=1`** forces **CSV** even when SQLite files exist.
-- **`FORCE_CSV_DB`:** `1` means always use the CSV backend for resolution. Use when you intentionally need CSV despite SQLite files on disk.
-- **Mixed / partial states:** write flows (`new`, `update`) may attempt migration or repair when SQLite is incomplete; read flows (`restore`, `verify-integrity`) fail fast with guidance when SQLite is incomplete — they do not mutate the tree to “fix” it.
+- **Runtime policy:** runtime CLI commands (`new`, `update`, `verify-integrity`, `restore`) use the **SQLite manifest only**.
+- **Legacy CSV trees:** a tree that only has CSV manifests is a **pre-migration** tree, not a runtime-ready tree for current CLI operations.
+- **Mixed / partial states:** runtime **reads** (`verify-integrity`, `restore`) fail fast when the SQLite manifest is missing, incomplete, or unreadable. Runtime **writes** (`new`, `update`) may bootstrap/migrate only into a SQLite manifest path and then proceed; there is no CSV runtime fallback.
 
 ---
 
@@ -40,7 +39,6 @@ This document is the operator reference for the **SQLite backup manifest**: wher
 | Variable | Purpose | When unset |
 |----------|---------|------------|
 | `BACKUPER_SQLITE_SYNCHRONOUS` | Override `PRAGMA synchronous` | Code uses **`NORMAL`**. Accepts symbolic `OFF`, `NORMAL`, `FULL`, `EXTRA` (case-insensitive) or numeric `0`–`3`. Invalid values fail at connection time with a clear error. |
-| `FORCE_CSV_DB` | Force CSV manifest backend | See **Where the manifest lives** above: `1` forces CSV even when SQLite artifacts exist. |
 
 ### Env vs code defaults
 
@@ -292,6 +290,10 @@ For corrupt databases, use **backup/restore** and the integrity checks in this d
 
 ## Legacy CSV manifests
 
-If your tree still uses **legacy or non-canonical** CSV manifest row shapes, migrate before relying on the current runtime: run `uv run python -m scripts.migrate_version_csv --help` from the project environment and follow the tool’s dry-run/apply workflow. The runtime expects **canonical** CSV rows when CSV is the active backend.
+Legacy CSV manifests are migration inputs, not an active runtime backend. If your backup tree still has CSV-only manifests, run the migration scripts before using runtime CLI operations:
 
-For the full canonical CSV to SQLite backend transition flow (including archive/rollback guidance and post-migration checks), use the operator runbook: [`docs/csv-to-sqlite-migration.md`](csv-to-sqlite-migration.md).
+1. Normalize legacy rows (if needed): `uv run python -m scripts.migrate_version_csv /path/to/backup/root`.
+2. Build SQLite manifest from canonical CSV: `uv run python -m scripts.migrate_manifest_csv_to_sqlite /path/to/backup/root`.
+3. Validate with `verify-integrity` and a restore smoke test.
+
+For the full end-to-end procedure (including archive/rollback guidance and checks), see [`docs/csv-to-sqlite-migration.md`](csv-to-sqlite-migration.md).

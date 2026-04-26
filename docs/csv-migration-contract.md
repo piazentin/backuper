@@ -2,9 +2,9 @@
 
 ## Operator requirement (read this first)
 
-The **`backuper` runtime** (`new`, `update`, `verify-integrity`, `restore`) reads **canonical** version CSV rows only—see [Canonical CSV row contract](#canonical-csv-row-contract) and `CsvDb` in `src/backuper/components/csv_db.py`. It does **not** accept legacy short file rows (3 or 5 columns).
+This document defines the contract for the standalone `scripts.migrate_version_csv` migration workflow. It is a **script-level** contract, not a runtime backend contract.
 
-If you have an **existing backup tree** whose version manifests still use legacy shapes, you **must** run the standalone migration **before** relying on this version of the tool against that tree:
+If you have an **existing backup tree** whose version manifests still use legacy shapes, run this migration first as part of the CSV-to-SQLite runbook:
 
 ```bash
 uv run python -m scripts.migrate_version_csv --help
@@ -17,7 +17,7 @@ Migration details, legacy source shapes, dry-run/apply semantics, and rollback a
 ## Scope
 
 - Applies to migration of existing `<backup_root>/<backup_db_dir>/<version>.csv` files.
-- Defines the canonical output shape that the runtime expects after migration.
+- Defines the canonical output shape consumed by downstream migration tooling (not by runtime CLI operations).
 
 ## Canonical CSV row contract
 
@@ -57,32 +57,32 @@ Example:
 
 ## Legacy-to-canonical mapping rules
 
-The **migration script** accepts legacy file rows with 3, 5, or 7+ columns and converts them to canonical 7-column form. The **runtime** does not; use the script to upgrade old manifests.
+The **migration script** accepts legacy file rows with 3, 5, or 7+ columns and converts them to canonical 7-column form for downstream migration tooling. Use this script to upgrade old manifests before CSV-to-SQLite migration.
 
 ### Size and mtime enrichment from the backed-up blob
 
 When `size` and/or `mtime` are **not available** from the CSV row (missing, empty, or legacy rows that never carried them), migration **must** try to populate them from the **content-addressed blob on disk** before falling back to `0` / `0.0`.
 
-Blob resolution (aligned with `LocalFileStore` in `filestore.py` and `backuper.utils.zip_payload`):
+Blob resolution (using the same package helpers referenced by this script):
 
 - Absolute blob path: `<backup_root>/<backup_data_dir>/<stored_location>`
-- Default directory names match runtime config: `backup_data_dir = "data"` unless overridden for the migration run.
+- Default directory names are `db/` and `data/` unless overridden for the migration run.
 - Use the row’s `stored_location` after canonicalization; for 3-column legacy rows, compute `stored_location` with `hash_to_stored_location(sha1hash, is_compressed)` first.
 - If both compressed and uncompressed blobs could exist for the same hash, prefer the path that exists on disk; if both exist, prefer the row’s `is_compressed` when known, otherwise document/define a deterministic rule (e.g. prefer uncompressed) and log a warning.
 
 **Compressed `.zip` payload member (canonical and legacy):**
 
-For **logical size** and for **which** inner file migration treats as the payload, use the same resolution as runtime restore:
+For **logical size** and for **which** inner file migration treats as the payload, use this contract's resolution rules:
 
 - Consider **file members only** (non-directory `ZipInfo` entries); stray directory entries do not count toward “how many members” or name matching.
-- **Canonical:** if any file member’s **basename** is `part001`, that member is the payload. If more than one such file member exists, the archive is invalid for resolution (migration logs a warning and cannot enrich `size`; restore would error similarly).
+- **Canonical:** if any file member’s **basename** is `part001`, that member is the payload. If more than one such file member exists, the archive is invalid for resolution (migration logs a warning and cannot enrich `size`).
 - **Legacy:** if there is **no** `part001` file member, the payload is the **unique** file member whose basename equals the row’s `sha1hash` in **lowercase hex** (same normalization as manifest storage). If there are zero or multiple hash-named file members (and no `part001`), the archive is ambiguous or invalid for resolution.
 - **Both layouts:** if both a `part001` file member and a hash-named file member exist, **`part001` wins** (canonical takes precedence).
 
 **`size` (logical content size):**
 
 - **Uncompressed blob** (`is_compressed` is false): use `os.path.getsize(blob_path)` — this matches the original file byte length.
-- **Compressed blob** (`.zip`): use the **uncompressed** size of the **resolved** payload member (`ZipInfo.file_size` for that member’s name), not the `.zip` file’s size on disk — this matches what a full read of the resolved member would yield and stays aligned with runtime read semantics.
+- **Compressed blob** (`.zip`): use the **uncompressed** size of the **resolved** payload member (`ZipInfo.file_size` for that member’s name), not the `.zip` file’s size on disk.
 
 **`mtime`:**
 
@@ -128,7 +128,7 @@ Canonical mapping:
 ### Directory rows
 
 - Keep `kind=d` rows.
-- Normalize path to the runtime normalizer contract.
+- Normalize path using the migration script's canonical path normalization.
 - Emit canonical 3-column shape (`d`, `path`, empty reserved field).
 
 ## Error policy
@@ -184,7 +184,7 @@ Migration is an operator-only maintenance action and should run only during a qu
 - Take a filesystem-level backup/snapshot of the backup root first.
 - Run dry-run first, review planned changes and any failures.
 - Run apply once dry-run output is clean.
-- Validate with normal project flows after migration (`make test` for repo validation, and a real `verify-integrity`/`restore` on migrated data as needed).
+- Validate migration outcomes with script dry-run/apply reports and follow the CSV-to-SQLite runbook for runtime validation after backend migration.
 
 Concurrency locks are currently out of scope; this remains a documented operational policy.
 
