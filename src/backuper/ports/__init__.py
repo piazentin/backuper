@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, AsyncIterator
+from contextlib import AbstractContextManager
 from pathlib import Path
 
 from backuper.models import (
@@ -107,6 +108,18 @@ class BackupDatabase(ABC):
         self, relative_path: Path, mtime: float, size: int
     ) -> list[BackedUpFileEntry]:
         """Get file entries by their metadata (relative path, mtime, and size)"""
+        pass
+
+
+class DestinationWriteLock(ABC):
+    @abstractmethod
+    def acquire(self, destination_root: Path) -> AbstractContextManager[None]:
+        """Acquire a non-blocking exclusive writer lock for ``destination_root``.
+
+        Implementations should fail fast when another active writer already holds
+        the destination lock, and return a context manager that releases lock
+        ownership on exit.
+        """
         pass
 
 
