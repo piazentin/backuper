@@ -69,7 +69,7 @@ SQLite manifest operations and troubleshooting: [`docs/sqlite-manifest-operation
 - A CSV-only backup tree is not runtime-usable until migration completes.
 - Keep migration windows short and documented, then run post-migration validation before resuming normal operations.
 
-Current policy source: [`docs/sqlite-manifest-operations.md`](sqlite-manifest-operations.md) (Runtime policy section). Historical context only: [ADR-0006](adr/0006-backend-resolution-policy.md) is superseded.
+Current policy source: [`docs/sqlite-manifest-operations.md`](sqlite-manifest-operations.md) (Runtime policy section). Historical context: [ADR-0006](adr/0006-backend-resolution-policy.md).
 
 ## Rollback / recovery
 
