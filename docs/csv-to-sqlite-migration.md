@@ -63,22 +63,24 @@ uv run backuper restore /path/to/backup/root /tmp/restore-check --version <versi
 
 SQLite manifest operations and troubleshooting: [`docs/sqlite-manifest-operations.md`](sqlite-manifest-operations.md).
 
-## Mixed-state and backend resolution notes
+## Runtime policy after migration
 
-- When both SQLite artifacts and canonical CSV manifests are present, runtime resolution prefers SQLite.
-- `FORCE_CSV_DB=1` forces CSV resolution for troubleshooting or controlled rollback workflows.
-- Keep mixed-state windows short and documented during maintenance actions.
+- Runtime CLI commands (`new`, `update`, `verify-integrity`, `restore`) operate on the SQLite manifest backend.
+- A CSV-only backup tree is not runtime-usable until migration completes.
+- Keep migration windows short and documented, then run post-migration validation before resuming normal operations.
 
 Reference policy: [ADR-0006](adr/0006-backend-resolution-policy.md).
 
 ## Rollback / recovery
 
-If you must return to CSV-backed operation:
+If migration or validation fails and you need to roll back:
 
 1. Stop active backup commands.
 2. Copy archived CSV files from the migration archive directory back to `<backup_root>/<db_dir>/`.
 3. Move or remove `manifest.sqlite3` (and companion `-wal` / `-shm` files if present).
-4. Optionally set `FORCE_CSV_DB=1` for explicit CSV backend selection during recovery.
+4. Keep the tree in maintenance mode until remediation is complete.
 5. Re-run `verify-integrity` and a restore smoke test before resuming normal operations.
+
+After rollback, treat the tree as pre-migration input and re-run the scripted flow during the next maintenance window. Do not resume regular runtime commands against a CSV-only tree.
 
 For deep SQLite operational guidance, see [`docs/sqlite-manifest-operations.md`](sqlite-manifest-operations.md).

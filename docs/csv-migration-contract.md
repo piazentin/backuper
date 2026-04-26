@@ -2,9 +2,9 @@
 
 ## Operator requirement (read this first)
 
-The **`backuper` runtime** (`new`, `update`, `verify-integrity`, `restore`) reads **canonical** version CSV rows only—see [Canonical CSV row contract](#canonical-csv-row-contract) and `CsvDb` in `src/backuper/components/csv_db.py`. It does **not** accept legacy short file rows (3 or 5 columns).
+This document defines the contract for the standalone `scripts.migrate_version_csv` migration workflow. It is a **script-level** contract, not a runtime backend contract.
 
-If you have an **existing backup tree** whose version manifests still use legacy shapes, you **must** run the standalone migration **before** relying on this version of the tool against that tree:
+If you have an **existing backup tree** whose version manifests still use legacy shapes, run this migration first as part of the CSV-to-SQLite runbook:
 
 ```bash
 uv run python -m scripts.migrate_version_csv --help
@@ -17,7 +17,7 @@ Migration details, legacy source shapes, dry-run/apply semantics, and rollback a
 ## Scope
 
 - Applies to migration of existing `<backup_root>/<backup_db_dir>/<version>.csv` files.
-- Defines the canonical output shape that the runtime expects after migration.
+- Defines the canonical output shape consumed by downstream migration tooling (not by runtime CLI operations).
 
 ## Canonical CSV row contract
 
