@@ -14,6 +14,13 @@ This file is the canonical agent and contributor map for this repository; prefer
 - **Commands** live under [`src/backuper`](src/backuper) (package root: `entrypoints/`, `controllers/`, `components/`, `utils/`, `models/`, `ports/`, `commands.py`, `config.py`).
 - **Practice**: New features and fixes go in `src/backuper` with tests under `test/unit` and `test/integration` as appropriate.
 
+## Scripts import boundaries
+
+- Migration tooling under `scripts/` should stay focused on shared, stable runtime surfaces needed for manifest conversion and validation.
+- Preferred imports from `backuper` are `backuper.models`, `backuper.utils`, `backuper.config`, and selected SQLite adapter wiring under `backuper.components.sqlite_db`.
+- Scripts should not couple to runtime orchestration and delivery layers such as `backuper.entrypoints` and `backuper.controllers`; avoid other `backuper.*` internals unless there is a clear migration/runtime need and the dependency is documented here.
+- Enforcement runs through the existing lint path (`make lint` → `lint-imports` import-linter contracts), which currently blocks imports from `backuper.entrypoints` and `backuper.controllers`. No separate CI step/job is introduced for this policy.
+
 ## Additional documentation
 
 - **CSV migration (operators):** legacy version manifests must be migrated with **`uv run python -m scripts.migrate_version_csv`** before using the current runtime on an existing backup tree; see **[`docs/csv-migration-contract.md`](docs/csv-migration-contract.md)**. Migration imports **`backuper`** (e.g. `backuper.utils.zip_payload` for compressed-blob layout) — keep using **`uv run`** so the package resolves.

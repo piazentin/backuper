@@ -10,7 +10,9 @@ If you have an **existing backup tree** whose version manifests still use legacy
 uv run python -m scripts.migrate_version_csv --help
 ```
 
-Run migration with the **project virtual environment** (for example `uv run …` after `uv sync`) so the `backuper` package is importable. The migration uses `backuper.utils.zip_payload` for compressed-blob member resolution, keeping the same rules as restore (`LocalFileStore.read_blob`).
+Run migration with the **project virtual environment** (for example `uv run …` after `uv sync`) so the `backuper` package is importable. In practice, keep this script focused on shared surfaces such as `backuper.models`, `backuper.utils`, `backuper.config`, and `backuper.components.sqlite_db`, and avoid runtime orchestration layers; see ADR-0007 / `AGENTS.md` for the canonical import-boundary policy.
+
+The migration currently uses `backuper.utils.zip_payload` for compressed-blob member resolution, keeping the same rules as restore (`LocalFileStore.read_blob`).
 
 Migration details, legacy source shapes, dry-run/apply semantics, and rollback artifacts are defined below.
 
