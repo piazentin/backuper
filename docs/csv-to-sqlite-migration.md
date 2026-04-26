@@ -79,7 +79,8 @@ If migration or validation fails and you need to roll back:
 2. Copy archived CSV files from the migration archive directory back to `<backup_root>/<db_dir>/`.
 3. Move or remove `manifest.sqlite3` (and companion `-wal` / `-shm` files if present).
 4. Keep the tree in maintenance mode until remediation is complete.
-5. Re-run `verify-integrity` and a restore smoke test before resuming normal operations.
+5. In CSV-only rollback state, validate rollback inputs with migration tooling (`migrate_version_csv --dry-run`) and your filesystem snapshot checks.
+6. If you want runtime validation (`verify-integrity` / restore smoke test), rebuild SQLite first by re-running this runbook (phase 2, then phase 3) before resuming normal operations.
 
 After rollback, treat the tree as pre-migration input and re-run the scripted flow during the next maintenance window. Do not resume regular runtime commands against a CSV-only tree.
 

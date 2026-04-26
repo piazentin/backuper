@@ -95,9 +95,9 @@ Use `--db-dir` / `--data-dir` if your layout uses different names than `db` / `d
 
 Run migration only during a **quiet window** (no concurrent `backuper` commands against the same tree).
 
-CSV migration is script-only preparation. Runtime CLI commands are SQLite-manifest operations.
+CSV manifests are for migration scripts and legacy tooling only. Runtime CLI commands are SQLite-manifest operations.
 
-**Concurrency:** in general, use a **single writer** per backup root for `new`, `update`, and migration. Version manifests are append-only CSV files without multi-process coordination; the filestore deduplicates identical content hashes on disk but does not make parallel backup jobs safe. See **Concurrency and single-writer expectations** in **[AGENTS.md](AGENTS.md)**.
+**Concurrency:** for runtime commands, treat each backup root as **single-writer** (`new` / `update`): SQLite manifest operations use WAL with bounded busy timeouts but are not a multi-writer coordination mechanism. Keep migration tooling in maintenance windows, one active writer per tree. CSV manifests are migration-script inputs/archives, not runtime coordination primitives. See **Concurrency and single-writer expectations** in **[AGENTS.md](AGENTS.md)**.
 
 ## CSV to SQLite manifest migration
 
