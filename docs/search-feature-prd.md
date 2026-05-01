@@ -77,13 +77,14 @@ Without a dedicated command, these questions require manual querying or custom s
 
 ### Proposed command shape
 
-`backuper search <backup-root> <query> [--glob] [--path-prefix <prefix>] [--changed-only] [--ignore-case]`
+`backuper search <backup_root> <query> [--glob] [--path-prefix <prefix>] [--changed-only] [--ignore-case]`
 
 ### Notes
 
 - `<query>` is interpreted as substring by default.
 - `--glob` switches interpretation of `<query>` to glob pattern.
 - `--changed-only` changes semantic mode from presence to changed-only.
+- `--ignore-case` is optional; default matching is case-sensitive.
 - `--ignore-case` applies to all match checks (query/glob/prefix).
 
 ### Examples
@@ -112,15 +113,18 @@ No schema change is assumed for v1.
 ### Presence mode (default) pseudo-SQL
 
 ```sql
-SELECT v.version_id, v.created_at, vf.path
+SELECT DISTINCT v.name, v.created_at, vf.restore_path
 FROM versions v
-JOIN version_files vf ON vf.version_id = v.version_id
-WHERE match(vf.path, :query_or_glob, :is_glob, :ignore_case)
-  AND prefix_match(vf.path, :path_prefix, :ignore_case)
-ORDER BY v.created_at DESC, v.version_id DESC;
+JOIN version_files vf ON vf.version_name = v.name
+WHERE match(vf.restore_path, :query_or_glob, :is_glob, :ignore_case)
+  AND prefix_match(vf.restore_path, :path_prefix, :ignore_case)
+ORDER BY v.created_at DESC, v.name DESC;
 ```
 
-`match(...)` is conceptual: implementation can map to SQLite `LIKE`/`GLOB` or in-process filtering, as long as behavior matches contract.
+`match(...)` is conceptual: implementation can use SQL and/or in-process filtering, as long as behavior matches contract.
+- If substring matching uses SQLite `LIKE`, `%` and `_` (and the escape character) must be escaped so substring mode stays literal.
+- SQLite `GLOB` is case-sensitive; `--ignore-case` with `--glob` requires explicit normalization or in-process case-folded matching, not raw `GLOB` alone.
+- Glob dialect for v1 is shell-style `*`, `?`, and `[]` matching over normalized manifest paths. `**` is treated the same as repeated `*` characters (no recursive globstar semantics).
 
 ### Changed-only mode pseudo-algorithm
 
@@ -150,7 +154,7 @@ This document proposes behavior only; it does not claim implementation exists ye
 - Empty query string: reject as user-facing validation error (proposed).
 - Query containing literal glob metacharacters in substring mode: treat literally unless `--glob` is set.
 - Prefix normalization/trailing slash handling: should follow existing path normalization utilities.
-- Duplicate path rows per version: define whether output should be distinct by `(version, path)` (proposed: yes).
+- Duplicate path rows per version: output is distinct by `(version, path)`.
 - Changed-only baseline for first version: clarify whether initial appearance counts as "changed" (proposed: yes, as an add event).
 - Deletions in changed-only mode: clarify display representation when path disappears in a version comparison.
 - Output format stability: whether to add `--json` in v1 or defer.
