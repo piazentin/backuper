@@ -25,7 +25,7 @@ Without a dedicated command, these questions require manual querying or custom s
   - Substring query matching (default).
   - Optional glob matching with `--glob`.
   - Optional path scoping with `--path-prefix`.
-- Provide `--ignore-case` in v1, applying consistently to query, glob, and prefix matching.
+- Provide `--ignore-case` in v1, applying consistently across substring/glob query matching and path-prefix filtering.
 - Keep implementation aligned with architecture layering (`entrypoints` -> `controllers` -> `ports` -> `components`).
 
 ## 4. Non-Goals
@@ -66,12 +66,12 @@ Without a dedicated command, these questions require manual querying or custom s
 - **Path prefix filter:** if `--path-prefix` is provided, only evaluate paths under that prefix.
 - **Case sensitivity:**
   - Default is case-sensitive.
-  - With `--ignore-case`, query, glob pattern, and prefix comparison all use case-insensitive comparisons.
+  - With `--ignore-case`, substring/glob query matching and path-prefix filtering all use case-insensitive comparisons.
 
 ### Ordering
 
 - Primary ordering is by version age, newest first.
-- If additional deterministic tie-break is needed, use version identifier descending within equal timestamps.
+- If additional deterministic tie-break is needed, use version name descending within equal timestamps.
 
 ## 8. CLI Contract (v1)
 
@@ -85,7 +85,7 @@ Without a dedicated command, these questions require manual querying or custom s
 - `--glob` switches interpretation of `<query>` to glob pattern.
 - `--changed-only` changes semantic mode from presence to changed-only.
 - `--ignore-case` is optional; default matching is case-sensitive.
-- `--ignore-case` applies to all match checks (query/glob/prefix).
+- `--ignore-case` applies to all match checks (substring/glob query and path-prefix).
 
 ### Examples
 
@@ -116,12 +116,14 @@ No schema change is assumed for v1.
 SELECT DISTINCT v.name, v.created_at, vf.restore_path
 FROM versions v
 JOIN version_files vf ON vf.version_name = v.name
-WHERE match(vf.restore_path, :query_or_glob, :is_glob, :ignore_case)
+WHERE v.state = 'completed'
+  AND match(vf.restore_path, :query_or_glob, :is_glob, :ignore_case)
   AND prefix_match(vf.restore_path, :path_prefix, :ignore_case)
 ORDER BY v.created_at DESC, v.name DESC;
 ```
 
 `match(...)` is conceptual: implementation can use SQL and/or in-process filtering, as long as behavior matches contract.
+- Presence-mode rows are sourced from completed versions only (`versions.state = 'completed'`), matching existing version-listing semantics.
 - If substring matching uses SQLite `LIKE`, `%` and `_` (and the escape character) must be escaped so substring mode stays literal.
 - SQLite `GLOB` is case-sensitive; `--ignore-case` with `--glob` requires explicit normalization or in-process case-folded matching, not raw `GLOB` alone.
 - Glob dialect for v1 is shell-style `*`, `?`, and `[]` matching over normalized manifest paths. `**` is treated the same as repeated `*` characters (no recursive globstar semantics).
@@ -226,8 +228,8 @@ Remove ambiguity so implementation is straightforward.
   - `backuper search <backup_root> <query> [--glob] [--path-prefix <prefix>] [--ignore-case] [--changed-only] [--limit N] [--json]`
 - Lock behavior:
   - default mode = presence
-  - ordering = newest first (`created_at DESC`, tie-break `version DESC`)
-  - `--ignore-case` applies to query, glob, and prefix
+  - ordering = newest first (`created_at DESC`, tie-break `name DESC`)
+  - `--ignore-case` applies to substring/glob query matching and path-prefix filtering
   - changed-only includes first-seen and reappear-after-missing
 - Lock output contract (human-readable and JSON shape).
 
